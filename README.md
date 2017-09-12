@@ -18,6 +18,7 @@ saena::amg solver(&A);
 // *************************** AMG - Solve ****************************
 
 // u is the initial guess. after calling the solve function, it will be solution.
+
 solver.solve(u, rhs, &opts); 
 
 // *************************** Destroy ****************************
