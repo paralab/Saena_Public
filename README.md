@@ -1,5 +1,7 @@
 # Saena_Public
 
+#include "/include/saena.hpp"
+
 // *************************** AMG - Setup ****************************
 
 saena::matrix A(num_rows_global, comm); // num_rows_global: size of A. comm: MPI_Communicator
