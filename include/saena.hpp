@@ -33,11 +33,11 @@ namespace saena {
 
     class options {
     private:
-        int vcycle_num;
-        double relative_tolerance;
-        std::string smoother;
-        int preSmooth;
-        int postSmooth;
+        int vcycle_num            = 20;
+        double relative_tolerance = 1e-8;
+        std::string smoother      = "jacobi";
+        int preSmooth             = 3;
+        int postSmooth            = 3;
 
     public:
         options(int vcycle_num, double relative_tolerance, std::string smoother, int preSmooth, int postSmooth);
