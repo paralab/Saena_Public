@@ -75,6 +75,22 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
     //printf("process %d read %d lines of triples\n", rank, count);
     MPI_File_close(&fh);
 
+    // *************************** find Mbig (global number of rows) ****************************
+    // First find the maximum of rows. Then, compare it with the maximum of columns.
+    // The one that is bigger is the size of the matrix.
+
+    unsigned int Mbig_local = 0;
+    for(unsigned long i=0; i<initial_nnz_l; i++){
+        if(data[3*i] > Mbig_local)
+            Mbig_local = data[3*i];
+    }
+
+    if(data[3*(initial_nnz_l-1)+1] > Mbig_local)
+        Mbig_local = data[3*(initial_nnz_l-1)+1];
+
+    MPI_Allreduce(&Mbig_local, &Mbig, 1, MPI_UNSIGNED, MPI_MAX, comm);
+    Mbig++; // since indices start from 0, not 1.
+//    std::cout << Mbig << std::endl;
 }
 
 
@@ -214,12 +230,12 @@ int saena_matrix::setup_initial_data(){
     }
 
     // Mbig is the size of the matrix, which is the maximum of rows and columns.
-    // up to here Mbig is the maximum of rows.
+    // up to here Mbig_local is the maximum of rows.
     // data[3*iter+1] is the maximum of columns, since it is sorted based on columns.
 
     iter--;
-    if(data[3*iter+1] > Mbig)
-        Mbig = data[3*iter+1];
+    if(data[3*iter+1] > Mbig_local)
+        Mbig_local = data[3*iter+1];
 
     MPI_Allreduce(&Mbig_local, &Mbig, 1, MPI_UNSIGNED, MPI_MAX, comm);
     Mbig++; // since indices start from 0, not 1.

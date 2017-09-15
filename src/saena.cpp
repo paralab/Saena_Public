@@ -13,6 +13,7 @@
 
 saena::matrix::matrix(MPI_Comm comm) {
     m_pImpl = new saena_matrix(comm);
+    m_pImpl->setup_initial_data();
 }
 
 saena::matrix::matrix(char *name, MPI_Comm comm) {
@@ -93,7 +94,6 @@ int saena::matrix::set2(unsigned int i, unsigned int j, unsigned int* di, unsign
 
 
 int saena::matrix::assemble() {
-    m_pImpl->setup_initial_data();
     m_pImpl->repartition();
     m_pImpl->matrix_setup();
     return 0;
