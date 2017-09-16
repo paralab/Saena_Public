@@ -16,6 +16,7 @@ class saena_matrix {
 // A matrix of this class is ordered first column-wise, then row-wise.
 
 private:
+    bool read_from_file = false;
     unsigned int initial_nnz_l;
     bool freeBoolean = false; // use this parameter to know if deconstructor for SaenaMatrix class should free the variables or not.
     std::set<cooEntry> data_coo;

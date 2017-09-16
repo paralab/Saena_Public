@@ -20,6 +20,8 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
     // Mbig", "nnz_g", "initial_nnz_l", "data"
     // "data" is only required for repartition function.
 
+    read_from_file = true;
+
     comm = com;
 
     int rank, nprocs;
@@ -226,7 +228,6 @@ int saena_matrix::setup_initial_data(){
 
         if(temp.row > Mbig_local)
             Mbig_local = temp.row;
-
     }
 
     // Mbig is the size of the matrix, which is the maximum of rows and columns.
@@ -259,6 +260,10 @@ int saena_matrix::repartition(){
 
     // the following variables of SaenaMatrix class will be set in this function:
     // "nnz_l", "M", "split", "entry"
+
+    // if set functions are used the following function should be used.
+    if(!read_from_file)
+        setup_initial_data();
 
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);

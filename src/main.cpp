@@ -71,16 +71,20 @@ int main(int argc, char* argv[]){
     u.assign(num_local_row, 0); // initial guess = 0
 
     // *************************** AMG - Setup ****************************
-
-//    int max_level             = 2;
+    // There are 3 ways to set options:
+    // 1- set them one by one
 //    int vcycle_num            = 10;
 //    double relative_tolerance = 1e-8;
 //    std::string smoother      = "jacobi";
 //    int preSmooth             = 2;
 //    int postSmooth            = 2;
-
 //    saena::options opts(vcycle_num, relative_tolerance, smoother, preSmooth, postSmooth);
-    saena::options opts((char*)"options001.xml");
+
+    // 2- read the options from file
+//    saena::options opts((char*)"options001.xml");
+
+    // 3- use the default options
+    saena::options opts;
     saena::amg solver(&A);
 
     // *************************** AMG - Solve ****************************

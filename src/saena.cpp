@@ -13,7 +13,6 @@
 
 saena::matrix::matrix(MPI_Comm comm) {
     m_pImpl = new saena_matrix(comm);
-    m_pImpl->setup_initial_data();
 }
 
 saena::matrix::matrix(char *name, MPI_Comm comm) {
@@ -113,6 +112,8 @@ void saena::matrix::destroy(){
 
 
 // ******************************* options *******************************
+
+saena::options::options(){}
 
 saena::options::options(int vcycle_n, double relT, std::string sm, int preSm, int postSm){
     vcycle_num         = vcycle_n;

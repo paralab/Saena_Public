@@ -40,6 +40,7 @@ namespace saena {
         int postSmooth            = 3;
 
     public:
+        options();
         options(int vcycle_num, double relative_tolerance, std::string smoother, int preSmooth, int postSmooth);
         options(char* name); // to set parameters from an xml file
         ~options();
