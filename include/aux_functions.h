@@ -64,6 +64,36 @@ public:
             return false;
     }
 
+    bool operator <= (const cooEntry& node2) const
+    {
+        if(col < node2.col)
+            return (true);
+        else if(col == node2.col)
+            return(row <= node2.row);
+        else
+            return false;
+    }
+
+    bool operator > (const cooEntry& node2) const
+    {
+        if(col > node2.col)
+            return (true);
+        else if(col == node2.col)
+            return(row > node2.row);
+        else
+            return false;
+    }
+
+    bool operator >= (const cooEntry& node2) const
+    {
+        if(col > node2.col)
+            return (true);
+        else if(col == node2.col)
+            return(row >= node2.row);
+        else
+            return false;
+    }
+
     static MPI_Datatype mpi_datatype()
     {
         static bool         first = true;

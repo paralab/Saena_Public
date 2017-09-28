@@ -5,7 +5,6 @@
 #include "mpi.h"
 #include <omp.h>
 #include "saena_matrix.h"
-#include "parUtils.h"
 
 
 saena_matrix::saena_matrix(){}
@@ -22,6 +21,7 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
     // "data" is only required for repartition function.
 
     read_from_file = true;
+
     comm = com;
 
     int rank, nprocs;
@@ -42,8 +42,8 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
 //    printf("\nrank = %d, nnz_g = %u, initial_nnz_l = %u\n", rank, nnz_g, initial_nnz_l);
 
     // todo: change data from vector to malloc. then free after repartitioning.
-    data_unsorted.resize(initial_nnz_l);
-    cooEntry* datap = &(*(data_unsorted.begin()));
+    data.resize(3 * initial_nnz_l); // 3 is for i and j and val
+    unsigned long* datap = &(*(data.begin()));
 
     // *************************** read the matrix ****************************
 
@@ -63,12 +63,12 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
 
     offset = rank * (unsigned int) (floor(1.0 * nnz_g / nprocs)) * 24; // row index(long=8) + column index(long=8) + value(double=8) = 24
 
-    MPI_File_read_at(fh, offset, datap, initial_nnz_l, cooEntry::mpi_datatype(), &status);
+    MPI_File_read_at(fh, offset, datap, 3 * initial_nnz_l, MPI_UNSIGNED_LONG, &status);
 
 //    double val;
 //    if(rank==0)
 //        for(long i=0; i<initial_nnz_l; i++){
-//            val = data_unsorted[3*i+2];
+//            val = data[3*i+2];
 //            cout << datap[3*i] << "\t" << datap[3*i+1] << "\t" << val << endl;
 //        }
 
@@ -76,66 +76,6 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
 //    MPI_Get_count(&status, MPI_UNSIGNED_LONG, &count);
     //printf("process %d read %d lines of triples\n", rank, count);
     MPI_File_close(&fh);
-
-//    int ran = 1;
-//    if(rank==ran) std::cout << "before sorting\n" << "data_unsorted size = " << data_unsorted.size() << std::endl;
-//    for(int i=0; i<data_unsorted.size(); i++)
-//        if(rank==ran) std::cout << data_unsorted[i] << std::endl;
-
-    par::sampleSort(data_unsorted, comm);
-
-//    if(rank==ran) std::cout << "after  sorting\n" << "data_unsorted size = " << data_unsorted.size() << std::endl;
-//    for(int i=0; i<data_unsorted.size(); i++)
-//        if(rank==ran) std::cout << data_unsorted[i] << std::endl;
-
-    // todo: "data" vector can completely be avoided. function repartition should be changed to use a vector of cooEntry
-    // todo: (which is "data_unsorted" here), instead of "data" (which is a vector of unsigned long of size 3*nnz).
-
-
-    unsigned int data_size = 0;
-    // put the first element of data_unsorted to data.
-    if(!data_unsorted.empty()){
-        data.push_back(data_unsorted[0].row);
-        data.push_back(data_unsorted[0].col);
-        data.push_back(reinterpret_cast<unsigned long&>(data_unsorted[0].val));
-        data_size++;
-    }
-
-    if(data_unsorted.size()>1){
-        for(unsigned int i=1; i<data_unsorted.size(); i++){
-            if(data_unsorted[i] == data_unsorted[i-1])
-                i++;
-            else{
-                data.push_back(data_unsorted[i].row);
-                data.push_back(data_unsorted[i].col);
-                data.push_back(reinterpret_cast<unsigned long&>(data_unsorted[i].val));
-                data_size++;
-            }
-        }
-    }
-    data.resize(data_size);
-
-    cooEntry first_element = cooEntry(data[0], data[1], data[2]);
-    cooEntry first_element_neighbor;
-
-    // send last element to the left neighbor and check if it is equal to the last element of the left neighbor.
-    if(rank != nprocs-1)
-        MPI_Recv(&first_element_neighbor, 1, cooEntry::mpi_datatype(), rank+1, 0, comm, MPI_STATUS_IGNORE);
-
-    if(rank!= 0)
-        MPI_Send(&first_element, 1, cooEntry::mpi_datatype(), rank-1, 0, comm);
-
-    cooEntry last_element = cooEntry(data[3*(data_size-1)], data[3*(data_size-1)+1], data[3*(data_size-1)+2]);
-    if(rank != nprocs-1){
-        if(last_element == first_element_neighbor)
-            data.pop_back();
-    }
-
-//    if(rank==ran) std::cout << "after  sorting\n" << "data size = " << data.size() << std::endl;
-//    for(int i=0; i<data.size(); i++)
-//        if(rank==ran) std::cout << data[3*i] << "\t" << data[3*i+1] << "\t" << data[3*i+2] << std::endl;
-
-    initial_nnz_l = data.size();
 
     // *************************** find Mbig (global number of rows) ****************************
     // First find the maximum of rows. Then, compare it with the maximum of columns.
@@ -198,7 +138,6 @@ int saena_matrix::set(unsigned int* row, unsigned int* col, double* val, unsigne
     std::pair<std::set<cooEntry>::iterator, bool> p;
 
     for(unsigned int i=0; i<nnz_local; i++){
-        // todo: in the case of duplicate, if the new value is zero, remove that value from the matrix.
         if(val[i] != 0){
             temp_new = cooEntry(row[i], col[i], val[i]);
             p = data_coo.insert(temp_new);
@@ -271,15 +210,11 @@ int saena_matrix::set2(unsigned int* row, unsigned int* col, double* val, unsign
 
 int saena_matrix::setup_initial_data(){
 
-    int nprocs, rank;
-    MPI_Comm_size(comm, &nprocs);
-    MPI_Comm_rank(comm, &rank);
-
     initial_nnz_l = data_coo.size();
     MPI_Allreduce(&initial_nnz_l, &nnz_g, 1, MPI_UNSIGNED, MPI_SUM, comm);
 //    printf("Mbig = %u, nnz_g = %u, initial_nnz_l = %u \n", Mbig, nnz_g, initial_nnz_l);
 
-//    data.resize(3 * initial_nnz_l);
+    data.resize(3 * initial_nnz_l);
 
     std::set<cooEntry>::iterator it;
     unsigned int iter = 0;
@@ -287,54 +222,28 @@ int saena_matrix::setup_initial_data(){
     cooEntry temp;
     for(it=data_coo.begin(); it!=data_coo.end(); ++it, ++iter){
         temp = *it;
-        data_unsorted[iter] = cooEntry(temp.row, temp.col, temp.val);
+        data[3*iter]   = temp.row;
+        data[3*iter+1] = temp.col;
+        data[3*iter+2] = reinterpret_cast<unsigned long&>(temp.val);
 
         if(temp.row > Mbig_local)
             Mbig_local = temp.row;
     }
-
-    // todo: is this line required?
-//    data_coo.clear();
 
     // Mbig is the size of the matrix, which is the maximum of rows and columns.
     // up to here Mbig_local is the maximum of rows.
     // data[3*iter+1] is the maximum of columns, since it is sorted based on columns.
 
     iter--;
-    if(data_unsorted[iter].col > Mbig_local)
-        Mbig_local = data_unsorted[iter].col;
+    if(data[3*iter+1] > Mbig_local)
+        Mbig_local = data[3*iter+1];
 
     MPI_Allreduce(&Mbig_local, &Mbig, 1, MPI_UNSIGNED, MPI_MAX, comm);
     Mbig++; // since indices start from 0, not 1.
 //    std::cout << Mbig << std::endl;
 
-
-    if(rank==0) std::cout << "data_unsorted size = " << data_unsorted.size() << std::endl;
-    for(int i=0; i<data_unsorted.size(); i++){
-        if(rank==0) std::cout << data_unsorted[i] << std::endl;
-    }
-
-    par::sampleSort(data_unsorted, comm);
-
-    std::vector<cooEntry>::iterator iterator;
-    for(iterator = data_unsorted.begin(); iterator != data_unsorted.end(); iterator++){
-        if(*iterator == *(iterator+1))
-            data_unsorted.erase(iterator);
-    }
-
-    initial_nnz_l = data_unsorted.size();
-    data.resize(3 * initial_nnz_l);
-
-    // todo: "data" vector can completely be avoided. function repartition should be changed to use a vector of cooEntry
-    // todo: (which is "data_unsorted" here), instead of "data" (which is a vector of unsigned long of size 3*nnz).
-
-    unsigned int iter1 = 0;
-    for(auto &i:data_unsorted){
-        data[3*iter1]   = i.row;
-        data[3*iter1+1] = i.col;
-        data[3*iter1+2] = reinterpret_cast<unsigned long&>(i.val);
-        iter1++;
-    }
+    // todo: is this line required?
+//    data_coo.clear();
 
     return 0;
 }
