@@ -91,7 +91,6 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
     // todo: "data" vector can completely be avoided. function repartition should be changed to use a vector of cooEntry
     // todo: (which is "data_unsorted" here), instead of "data" (which is a vector of unsigned long of size 3*nnz).
 
-
     unsigned int data_size = 0;
     // put the first element of data_unsorted to data.
     if(!data_unsorted.empty()){
@@ -127,8 +126,11 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
 
     cooEntry last_element = cooEntry(data[3*(data_size-1)], data[3*(data_size-1)+1], data[3*(data_size-1)+2]);
     if(rank != nprocs-1){
-        if(last_element == first_element_neighbor)
+        if(last_element == first_element_neighbor){
             data.pop_back();
+            data.pop_back();
+            data.pop_back();
+        }
     }
 
 //    if(rank==ran) std::cout << "after  sorting\n" << "data size = " << data.size() << std::endl;
@@ -279,15 +281,17 @@ int saena_matrix::setup_initial_data(){
     MPI_Allreduce(&initial_nnz_l, &nnz_g, 1, MPI_UNSIGNED, MPI_SUM, comm);
 //    printf("Mbig = %u, nnz_g = %u, initial_nnz_l = %u \n", Mbig, nnz_g, initial_nnz_l);
 
-//    data.resize(3 * initial_nnz_l);
-
     std::set<cooEntry>::iterator it;
     unsigned int iter = 0;
     unsigned int Mbig_local = 0;
     cooEntry temp;
-    for(it=data_coo.begin(); it!=data_coo.end(); ++it, ++iter){
+
+    data_unsorted.resize(data_coo.size());
+    for(it=data_coo.begin(); it!=data_coo.end(); ++it){
         temp = *it;
+//        std::cout << temp << std::endl;
         data_unsorted[iter] = cooEntry(temp.row, temp.col, temp.val);
+        ++iter;
 
         if(temp.row > Mbig_local)
             Mbig_local = temp.row;
@@ -309,31 +313,72 @@ int saena_matrix::setup_initial_data(){
 //    std::cout << Mbig << std::endl;
 
 
-    if(rank==0) std::cout << "data_unsorted size = " << data_unsorted.size() << std::endl;
-    for(int i=0; i<data_unsorted.size(); i++){
-        if(rank==0) std::cout << data_unsorted[i] << std::endl;
-    }
+//    if(rank==0) std::cout << "data_unsorted size = " << data_unsorted.size() << std::endl;
+//    for(int i=0; i<data_unsorted.size(); i++){
+//        if(rank==0) std::cout << data_unsorted[i] << std::endl;
+//    }
 
     par::sampleSort(data_unsorted, comm);
-
-    std::vector<cooEntry>::iterator iterator;
-    for(iterator = data_unsorted.begin(); iterator != data_unsorted.end(); iterator++){
-        if(*iterator == *(iterator+1))
-            data_unsorted.erase(iterator);
-    }
-
-    initial_nnz_l = data_unsorted.size();
-    data.resize(3 * initial_nnz_l);
 
     // todo: "data" vector can completely be avoided. function repartition should be changed to use a vector of cooEntry
     // todo: (which is "data_unsorted" here), instead of "data" (which is a vector of unsigned long of size 3*nnz).
 
-    unsigned int iter1 = 0;
-    for(auto &i:data_unsorted){
-        data[3*iter1]   = i.row;
-        data[3*iter1+1] = i.col;
-        data[3*iter1+2] = reinterpret_cast<unsigned long&>(i.val);
-        iter1++;
+    unsigned int data_size = 0;
+    // put the first element of data_unsorted to data.
+    if(!data_unsorted.empty()){
+        data.push_back(data_unsorted[0].row);
+        data.push_back(data_unsorted[0].col);
+        data.push_back(reinterpret_cast<unsigned long&>(data_unsorted[0].val));
+        data_size++;
+    }
+
+    if(data_unsorted.size()>1){
+        for(unsigned int i=1; i<data_unsorted.size(); i++){
+            if(data_unsorted[i] == data_unsorted[i-1])
+                i++;
+            else{
+                data.push_back(data_unsorted[i].row);
+                data.push_back(data_unsorted[i].col);
+                data.push_back(reinterpret_cast<unsigned long&>(data_unsorted[i].val));
+                data_size++;
+            }
+        }
+    }
+    data.resize(data_size);
+
+//    std::vector<cooEntry>::iterator iterator;
+//    for(iterator = data_unsorted.begin(); iterator != data_unsorted.end(); iterator++){
+//        if(*iterator == *(iterator+1))
+//            data_unsorted.erase(iterator);
+//    }
+//
+//    initial_nnz_l = data_unsorted.size();
+//    data.resize(3 * initial_nnz_l);
+//    unsigned int iter1 = 0;
+//    for(auto &i:data_unsorted){
+//        data[3*iter1]   = i.row;
+//        data[3*iter1+1] = i.col;
+//        data[3*iter1+2] = reinterpret_cast<unsigned long&>(i.val);
+//        iter1++;
+//    }
+
+    cooEntry first_element = cooEntry(data[0], data[1], data[2]);
+    cooEntry first_element_neighbor;
+
+    // send last element to the left neighbor and check if it is equal to the last element of the left neighbor.
+    if(rank != nprocs-1)
+        MPI_Recv(&first_element_neighbor, 1, cooEntry::mpi_datatype(), rank+1, 0, comm, MPI_STATUS_IGNORE);
+
+    if(rank!= 0)
+        MPI_Send(&first_element, 1, cooEntry::mpi_datatype(), rank-1, 0, comm);
+
+    cooEntry last_element = cooEntry(data[3*(data_size-1)], data[3*(data_size-1)+1], data[3*(data_size-1)+2]);
+    if(rank != nprocs-1){
+        if(last_element == first_element_neighbor) {
+            data.pop_back();
+            data.pop_back();
+            data.pop_back();
+        }
     }
 
     return 0;
