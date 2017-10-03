@@ -7,8 +7,8 @@
 
 #include <algorithm>
 #include <mpi.h>
-#include "strength_matrix.h"
 
+class strength_matrix;
 
 // sort indices and store the ordering.
 class sort_indices
@@ -23,7 +23,24 @@ public:
 
 // binary search tree using the lower bound
 template <class T>
-T lower_bound2(T *left, T *right, T val);
+T lower_bound2(T *left, T *right, T val){
+    T* first = left;
+    while (left < right) {
+        T *middle = left + (right - left) / 2;
+        if (*middle < val){
+            left = middle + 1;
+        }
+        else{
+            right = middle;
+        }
+    }
+    if(val == *left){
+        return std::distance(first, left);
+    }
+    else
+        return std::distance(first, left-1);
+}
+//T lower_bound2(T *left, T *right, T val);
 
 
 int randomVector(std::vector<unsigned long>& V, long size, strength_matrix* S, MPI_Comm comm);
@@ -173,6 +190,7 @@ void setIJV(char* file_name, unsigned int* I,unsigned int* J, double* V, unsigne
 int dotProduct(std::vector<double>& r, std::vector<double>& s, double* dot, MPI_Comm comm);
 
 
+int print_time(double t1, double t2, std::string function_name, MPI_Comm comm);
 
 
 #endif //SAENA_AUXFUNCTIONS_H

@@ -1024,8 +1024,8 @@ namespace par {
         }
       }
 
-      // par::partitionW<T>(SortedElem, NULL , comm_);
-			// par::partitionW<T>(arr, NULL , comm_);
+//       par::partitionW<T>(SortedElem, NULL , comm_);
+       par::partitionW<T>(arr, NULL , comm_);
 
 #ifdef _PROFILE_SORT
   total_sort.stop();
@@ -1226,7 +1226,7 @@ namespace par {
 #ifdef _PROFILE_SORT
 		 	sort_partitionw.start();
 #endif
-//      par::partitionW<T>(SortedElem, NULL , comm_);
+      par::partitionW<T>(SortedElem, NULL , comm_);
 #ifdef _PROFILE_SORT
 		 	sort_partitionw.stop();
 #endif
@@ -1630,8 +1630,8 @@ namespace par {
 
       if(totSize < (FIVE*npesLong*npesLong)) {
         if(!myrank) {
-          std::cout <<" Using bitonic sort since totSize < (5*(npes^2)). totSize: "
-            <<totSize<<" npes: "<<npes <<std::endl;
+          //std::cout <<" Using bitonic sort since totSize < (5*(npes^2)). totSize: "
+          //  <<totSize<<" npes: "<<npes <<std::endl;
         }
 
 #ifdef __DEBUG_PAR__
@@ -1684,7 +1684,7 @@ namespace par {
 #ifdef _PROFILE_SORT
   		sort_partitionw.start();
 #endif
-			par::partitionW<T>(arr, NULL, comm);
+//			par::partitionW<T>(arr, NULL, comm);
 #ifdef _PROFILE_SORT
   		sort_partitionw.stop();
 #endif
@@ -1844,7 +1844,9 @@ namespace par {
 #ifdef _PROFILE_SORT
 	 		total_sort.stop();
 #endif
-    }//end function
+      par::partitionW<T>(arr, NULL, comm);
+
+  }//end function
 
   //------------------------------------------------------------------------
 
@@ -1894,10 +1896,10 @@ namespace par {
 
       if(totSize < (FIVE*npesLong*npesLong)) {
         if(!myrank) {
-          std::cout <<" Using bitonic sort since totSize < (5*(npes^2)). totSize: "
-            <<totSize<<" npes: "<<npes <<std::endl;
+          //std::cout <<" Using bitonic sort since totSize < (5*(npes^2)). totSize: "
+          //  <<totSize<<" npes: "<<npes <<std::endl;
         }
-//        par::partitionW<T>(arr, NULL, comm);
+        par::partitionW<T>(arr, NULL, comm);
 
 #ifdef __DEBUG_PAR__
         MPI_Barrier(comm);
@@ -1951,7 +1953,7 @@ namespace par {
 #ifdef _PROFILE_SORT
   		sort_partitionw.start();
 #endif
-//			par::partitionW<T>(arr, NULL, comm);
+			par::partitionW<T>(arr, NULL, comm);
 #ifdef _PROFILE_SORT
   		sort_partitionw.stop();
 #endif
@@ -2096,6 +2098,7 @@ namespace par {
 	 		sample_do_all2all.stop();
 #endif							
       arr.clear();
+      par::partitionW<T>(SortedElem, NULL , comm);
 
       delete [] sendcnts;
       sendcnts = NULL;

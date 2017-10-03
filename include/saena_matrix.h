@@ -12,6 +12,12 @@
  * @breif Contains the basic structure to define coo matrices
  *
  * */
+
+//template <class T>
+//T lower_bound2(T *left, T *right, T val);
+
+//class cooEntry;
+
 class saena_matrix {
 // A matrix of this class is ordered first column-wise, then row-wise.
 
@@ -26,8 +32,8 @@ private:
 public:
     std::vector<cooEntry> entry;
 
-    unsigned int M;    // local number of rows
-    unsigned int Mbig; // global number of rows
+    unsigned int M = 0;    // local number of rows
+    unsigned int Mbig = 0; // global number of rows
     unsigned int nnz_g;
     unsigned int nnz_l;
     std::vector<unsigned long> split;

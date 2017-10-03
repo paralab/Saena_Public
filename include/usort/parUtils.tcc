@@ -1024,8 +1024,8 @@ namespace par {
         }
       }
 
-      // par::partitionW<T>(SortedElem, NULL , comm_);
-			// par::partitionW<T>(arr, NULL , comm_);
+//       par::partitionW<T>(SortedElem, NULL , comm_);
+       par::partitionW<T>(arr, NULL , comm_);
 
 #ifdef _PROFILE_SORT
   total_sort.stop();
@@ -1226,7 +1226,7 @@ namespace par {
 #ifdef _PROFILE_SORT
 		 	sort_partitionw.start();
 #endif
-//      par::partitionW<T>(SortedElem, NULL , comm_);
+      par::partitionW<T>(SortedElem, NULL , comm_);
 #ifdef _PROFILE_SORT
 		 	sort_partitionw.stop();
 #endif
@@ -1684,7 +1684,7 @@ namespace par {
 #ifdef _PROFILE_SORT
   		sort_partitionw.start();
 #endif
-			par::partitionW<T>(arr, NULL, comm);
+//			par::partitionW<T>(arr, NULL, comm);
 #ifdef _PROFILE_SORT
   		sort_partitionw.stop();
 #endif
@@ -1844,39 +1844,37 @@ namespace par {
 #ifdef _PROFILE_SORT
 	 		total_sort.stop();
 #endif
-    }//end function
+      par::partitionW<T>(arr, NULL, comm);
+
+  }//end function
 
   //------------------------------------------------------------------------
 
-  template<typename T>
+    template<typename T>
     int sampleSort(std::vector<T>& arr, std::vector<T> & SortedElem, MPI_Comm comm){ 
-#ifdef __PROFILE_WITH_BARRIER__
-      MPI_Barrier(comm);
-#endif
 
-#ifdef _PROFILE_SORT
-	 		total_sort.start();
-#endif
-
-     int npes;
-
+      int npes;
       MPI_Comm_size(comm, &npes);
 
+      //--
+      int rank;
+      MPI_Comm_rank(comm, &rank);
+      
+//      std::cout << rank << " : " << __func__ << arr.size() << std::endl;
+      
+      //--
+      
       assert(arr.size());
 
       if (npes == 1) {
-#ifdef _PROFILE_SORT
-				seq_sort.start();
-#endif
-        omp_par::merge_sort(&arr[0],&arr[arr.size()]);
-#ifdef _PROFILE_SORT
-  			seq_sort.stop();
-#endif        
-				SortedElem  = arr;
-#ifdef _PROFILE_SORT
-		 		total_sort.stop();
-#endif      
-			} 
+//          std::cout <<" have to use seq. sort"
+//          <<" since npes = 1 . inpSize: "<<(arr.size()) <<std::endl;
+//        std::sort(arr.begin(), arr.end());
+//        omp_par::merge_sort(arr.begin(),arr.end());
+          std::sort(arr.begin(),arr.end());
+          SortedElem = arr;
+          return 0;
+      }
 
       std::vector<T>  splitters;
       std::vector<T>  allsplitters;
@@ -1894,10 +1892,10 @@ namespace par {
 
       if(totSize < (FIVE*npesLong*npesLong)) {
         if(!myrank) {
-          //std::cout <<" Using bitonic sort since totSize < (5*(npes^2)). totSize: "
-          //  <<totSize<<" npes: "<<npes <<std::endl;
+//          std::cout <<" Using bitonic sort since totSize < (5*(npes^2)). totSize: "
+//            <<totSize<<" npes: "<<npes <<std::endl;
         }
-//        par::partitionW<T>(arr, NULL, comm);
+        par::partitionW<T>(arr, NULL, comm);
 
 #ifdef __DEBUG_PAR__
         MPI_Barrier(comm);
@@ -1948,23 +1946,13 @@ namespace par {
 #endif
 
       //Re-part arr so that each proc. has atleast p elements.
-#ifdef _PROFILE_SORT
-  		sort_partitionw.start();
-#endif
-//			par::partitionW<T>(arr, NULL, comm);
-#ifdef _PROFILE_SORT
-  		sort_partitionw.stop();
-#endif
+      par::partitionW<T>(arr, NULL, comm);
+
       nelem = arr.size();
 
-#ifdef _PROFILE_SORT
-			seq_sort.start();
-#endif
-      omp_par::merge_sort(&arr[0],&arr[arr.size()]);
-#ifdef _PROFILE_SORT
-			seq_sort.stop();
-#endif
-				
+//      std::sort(arr.begin(),arr.end());
+      omp_par::merge_sort(arr.begin(),arr.end());
+
       std::vector<T> sendSplits(npes-1);
       splitters.resize(npes);
 
@@ -1973,19 +1961,9 @@ namespace par {
         sendSplits[i-1] = arr[i*nelem/npes];        
       }//end for i
 
-#ifdef _PROFILE_SORT
- 		  sample_sort_splitters.start();
-#endif
       // sort sendSplits using bitonic ...
       par::bitonicSort<T>(sendSplits,comm);
-#ifdef _PROFILE_SORT
- 		  sample_sort_splitters.stop();
-#endif
-				
-				
-#ifdef _PROFILE_SORT
-	 		sample_prepare_scatter.start();
-#endif				
+
       // All gather with last element of splitters.
       T* sendSplitsPtr = NULL;
       T* splittersPtr = NULL;
@@ -2016,6 +1994,26 @@ namespace par {
         sendcnts[k] = 0;
       }
 
+      //To be parallelized
+/*      int k = 0;
+      for (DendroIntL j = 0; j < nelem; j++) {
+        if (arr[j] <= splitters[k]) {
+          sendcnts[k]++;
+        } else{
+          k = seq::UpperBound<T>(npes-1, splittersPtr, k+1, arr[j]);
+          if (k == (npes-1) ){
+            //could not find any splitter >= arr[j]
+            sendcnts[k] = (nelem - j);
+            break;
+          } else {
+            assert(k < (npes-1));
+            assert(splitters[k] >= arr[j]);
+            sendcnts[k]++;
+          }
+        }//end if-else
+      }//end for j
+*/
+
       {
         int omp_p=omp_get_max_threads();
         int* proc_split = new int[omp_p+1];
@@ -2026,7 +2024,7 @@ namespace par {
         #pragma omp parallel for
         for(int i=1;i<omp_p;i++){
           //proc_split[i] = seq::BinSearch(&splittersPtr[0],&splittersPtr[npes-1],arr[i*nelem/omp_p],std::less<T>());
-          proc_split[i] = std::upper_bound(&splittersPtr[0],&splittersPtr[npes-1],arr[i*(size_t)nelem/omp_p],std::less<T>())-&splittersPtr[0];
+          proc_split[i] = std::upper_bound(&splittersPtr[0],&splittersPtr[npes-1],arr[i*nelem/omp_p],std::less<T>())-&splittersPtr[0];
           if(proc_split[i]<npes-1){
             //lst_split_indx[i]=seq::BinSearch(&arr[0],&arr[nelem],splittersPtr[proc_split[i]],std::less<T>());
             lst_split_indx[i]=std::upper_bound(&arr[0],&arr[nelem],splittersPtr[proc_split[i]],std::less<T>())-&arr[0];
@@ -2068,7 +2066,10 @@ namespace par {
       par::Mpi_Alltoall<int>(sendcnts, recvcnts, 1, comm);
 
       sdispls[0] = 0; rdispls[0] = 0;
-
+//      for (int j = 1; j < npes; j++){
+//        sdispls[j] = sdispls[j-1] + sendcnts[j-1];
+//        rdispls[j] = rdispls[j-1] + recvcnts[j-1];
+//      }
       omp_par::scan(sendcnts,sdispls,npes);
       omp_par::scan(recvcnts,rdispls,npes);
 
@@ -2083,18 +2084,9 @@ namespace par {
       if(!SortedElem.empty()) {
         SortedElemPtr = &(*(SortedElem.begin()));
       }
-#ifdef _PROFILE_SORT
-	 		sample_prepare_scatter.stop();
-#endif
-				
-#ifdef _PROFILE_SORT
-	 		sample_do_all2all.start();
-#endif							
       par::Mpi_Alltoallv_dense<T>(arrPtr, sendcnts, sdispls,
           SortedElemPtr, recvcnts, rdispls, comm);
-#ifdef _PROFILE_SORT
-	 		sample_do_all2all.stop();
-#endif							
+
       arr.clear();
 
       delete [] sendcnts;
@@ -2109,19 +2101,11 @@ namespace par {
       delete [] rdispls;
       rdispls = NULL;
 
-#ifdef _PROFILE_SORT
-	 		seq_sort.start();
-#endif
+//      sort(SortedElem.begin(), SortedElem.end());
       omp_par::merge_sort(&SortedElem[0], &SortedElem[nsorted]);
-#ifdef _PROFILE_SORT
-	 		seq_sort.stop();
-#endif
 
-
-#ifdef _PROFILE_SORT
-	 		total_sort.stop();
-#endif
     }//end function
+
 
   /********************************************************************/
   /*

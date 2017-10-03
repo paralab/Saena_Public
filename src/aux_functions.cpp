@@ -2,28 +2,7 @@
 #include <random>
 #include <aux_functions.h>
 #include "saena_matrix.h"
-
-using namespace std;
-
-// binary search tree using the lower bound
-template <class T>
-T lower_bound2(T *left, T *right, T val){
-    T* first = left;
-    while (left < right) {
-        T *middle = left + (right - left) / 2;
-        if (*middle < val){
-            left = middle + 1;
-        }
-        else{
-            right = middle;
-        }
-    }
-    if(val == *left){
-        return distance(first, left);
-    }
-    else
-        return distance(first, left-1);
-}
+#include "strength_matrix.h"
 
 
 int randomVector(std::vector<unsigned long>& V, long size, strength_matrix* S, MPI_Comm comm) {
@@ -227,7 +206,7 @@ void setIJV(char* file_name, unsigned int* I, unsigned int* J, double* V, unsign
 
     int mpiopen = MPI_File_open(comm, file_name, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
     if (mpiopen) {
-        if (rank == 0) cout << "Unable to open the matrix file!" << endl;
+        if (rank == 0) std::cout << "Unable to open the matrix file!" << std::endl;
         MPI_Finalize();
     }
 
@@ -250,6 +229,27 @@ int dotProduct(std::vector<double>& r, std::vector<double>& s, double* dot, MPI_
     for(i=0; i<r.size(); i++)
         dot_l += r[i] * s[i];
     MPI_Allreduce(&dot_l, dot, 1, MPI_DOUBLE, MPI_SUM, comm);
+
+    return 0;
+}
+
+
+int print_time(double t1, double t2, std::string function_name, MPI_Comm comm){
+
+    int rank, nprocs;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nprocs);
+
+    double min, max, average;
+    double t_dif = t2 - t1;
+
+    MPI_Reduce(&t_dif, &min, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
+    MPI_Reduce(&t_dif, &max, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+    MPI_Reduce(&t_dif, &average, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+    average /= nprocs;
+
+    if (rank==0)
+        std::cout << std::endl << function_name << "\nmin: " << min << "\nave: " << average << "\nmax: " << max << std::endl << std::endl;
 
     return 0;
 }
