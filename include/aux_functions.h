@@ -9,6 +9,7 @@
 #include <mpi.h>
 
 class strength_matrix;
+class saena_matrix;
 
 // sort indices and store the ordering.
 class sort_indices
@@ -191,6 +192,5 @@ int dotProduct(std::vector<double>& r, std::vector<double>& s, double* dot, MPI_
 
 
 int print_time(double t1, double t2, std::string function_name, MPI_Comm comm);
-
 
 #endif //SAENA_AUXFUNCTIONS_H

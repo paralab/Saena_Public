@@ -4,6 +4,7 @@
 #include "saena_matrix.h"
 #include "strength_matrix.h"
 
+class saena_matrix;
 
 int randomVector(std::vector<unsigned long>& V, long size, strength_matrix* S, MPI_Comm comm) {
 
