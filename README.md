@@ -18,16 +18,21 @@ A.set(I, J, V, size); // size: size of I (or J or V, they obviously should have 
 A.assemble();
 
 saena::options opts; // use the default options.
+
 // or this command can be used, instead of the above command, to pass an xml options file.
+
 // saena::options opts((char*)"options001.xml");
 
 saena::amg solver;
+
 solver.set_matrix(&A);
+
 solver.set_rhs(rhs); // rhs is std::vector<double>
 
 // *************************** AMG - Solve ****************************
 
 // u is the initial guess. after calling the solve function, it will be solution.
+
 // u is std::vector<double>
   
 solver.solve(u, &opts); 
