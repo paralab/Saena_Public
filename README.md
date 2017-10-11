@@ -31,7 +31,9 @@ solver.set_rhs(rhs); // rhs should be std::vector<double>
 
 // *************************** AMG - Solve ****************************
 
-// u is the initial guess. after calling the solve function, it will be solution. it should be std::vector<double>
+// u is the initial guess. after calling the solve function, it will be solution.
+
+// it should be std::vector<double>
   
 solver.solve(u, &opts); 
 
