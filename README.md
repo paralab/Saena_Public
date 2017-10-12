@@ -21,7 +21,7 @@ A.assemble();
 
 saena::options opts; // use the default options.
 
-// or this command can be used, instead of the above command, to pass an xml options file.
+// or the following command can be used, instead of the above command, to pass an xml options file.
 
 // saena::options opts((char*)"options001.xml");
 
