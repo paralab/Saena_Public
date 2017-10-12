@@ -318,9 +318,12 @@ int saena_matrix::setup_initial_data(){
             Mbig_local = temp.row;
     }
 
+    // todo: free memory for data_coo. consider move semantics. check if the following idea is correct.
     // clear data_coo and free memory.
+    // Using move semantics, the address of data_coo is swapped with data_temp. So data_coo will be empty
+    // and data_temp will be deleted when this function is finished.
+    std::set<cooEntry> data_temp = std::move(data_coo);
     // since shrink_to_fit() does not work for std::set, set.erase() is being used, not sure if it frees memory.
-    // todo: free memory for data_coo
 //    data_coo.erase(data_coo.begin(), data_coo.end());
 //    data_coo.clear();
 
@@ -719,14 +722,14 @@ int saena_matrix::matrix_setup(){
         MPI_Comm_rank(comm, &rank);
 //        MPI_Barrier(comm); printf("in matrix_setup: rank = %d, Mbig = %u, M = %u, nnz_g = %u, nnz_l = %u \n", rank, Mbig, M, nnz_g, nnz_l); MPI_Barrier(comm);
 
-        freeBoolean = true; // use this parameter to know if deconstructor for SaenaMatrix class should free the variables or not.
+        freeBoolean = true; // use this parameter to know if destructor for SaenaMatrix class should free the variables or not.
 
-        //    if (rank==0){
-        //        std::cout << std::endl << "split:" << std::endl;
-        //        for(unsigned int i=0; i<nprocs+1; i++)
-        //            std::cout << split[i] << std::endl;
-        //        std::cout << std::endl;
-        //    }
+//        if (rank==0){
+//            std::cout << std::endl << "split:" << std::endl;
+//            for(unsigned int i=0; i<nprocs+1; i++)
+//                std::cout << split[i] << std::endl;
+//            std::cout << std::endl;
+//        }
 
         // *************************** set the inverse of diagonal of A (for smoothers) ****************************
 
@@ -734,10 +737,9 @@ int saena_matrix::matrix_setup(){
         double *invDiag_p = &(*(invDiag.begin()));
         inverse_diag(invDiag_p);
 
-        /*    if(rank==1){
-                for(unsigned int i=0; i<M; i++)
-                    std::cout << i << ":\t" << invDiag[i] << std::endl;
-            }*/
+//        if(rank==1){
+//            for(unsigned int i=0; i<M; i++)
+//                std::cout << i << ":\t" << invDiag[i] << std::endl;}
 
         // computing rhoDA for the prolongation matrix: P = (I - 4/(3*rhoDA) * DA) * P_t
         // rhoDA = min( norm(DA , 1) , norm(DA , inf) )
@@ -768,109 +770,109 @@ int saena_matrix::matrix_setup(){
         nnz_l_remote = 0;
         int *recvCount = (int *) malloc(sizeof(int) * nprocs);
         std::fill(recvCount, recvCount + nprocs, 0);
-        //    nnzPerRow.assign(M,0);
         nnzPerRow_local.assign(M, 0);
+        //    nnzPerRow.assign(M,0);
         //    nnzPerCol_local.assign(Mbig,0); // todo: Nbig = Mbig, assuming A is symmetric.
         //    nnzPerCol_remote.assign(M,0);
 
         // take care of the first element here, since there is "col[i-1]" in the for loop below, so "i" cannot start from 0.
         //    nnzPerRow[row[0]-split[rank]]++;
         long procNum;
-        if (entry[0].col >= split[rank] && entry[0].col < split[rank + 1]) {
-            nnzPerRow_local[entry[0].row - split[rank]]++;
-            //        nnzPerCol_local[col[0]]++;
-            nnz_l_local++;
-
-            values_local.push_back(entry[0].val);
-            row_local.push_back(entry[0].row);
-            col_local.push_back(entry[0].col);
-
-            //vElement_local.push_back(col[0]);
-            vElementRep_local.push_back(1);
-
-        } else {
-            nnz_l_remote++;
-//            nnzPerRow_remote[row[0]-split[rank]]++;
-
-            values_remote.push_back(entry[0].val);
-            row_remote.push_back(entry[0].row);
-            col_remote_size++;
-            col_remote.push_back(col_remote_size - 1);
-            col_remote2.push_back(entry[0].col);
-//            nnzPerCol_remote[col_remote_size]++;
-            nnzPerCol_remote.push_back(1);
-
-            vElement_remote.push_back(entry[0].col);
-            vElementRep_remote.push_back(1);
-            recvCount[lower_bound2(&split[0], &split[nprocs], entry[0].col)] = 1;
-        }
-
-        for (long i = 1; i < nnz_l; i++) {
-//            nnzPerRow[row[i]-split[rank]]++;
-//            std::cout << entry[i] << std::endl;
-            if (entry[i].col >= split[rank] && entry[i].col < split[rank + 1]) {
-//                nnzPerCol_local[col[i]]++;
+        if(entry.size() != 0){
+            if (entry[0].col >= split[rank] && entry[0].col < split[rank + 1]) {
+                nnzPerRow_local[entry[0].row - split[rank]]++;
+                //        nnzPerCol_local[col[0]]++;
                 nnz_l_local++;
-                nnzPerRow_local[entry[i].row - split[rank]]++;
 
-                values_local.push_back(entry[i].val);
-                row_local.push_back(entry[i].row);
-                col_local.push_back(entry[i].col);
+                values_local.push_back(entry[0].val);
+                row_local.push_back(entry[0].row);
+                col_local.push_back(entry[0].col);
 
-                if (entry[i].col != entry[i - 1].col) {
-                    vElementRep_local.push_back(1);
-                } else {
-                    (*(vElementRep_local.end() - 1))++;
-                }
+                //vElement_local.push_back(col[0]);
+                vElementRep_local.push_back(1);
+
             } else {
                 nnz_l_remote++;
+//            nnzPerRow_remote[row[0]-split[rank]]++;
+
+                values_remote.push_back(entry[0].val);
+                row_remote.push_back(entry[0].row);
+                col_remote_size++;
+                col_remote.push_back(col_remote_size - 1);
+                col_remote2.push_back(entry[0].col);
+//            nnzPerCol_remote[col_remote_size]++;
+                nnzPerCol_remote.push_back(1);
+
+                vElement_remote.push_back(entry[0].col);
+                vElementRep_remote.push_back(1);
+                recvCount[lower_bound2(&split[0], &split[nprocs], entry[0].col)] = 1;
+            }
+        }
+
+        if(entry.size() >= 2){
+            for (long i = 1; i < nnz_l; i++) {
+//                nnzPerRow[row[i]-split[rank]]++;
+//                if(rank==1) std::cout << entry[i] << std::endl;
+                if (entry[i].col >= split[rank] && entry[i].col < split[rank + 1]) {
+//                    nnzPerCol_local[col[i]]++;
+                    nnz_l_local++;
+                    nnzPerRow_local[entry[i].row - split[rank]]++;
+
+                    values_local.push_back(entry[i].val);
+                    row_local.push_back(entry[i].row);
+                    col_local.push_back(entry[i].col);
+
+                    if (entry[i].col != entry[i - 1].col) {
+                        vElementRep_local.push_back(1);
+                    } else {
+                        (*(vElementRep_local.end() - 1))++;
+                    }
+                } else {
+                    nnz_l_remote++;
 //                nnzPerRow_remote[row[i]-split[rank]]++;
 
-                values_remote.push_back(entry[i].val);
-                row_remote.push_back(entry[i].row);
-                // col_remote2 is the original col value and will be used in making strength matrix. col_remote will be used for matevec.
-                col_remote2.push_back(entry[i].col);
+                    values_remote.push_back(entry[i].val);
+                    row_remote.push_back(entry[i].row);
+                    // col_remote2 is the original col value and will be used in making strength matrix. col_remote will be used for matevec.
+                    col_remote2.push_back(entry[i].col);
 
-                if (entry[i].col != entry[i - 1].col) {
-                    col_remote_size++;
-                    vElement_remote.push_back(entry[i].col);
-                    vElementRep_remote.push_back(1);
-                    procNum = lower_bound2(&split[0], &split[nprocs], entry[i].col);
-                    recvCount[procNum]++;
-                    nnzPerCol_remote.push_back(1);
-                } else {
-                    (*(vElementRep_remote.end() - 1))++;
-                    (*(nnzPerCol_remote.end() - 1))++;
-                }
-                // the original col values are not being used. the ordering starts from 0, and goes up by 1.
-                col_remote.push_back(col_remote_size - 1);
+                    if (entry[i].col != entry[i - 1].col) {
+                        col_remote_size++;
+                        vElement_remote.push_back(entry[i].col);
+                        vElementRep_remote.push_back(1);
+                        procNum = lower_bound2(&split[0], &split[nprocs], entry[i].col);
+                        recvCount[procNum]++;
+                        nnzPerCol_remote.push_back(1);
+                    } else {
+                        (*(vElementRep_remote.end() - 1))++;
+                        (*(nnzPerCol_remote.end() - 1))++;
+                    }
+                    // the original col values are not being used. the ordering starts from 0, and goes up by 1.
+                    col_remote.push_back(col_remote_size - 1);
 //                nnzPerCol_remote[col_remote_size]++;
-            }
-        } // for i
+                }
+            } // for i
+        }
+
+//        MPI_Barrier(comm); printf("rank = %d yyyyyyyyyyyyyyy\n", rank);MPI_Barrier(comm);
 
         // don't receive anything from yourself
         recvCount[rank] = 0;
 
-        /*
-            MPI_Barrier(comm);
-            if (rank==1){
-                std::cout << "recvCount: rank=" << rank << std::endl;
-                for(int i=0; i<nprocs; i++)
-                    std::cout << i << "= " << recvCount[i] << std::endl;
-            }
-        */
+//        MPI_Barrier(comm);
+//        if (rank==0){
+//            std::cout << "recvCount: rank = " << rank << std::endl;
+//            for(int i=0; i<nprocs; i++)
+//                std::cout << "from proc " << i << ": " << recvCount[i] << std::endl;}
 
         int *vIndexCount = (int *) malloc(sizeof(int) * nprocs);
         MPI_Alltoall(recvCount, 1, MPI_INT, vIndexCount, 1, MPI_INT, comm);
 
-        /*
-            MPI_Barrier(comm);
-            if (rank==1){
-                std::cout << "vIndexCount: rank=" << rank << std::endl;
-                for(int i=0; i<nprocs; i++)
-                    std::cout << i << "= " << vIndexCount[i] << std::endl;
-            }
-        */
+//        MPI_Barrier(comm);
+//        if (rank==1){
+//            std::cout << "vIndexCount: rank=" << rank << std::endl;
+//            for(int i=0; i<nprocs; i++)
+//                std::cout << i << "= " << vIndexCount[i] << std::endl;}
 
         numRecvProc = 0;
         numSendProc = 0;
