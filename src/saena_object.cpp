@@ -2072,68 +2072,90 @@ int saena_object::vcycle(Grid* grid, std::vector<double>& u, std::vector<double>
     MPI_Comm_size(grid->A->comm_old, &nprocs);
     MPI_Comm_rank(grid->A->comm_old, &rank);
 
+//    MPI_Barrier(grid->A->comm_old); printf("rank = %d, u.size = %lu, current level = %d \n", rank, u.size(), grid->currentLevel);
+//
+//    MPI_Barrier(grid->A->comm_old);
+//    if(rank==0){
+//        printf("\nbefore shrinking: rank = %d, current level = %d, rhs.size = %lu \n", rank, grid->currentLevel, rhs.size());
+//        for(unsigned long i=0; i<rhs.size(); i++)
+//            printf("rhs[%lu] = %f \n", i, rhs[i]);
+//    }
+
+
+
     int rank_new, nprocs_new;
-    if(grid->A->comm != grid->A->comm_old){
+//    if(grid->A->active){
+        if(grid->A->comm != grid->A->comm_old){
 
-        MPI_Comm_size(grid->A->comm_horizontal, &nprocs_new);
-        MPI_Comm_rank(grid->A->comm_horizontal, &rank_new);
+            MPI_Comm_size(grid->A->comm_horizontal, &nprocs_new);
+            MPI_Comm_rank(grid->A->comm_horizontal, &rank_new);
 
-        unsigned long offset = 0;
-        if(grid->A->active){
-            offset = rhs.size();
+            unsigned long offset = 0;
+            if(grid->A->active){
+//                offset = 15;
+                offset = rhs.size();
 //            u.resize(grid->A->M);
-            u.assign(grid->A->M, 0);
-            rhs.resize(grid->A->M);
-        }
-
-        int neigbor_rank;
-        unsigned int recv_size = 0;
-        unsigned int local_size = rhs.size();
-        for(neigbor_rank = 1; neigbor_rank < grid->A->cpu_shrink_thre2; neigbor_rank++){
-
-            if(rank_new == 0 && (rank + neigbor_rank >= nprocs) ){
-//            printf("rank = %d, rank_new = %d, neighbor rank = %d -> break!!! \n", rank, rank_new, neigbor_rank);
-                break;
+                u.assign(grid->A->M, 0);
+//                rhs.resize(grid->A->M);
             }
 
-            // 3 - send and receive size of rhs.
+            int neigbor_rank;
+            unsigned int recv_size = 0;
+            unsigned int local_size = rhs.size();
+            for(neigbor_rank = 1; neigbor_rank < grid->A->cpu_shrink_thre2; neigbor_rank++){
+
+                if(rank_new == 0 && (rank + neigbor_rank >= nprocs) ){
+//            printf("rank = %d, rank_new = %d, neighbor rank = %d -> break!!! \n", rank, rank_new, neigbor_rank);
+                    break;
+                }
+
+                // 3 - send and receive size of rhs.
 //        if(rank_new == 0)
 //            MPI_Recv(&recv_size, 1, MPI_UNSIGNED, neigbor_rank, 0, comm_new, MPI_STATUS_IGNORE);
 //
 //        if(rank_new == neigbor_rank)
 //            MPI_Send(&local_size, 1, MPI_UNSIGNED, 0, 0, comm_new);
 
-            // 4 - send and receive rhs and u.
+                // 4 - send and receive rhs and u.
 //            if(rank_new == 0)
 //                MPI_Recv(&*(u.begin() + offset), recv_size, MPI_DOUBLE, neigbor_rank, 0, grid->A->comm_horizontal, MPI_STATUS_IGNORE);
 //
 //            if(rank_new == neigbor_rank)
 //                MPI_Send(&*u.begin(), local_size, MPI_DOUBLE, 0, 0, grid->A->comm_horizontal);
 
-            if(rank_new == 0){
+                if(rank_new == 0){
 //                printf("rank = %d, grid->A->split_old[rank + neigbor_rank + 1] = %lu, grid->A->split_old[rank + neigbor_rank] = %lu \n",
 //                       rank, grid->A->split_old[rank + neigbor_rank + 1], grid->A->split_old[rank + neigbor_rank]);
-//                printf("rank = %d, neigbor_rank = %d, recv_size = %u \n", rank, neigbor_rank, recv_size);
+                    printf("rank = %d, neigbor_rank = %d, recv_size = %u, offset = %lu \n", rank, neigbor_rank, recv_size, offset);
 
-                recv_size = grid->A->split_old[rank + neigbor_rank + 1] - grid->A->split_old[rank + neigbor_rank];
-                MPI_Recv(&*(rhs.begin() + offset), recv_size, MPI_DOUBLE, neigbor_rank, 1, grid->A->comm_horizontal, MPI_STATUS_IGNORE);
-                offset += recv_size; // set offset for the next iteration
-            }
+                    recv_size = grid->A->split_old[rank + neigbor_rank + 1] - grid->A->split_old[rank + neigbor_rank];
+                    MPI_Recv(&*(rhs.begin() + offset), recv_size, MPI_DOUBLE, neigbor_rank, 1, grid->A->comm_horizontal, MPI_STATUS_IGNORE);
+                    offset += recv_size; // set offset for the next iteration
+                }
 
-            if(rank_new == neigbor_rank){
+                if(rank_new == neigbor_rank){
 //                printf("rank = %d, neigbor_rank = %d, local_size = %u \n", rank, neigbor_rank, local_size);
-                MPI_Send(&*rhs.begin(), local_size, MPI_DOUBLE, 0, 1, grid->A->comm_horizontal);
+                    MPI_Send(&*rhs.begin(), local_size, MPI_DOUBLE, 0, 1, grid->A->comm_horizontal);
+                }
             }
+
+//            MPI_Barrier(grid->A->comm_horizontal);
+//            if(rank_new==0){
+//                printf("\nafter shrinking: rank = %d, current level = %d, rhs.size = %lu \n", rank, grid->currentLevel, rhs.size());
+//                for(unsigned long i=0; i<rhs.size(); i++)
+//                    printf("rhs[%lu] = %f \n", i, rhs[i]);
+//            }
+
         }
-    }
+//    }
 
     if(grid->A->active){
-        MPI_Barrier(grid->A->comm_old);
-        if(rank==0){
-//            printf("\nrank = %d, current level = %d, size = %lu \n", rank, grid->currentLevel, rhs.size());
+//        MPI_Barrier(grid->A->comm_old);
+//        if(rank==0){
+////            printf("\nrank = %d, current level = %d, size = %lu \n", rank, grid->currentLevel, rhs.size());
 //            for(unsigned long i=0; i<rhs.size(); i++)
 //                printf("rhs[%lu] = %f \n", i, rhs[i]);
-        }
+//        }
 //        MPI_Barrier(grid->A->comm_old);
 //        if(rank==1){
 //            printf("\nrank = %d, current level = %d, size = %lu \n", rank, grid->currentLevel, rhs.size());
@@ -2361,11 +2383,11 @@ int saena_object::solve(std::vector<double>& u){
         for(i = 0; i < u.size(); i++)
             std::cout << u[i] << std::endl;}
     MPI_Barrier(comm);
-//    if(rank==2){
-//        printf("\nrank = %d \tu.size() = %lu \n", rank, u.size());
-//        for(i = 0; i < u.size(); i++)
-//            std::cout << u[i] << std::endl;}
-//    MPI_Barrier(comm);
+    if(rank==2){
+        printf("\nrank = %d \tu.size() = %lu \n", rank, u.size());
+        for(i = 0; i < u.size(); i++)
+            std::cout << u[i] << std::endl;}
+    MPI_Barrier(comm);
 
     return 0;
 }
@@ -2651,32 +2673,32 @@ int saena_object::cpu_shrink(saena_matrix* Ac, std::vector<unsigned long>& P_spl
     if(rank==0) printf("\n***********shrink*********** \n\n");
 //    printf("rank = %d \tnnz_l = %u \n", rank, Ac->nnz_l);
 
-    MPI_Barrier(comm);
-    if(rank == 0){
-        std::cout << "\nbefore shrinking!!!" <<std::endl;
-        std::cout << "\nrank = " << rank << ", size = " << Ac->entry.size() <<std::endl;
-        for(i=0; i < Ac->entry.size(); i++)
-            std::cout << i << "\t" << Ac->entry[i]  <<std::endl;
-    }
-    MPI_Barrier(comm);
-    if(rank == 1){
-        std::cout << "\nrank = " << rank << ", size = " << Ac->entry.size() <<std::endl;
-        for(i=0; i < Ac->entry.size(); i++)
-            std::cout << i << "\t" << Ac->entry[i]  <<std::endl;
-    }
-    MPI_Barrier(comm);
-    if(rank == 2){
-        std::cout << "\nrank = " << rank << ", size = " << Ac->entry.size() <<std::endl;
-        for(i=0; i < Ac->entry.size(); i++)
-            std::cout << i << "\t" << Ac->entry[i]  <<std::endl;
-    }
-    MPI_Barrier(comm);
-    if(rank == 3){
-        std::cout << "\nrank = " << rank << ", size = " << Ac->entry.size() <<std::endl;
-        for(i=0; i < Ac->entry.size(); i++)
-            std::cout << i << "\t" << Ac->entry[i]  <<std::endl;
-    }
-    MPI_Barrier(comm);
+//    MPI_Barrier(comm);
+//    if(rank == 0){
+//        std::cout << "\nbefore shrinking!!!" <<std::endl;
+//        std::cout << "\nrank = " << rank << ", size = " << Ac->entry.size() <<std::endl;
+//        for(i=0; i < Ac->entry.size(); i++)
+//            std::cout << i << "\t" << Ac->entry[i]  <<std::endl;
+//    }
+//    MPI_Barrier(comm);
+//    if(rank == 1){
+//        std::cout << "\nrank = " << rank << ", size = " << Ac->entry.size() <<std::endl;
+//        for(i=0; i < Ac->entry.size(); i++)
+//            std::cout << i << "\t" << Ac->entry[i]  <<std::endl;
+//    }
+//    MPI_Barrier(comm);
+//    if(rank == 2){
+//        std::cout << "\nrank = " << rank << ", size = " << Ac->entry.size() <<std::endl;
+//        for(i=0; i < Ac->entry.size(); i++)
+//            std::cout << i << "\t" << Ac->entry[i]  <<std::endl;
+//    }
+//    MPI_Barrier(comm);
+//    if(rank == 3){
+//        std::cout << "\nrank = " << rank << ", size = " << Ac->entry.size() <<std::endl;
+//        for(i=0; i < Ac->entry.size(); i++)
+//            std::cout << i << "\t" << Ac->entry[i]  <<std::endl;
+//    }
+//    MPI_Barrier(comm);
 
     // assume cpu_shrink_thre2 is 4, just for easier description
     // 1 - create a new comm, consisting only of processes 4k, 4k+1, 4k+2 and 4k+3 (with new ranks 0,1,2,3)
@@ -2736,14 +2758,14 @@ int saena_object::cpu_shrink(saena_matrix* Ac, std::vector<unsigned long>& P_spl
 //                Ac->entry[offset + i].row += Ac->split[rank + neigbor_rank] - Ac->split[rank];
     }
 
-    MPI_Barrier(comm); MPI_Barrier(Ac->comm_horizontal);
-    if(rank == 0){
-        std::cout << "\nafter shrinking!!!" <<std::endl;
-        std::cout << "\nrank = " << rank << ", size = " << Ac->entry.size() <<std::endl;
-        for(i=0; i < Ac->entry.size(); i++)
-            std::cout << i << "\t" << Ac->entry[i]  <<std::endl;
-    }
-    MPI_Barrier(comm); MPI_Barrier(Ac->comm_horizontal);
+//    MPI_Barrier(comm); MPI_Barrier(Ac->comm_horizontal);
+//    if(rank == 0){
+//        std::cout << "\nafter shrinking!!!" <<std::endl;
+//        std::cout << "\nrank = " << rank << ", size = " << Ac->entry.size() <<std::endl;
+//        for(i=0; i < Ac->entry.size(); i++)
+//            std::cout << i << "\t" << Ac->entry[i]  <<std::endl;
+//    }
+//    MPI_Barrier(comm); MPI_Barrier(Ac->comm_horizontal);
 
     Ac->active = false;
     if(rank_new == 0){
@@ -2816,6 +2838,12 @@ int saena_object::set_rhs(std::vector<double>& rhs0){
     }
     MPI_Barrier(grids[0].comm);
     if(rank==1){
+        printf("\nrank = %d \trhs.size = %lu\n", rank, rhs0.size());
+        for(i = 0; i < rhs0.size(); i++)
+            printf("%lu \t%f\n", i+grids[0].A->split[rank], rhs0[i]);
+    }
+    MPI_Barrier(grids[0].comm);
+    if(rank==2){
         printf("\nrank = %d \trhs.size = %lu\n", rank, rhs0.size());
         for(i = 0; i < rhs0.size(); i++)
             printf("%lu \t%f\n", i+grids[0].A->split[rank], rhs0[i]);
@@ -3044,38 +3072,40 @@ int saena_object::repartition_u(std::vector<double>& u0){
     unsigned long i;
 //    int ran = 3;
 
-    // make a copy of u0 to be used in Alltoall as sendbuf. u0 itself will be recvbuf there.
-    std::vector<double> u_temp = u0;
+    if(repartition){
+        // make a copy of u0 to be used in Alltoall as sendbuf. u0 itself will be recvbuf there.
+        std::vector<double> u_temp = u0;
 
-    // ************** repartition u, based on A.split **************
+        // ************** repartition u, based on A.split **************
 
-    std::vector<int> rdispls(nprocs);
-    rdispls[0] = 0;
-    for(i = 1; i < nprocs; i++)
-        rdispls[i] = grids[0].rcount[i-1] + rdispls[i-1];
+        std::vector<int> rdispls(nprocs);
+        rdispls[0] = 0;
+        for(i = 1; i < nprocs; i++)
+            rdispls[i] = grids[0].rcount[i-1] + rdispls[i-1];
 
 //    if(rank==ran) printf("\n");
 //    for(i = 0; i < nprocs; i++)
 //        if(rank==0) printf("%lu \t rdispls[i] = %d\n", i, rdispls[i]);
 
 
-    std::vector<int> sdispls(nprocs);
-    sdispls[0] = 0;
-    for(i = 1; i < nprocs; i++)
-        sdispls[i] = sdispls[i-1] + grids[0].scount[i-1];
+        std::vector<int> sdispls(nprocs);
+        sdispls[0] = 0;
+        for(i = 1; i < nprocs; i++)
+            sdispls[i] = sdispls[i-1] + grids[0].scount[i-1];
 
 //    if(rank==ran) printf("\n");
 //    for(i = 0; i < nprocs; i++)
 //        if(rank==ran) printf("%lu \t sdispls[i] = %d\n", i, sdispls[i]);
 
-    u0.clear();
-    u0.resize(grids[0].A->split[rank+1] - grids[0].A->split[rank]);
-    MPI_Alltoallv(&*u_temp.begin(), &grids[0].scount[0], &sdispls[0], MPI_DOUBLE,
-                  &*u0.begin(), &grids[0].rcount[0], &rdispls[0], MPI_DOUBLE, grids[0].comm);
+        u0.clear();
+        u0.resize(grids[0].A->split[rank+1] - grids[0].A->split[rank]);
+        MPI_Alltoallv(&*u_temp.begin(), &grids[0].scount[0], &sdispls[0], MPI_DOUBLE,
+                      &*u0.begin(), &grids[0].rcount[0], &rdispls[0], MPI_DOUBLE, grids[0].comm);
 
 //    if(rank==ran) printf("\nrank = %d \tu.size = %lu\n", rank, u0.size());
 //    for(i = 0; i < u0.size(); i++)
 //        if(rank==ran) printf("u[%lu] = %f\n", i, u0[i]);
+    }
 
     return 0;
 }
@@ -3083,46 +3113,48 @@ int saena_object::repartition_u(std::vector<double>& u0){
 
 int saena_object::repartition_back_u(std::vector<double>& u0){
 
-    int rank, nprocs;
-    MPI_Comm_rank(grids[0].comm, &rank);
-    MPI_Comm_size(grids[0].comm, &nprocs);
-    unsigned long i;
+    if(repartition){
+        int rank, nprocs;
+        MPI_Comm_rank(grids[0].comm, &rank);
+        MPI_Comm_size(grids[0].comm, &nprocs);
+        unsigned long i;
 //    int ran = 1;
 
-    // make a copy of u0 to be used in Alltoall as sendbuf. u0 itself will be recvbuf there.
-    std::vector<double> u_temp = u0;
+        // make a copy of u0 to be used in Alltoall as sendbuf. u0 itself will be recvbuf there.
+        std::vector<double> u_temp = u0;
 
-    // rdispls should be the opposite of the initial repartition function. So, rdispls should be the scan of scount.
-    // the same for sdispls.
-    std::vector<int> rdispls(nprocs);
-    rdispls[0] = 0;
-    for(i = 1; i < nprocs; i++)
-        rdispls[i] = rdispls[i-1] + grids[0].scount[i-1];
+        // rdispls should be the opposite of the initial repartition function. So, rdispls should be the scan of scount.
+        // the same for sdispls.
+        std::vector<int> rdispls(nprocs);
+        rdispls[0] = 0;
+        for(i = 1; i < nprocs; i++)
+            rdispls[i] = rdispls[i-1] + grids[0].scount[i-1];
 
 //    if(rank==ran) printf("\n");
 //    for(i = 0; i < nprocs; i++)
 //        if(rank==ran) printf("%lu \t rdispls[i] = %d\n", i, rdispls[i]);
 
-    std::vector<int> sdispls(nprocs);
-    sdispls[0] = 0;
-    for(i = 1; i < nprocs; i++)
-        sdispls[i] = sdispls[i-1] + grids[0].rcount[i-1];
+        std::vector<int> sdispls(nprocs);
+        sdispls[0] = 0;
+        for(i = 1; i < nprocs; i++)
+            sdispls[i] = sdispls[i-1] + grids[0].rcount[i-1];
 
 //    if(rank==ran) printf("\n");
 //    for(i = 0; i < nprocs; i++)
 //        if(rank==ran) printf("%lu \t sdispls[i] = %d\n", i, sdispls[i]);
 
-    long rhs_init_size = rdispls[nprocs-1] + grids[0].scount[nprocs-1]; // this is the summation over all rcount values on each proc.
+        long rhs_init_size = rdispls[nprocs-1] + grids[0].scount[nprocs-1]; // this is the summation over all rcount values on each proc.
 //    printf("rank = %d, rhs_init_size = %lu \n", rank, rhs_init_size);
-    u0.clear();
-    u0.resize(rhs_init_size);
-    MPI_Alltoallv(&*u_temp.begin(), &grids[0].rcount[0], &sdispls[0], MPI_DOUBLE, &*u0.begin(), &grids[0].scount[0], &rdispls[0], MPI_DOUBLE, grids[0].comm);
+        u0.clear();
+        u0.resize(rhs_init_size);
+        MPI_Alltoallv(&*u_temp.begin(), &grids[0].rcount[0], &sdispls[0], MPI_DOUBLE, &*u0.begin(), &grids[0].scount[0], &rdispls[0], MPI_DOUBLE, grids[0].comm);
 
 //    MPI_Barrier(grids[0].comm);
 //    if(rank==ran) printf("\nrank = %d \tu.size = %lu\n", rank, u0.size());
 //    for(i = 0; i < u0.size(); i++)
 //        if(rank==ran) printf("u[%lu] = %f\n", i, u0[i]);
 //    MPI_Barrier(grids[0].comm);
+    }
 
     return 0;
 }
