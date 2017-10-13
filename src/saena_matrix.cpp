@@ -13,6 +13,7 @@ saena_matrix::saena_matrix(){}
 
 saena_matrix::saena_matrix(MPI_Comm com) {
     comm = com;
+    comm_old = com;
 }
 
 
@@ -23,6 +24,7 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
 
     read_from_file = true;
     comm = com;
+    comm_old = com;
 
     int rank, nprocs;
     MPI_Comm_size(comm, &nprocs);
@@ -720,7 +722,8 @@ int saena_matrix::matrix_setup(){
         int nprocs, rank;
         MPI_Comm_size(comm, &nprocs);
         MPI_Comm_rank(comm, &rank);
-//        MPI_Barrier(comm); printf("in matrix_setup: rank = %d, Mbig = %u, M = %u, nnz_g = %u, nnz_l = %u \n", rank, Mbig, M, nnz_g, nnz_l); MPI_Barrier(comm);
+//        MPI_Barrier(comm); printf("in matrix_setup: rank = %d, Mbig = %u, M = %u, nnz_g = %u, nnz_l = %u \n",
+//                                  rank, Mbig, M, nnz_g, nnz_l); MPI_Barrier(comm);
 
         freeBoolean = true; // use this parameter to know if destructor for SaenaMatrix class should free the variables or not.
 
@@ -778,10 +781,10 @@ int saena_matrix::matrix_setup(){
         // take care of the first element here, since there is "col[i-1]" in the for loop below, so "i" cannot start from 0.
         //    nnzPerRow[row[0]-split[rank]]++;
         long procNum;
-        if(entry.size() != 0){
+        if(!entry.empty()){
             if (entry[0].col >= split[rank] && entry[0].col < split[rank + 1]) {
                 nnzPerRow_local[entry[0].row - split[rank]]++;
-                //        nnzPerCol_local[col[0]]++;
+//                nnzPerCol_local[col[0]]++;
                 nnz_l_local++;
 
                 values_local.push_back(entry[0].val);
@@ -1056,13 +1059,16 @@ int saena_matrix::matrix_setup(){
 }
 
 
-int saena_matrix::matvec(double* v, double* w) {
+int saena_matrix::matvec(std::vector<double>& v, std::vector<double>& w) {
 // todo: to reduce the communication during matvec, consider reducing number of columns during coarsening,
 // todo: instead of reducing general non-zeros, since that is what is communicated for matvec.
 
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+
+//    if( v.size() != M ){
+//        printf("A.M != v.size() in matvec!!!\n");}
 
 //    totalTime = 0;
 //    double t10 = MPI_Wtime();
@@ -1103,7 +1109,7 @@ int saena_matrix::matvec(double* v, double* w) {
 
 //    double t11 = MPI_Wtime();
     // local loop
-    std::fill(&w[0], &w[M], 0);
+    std::fill(&*w.begin(), &*w.end(), 0);
 #pragma omp parallel
     {
         long iter = iter_local_array[omp_get_thread_num()];
@@ -1149,6 +1155,29 @@ int saena_matrix::matvec(double* v, double* w) {
 }
 
 
+int saena_matrix::residual(std::vector<double>& u, std::vector<double>& rhs, std::vector<double>& res){
+    // Vector res = A*u - rhs;
+
+//    int nprocs, rank;
+//    MPI_Comm_size(comm, &nprocs);
+//    MPI_Comm_rank(comm, &rank);
+
+    std::vector<double> matvecTemp(M);
+    matvec(u, matvecTemp);
+//    if(rank==1)
+//        for(long i=0; i<matvecTemp.size(); i++)
+//            std::cout << matvecTemp[i] << std::endl;
+
+    for(long i=0; i<M; i++)
+        res[i] = matvecTemp[i] - rhs[i];
+//    if(rank==1)
+//        for(long i=0; i<res.size(); i++)
+//            std::cout << res[i] << std::endl;
+
+    return 0;
+}
+
+
 int saena_matrix::inverse_diag(double* x) {
     int nprocs, rank;
 //    MPI_Comm_size(comm, &nprocs);
@@ -1173,14 +1202,12 @@ int saena_matrix::jacobi(std::vector<double>& u, std::vector<double>& rhs) {
 
     auto omega = float(2.0/3);
     unsigned int i;
-    // replace allocating and deallocating with a pre-allocated memory.
-    double* temp = (double*)malloc(sizeof(double)*M);
-    matvec(&*u.begin(), temp);
+    std::vector<double> temp(M);
+    matvec(u, temp);
     for(i=0; i<M; i++){
         temp[i] -= rhs[i];
         temp[i] *= invDiag[i] * omega;
         u[i] -= temp[i];
     }
-    free(temp);
     return 0;
 }
