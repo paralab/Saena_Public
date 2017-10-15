@@ -55,11 +55,10 @@ int main(int argc, char* argv[]){
 
     // define the size of v as the local number of rows on each process
     std::vector <double> rhs(num_local_row);
-    double* vp = &(*(rhs.begin()));
 
     // vector should have the following format: first line shows the value in row 0, second line shows the value in row 1
     offset = A.get_internal_matrix()->split[rank] * 8; // value(double=8)
-    MPI_File_read_at(fh, offset, vp, num_local_row, MPI_DOUBLE, &status);
+    MPI_File_read_at(fh, offset, &(*(rhs.begin())), num_local_row, MPI_DOUBLE, &status);
 
 //    int count;
 //    MPI_Get_count(&status, MPI_UNSIGNED_LONG, &count);
@@ -68,11 +67,11 @@ int main(int argc, char* argv[]){
 
     // *************************** set u0 ****************************
 
-    std::vector<double> u(num_local_row);
-    u.assign(num_local_row, 0); // initial guess = 0
+    std::vector<double> u(num_local_row, 0); // initial guess = 0
 
     // *************************** AMG - Setup ****************************
     // There are 3 ways to set options:
+    
     // 1- set them one by one
 //    int vcycle_num            = 10;
 //    double relative_tolerance = 1e-8;
@@ -86,12 +85,14 @@ int main(int argc, char* argv[]){
 
     // 3- use the default options
     saena::options opts;
-    saena::amg solver(&A);
+    saena::amg solver;
+    solver.set_matrix(&A);
+    solver.set_rhs(rhs);
 
     // *************************** AMG - Solve ****************************
 
-    solver.solve(u, rhs, &opts);
-
+    solver.solve(u, &opts);
+    
     // *************************** Destroy ****************************
 
     A.destroy();
