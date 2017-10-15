@@ -1210,7 +1210,7 @@ int saena_matrix::inverse_diag(double* x) {
 }
 
 
-int saena_matrix::jacobi(std::vector<double>& u, std::vector<double>& rhs) {
+int saena_matrix::jacobi(std::vector<double>& u, std::vector<double>& rhs, std::vector<double>& temp) {
 
     // todo: add std::vector<double> temp in the beginning of vcycle and pass it to jacobi,
     // todo: to avoid creating temp vector during each jacobi iteration.
@@ -1227,7 +1227,6 @@ int saena_matrix::jacobi(std::vector<double>& u, std::vector<double>& rhs) {
 
     auto omega = float(2.0/3);
     unsigned int i;
-    std::vector<double> temp(M);
     matvec(u, temp);
     for(i=0; i<M; i++){
         temp[i] -= rhs[i];

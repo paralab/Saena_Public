@@ -130,8 +130,8 @@ int randomVector3(std::vector<unsigned long>& V, long size, strength_matrix* S, 
     // to have one node with the highest weight possible, so that node will be a root and
     // consequently P and R won't be zero matrices. the median index is being chosen here.
     // todo: fix this later. doing this as follows will affect the aggregation in a bad way.
-//    if (V.size() != 0)
-//        V[ floor(V.size()/2) ] = size + 1;
+    if (V.size() != 0)
+        V[ floor(V.size()/2) ] = size + 1;
 
     return 0;
 }

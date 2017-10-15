@@ -2194,6 +2194,7 @@ int saena_object::vcycle(Grid* grid, std::vector<double>& u, std::vector<double>
     std::vector<double> rCoarse(grid->Ac.M);
     std::vector<double> uCorrCoarse(grid->Ac.M);
     std::vector<double> uCorr(grid->A->M);
+    std::vector<double> temp(grid->A->M);
 
     if(grid->A->active) {
 
@@ -2207,7 +2208,7 @@ int saena_object::vcycle(Grid* grid, std::vector<double>& u, std::vector<double>
         t1 = MPI_Wtime();
 
         for (i = 0; i < preSmooth; i++)
-            grid->A->jacobi(u, rhs);
+            grid->A->jacobi(u, rhs, temp);
 
         t2 = MPI_Wtime();
         func_name = "Vcycle: level " + std::to_string(grid->currentLevel) + ": pre";
@@ -2314,7 +2315,7 @@ int saena_object::vcycle(Grid* grid, std::vector<double>& u, std::vector<double>
         t1 = MPI_Wtime();
 
         for (i = 0; i < postSmooth; i++)
-            grid->A->jacobi(u, rhs);
+            grid->A->jacobi(u, rhs, temp);
 
         t2 = MPI_Wtime();
         func_name = "Vcycle: level " + std::to_string(grid->currentLevel) + ": post";

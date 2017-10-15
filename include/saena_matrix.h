@@ -120,7 +120,7 @@ public:
     int matrix_setup();
     int matvec(const std::vector<double>& v, std::vector<double>& w);
     int residual(std::vector<double>& u, std::vector<double>& rhs, std::vector<double>& res);
-    int jacobi(std::vector<double>& u, std::vector<double>& rhs);
+    int jacobi(std::vector<double>& u, std::vector<double>& rhs, std::vector<double>& temp);
     int inverse_diag(double* x);
     int destroy();
 };
