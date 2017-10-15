@@ -2297,8 +2297,8 @@ int saena_object::vcycle(Grid* grid, std::vector<double>& u, std::vector<double>
 //            for(i=0; i<u.size(); i++)
 //                std::cout << uCorr[i] << std::endl;}
 
-//        for (i = 0; i < u.size(); i++)
-//            u[i] -= uCorr[i];
+        for (i = 0; i < u.size(); i++)
+            u[i] -= uCorr[i];
 
         //    if(rank==1) std::cout << "\n6. correct: u -= uCorr, currentLevel = " << grid->currentLevel << std::endl;
         //    if(rank==1)

@@ -1222,40 +1222,17 @@ int saena_matrix::jacobi(std::vector<double>& u, std::vector<double>& rhs) {
 // 3. three = inverseDiag * two * omega
 // 4. four = u - three
 
-    int rank;
-    MPI_Comm_rank(comm, &rank);
-//    if(rank==0) printf("\njacobi:\n");
+//    int rank;
+//    MPI_Comm_rank(comm, &rank);
 
     auto omega = float(2.0/3);
     unsigned int i;
     std::vector<double> temp(M);
     matvec(u, temp);
-
-//    MPI_Barrier(comm);
-//    if(rank==0)
-//        std::cout << temp[M-1] << "   \ttemp" << std::endl << std::endl;
-//    MPI_Barrier(comm);
-
     for(i=0; i<M; i++){
-
-//        if(rank==0 && i == M-1)
-//            std::cout << rhs[i] << "   \trhs" << std::endl;
-
         temp[i] -= rhs[i];
         temp[i] *= invDiag[i] * omega;
-
-//        if(rank==0 && i == M-1)
-//            std::cout << invDiag[i] << "   \tinvDiag" << std::endl;
-
-//        if(rank==0 && i == M-1)
-//            std::cout << u[i] << "\tu before" << std::endl;
-
         u[i] -= temp[i];
-
-//        if(rank==0 && i == M-1)
-//            std::cout << u[i] << "\tu after" << std::endl;
-
-//        if(rank==0) printf("%u \t%f \n", i, temp[i]);
     }
     return 0;
 }
