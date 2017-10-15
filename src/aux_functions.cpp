@@ -292,3 +292,20 @@ int writeVectorToFiled(std::vector<double>& v, unsigned long vSize, std::string 
 
     return 0;
 }
+
+
+int generate_rhs(std::vector<double> &rhs, unsigned int size){
+
+    //Type of random number distribution
+    std::uniform_real_distribution<double> dist(0, 1); //(min, max)
+    //Mersenne Twister: Good quality random number generator
+    std::mt19937 rng;
+    //Initialize with non-deterministic seeds
+    rng.seed(std::random_device{}());
+
+    for (long i=0; i<size; i++){
+        rhs[i] = dist(rng);
+    }
+
+    return 0;
+}

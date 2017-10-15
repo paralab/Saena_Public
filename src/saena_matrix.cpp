@@ -467,6 +467,8 @@ int saena_matrix::repartition(){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+    last_M_shrink = Mbig;
+
     // *************************** find splitters ****************************
     // split the matrix row-wise by splitters, so each processor get almost equal number of nonzeros
 
@@ -702,10 +704,17 @@ int saena_matrix::repartition(){
     free(rOffset);
     free(sendBuf);
 
-//    if (rank==1){
-//        std::cout << "nnz_l = " << nnz_l << std::endl;
+//    MPI_Barrier(comm);
+//    if (rank==0){
+//        std::cout << "\nrank = " << rank << ", nnz_l = " << nnz_l << std::endl;
 //        for (int i=0; i<nnz_l; i++)
 //            std::cout << "i=" << i << "\t" << entry[i].row << "\t" << entry[i].col << "\t" << entry[i].val << std::endl;}
+//    MPI_Barrier(comm);
+//    if (rank==1){
+//        std::cout << "\nrank = " << rank << ", nnz_l = " << nnz_l << std::endl;
+//        for (int i=0; i<nnz_l; i++)
+//            std::cout << "i=" << i << "\t" << entry[i].row << "\t" << entry[i].col << "\t" << entry[i].val << std::endl;}
+//    MPI_Barrier(comm);
 
 //    MPI_Barrier(comm); printf("repartition: rank = %d, Mbig = %u, M = %u, nnz_g = %u, nnz_l = %u \n", rank, Mbig, M, nnz_g, nnz_l); MPI_Barrier(comm);
 
@@ -1059,7 +1068,7 @@ int saena_matrix::matrix_setup(){
 }
 
 
-int saena_matrix::matvec(std::vector<double>& v, std::vector<double>& w) {
+int saena_matrix::matvec(const std::vector<double>& v, std::vector<double>& w) {
 // todo: to reduce the communication during matvec, consider reducing number of columns during coarsening,
 // todo: instead of reducing general non-zeros, since that is what is communicated for matvec.
 
@@ -1134,17 +1143,27 @@ int saena_matrix::matvec(std::vector<double>& v, std::vector<double>& w) {
     }*/
 
     // remote loop
+    // todo: data race happens during "omp for" here, since the "for" loop splits based on the remote columns, but
+    // todo: w[row] are being computed in every iteration , which means different threads may access the same w[row].
+
 //    double t12 = MPI_Wtime();
-#pragma omp parallel
-    {
+//#pragma omp parallel
+//    {
         unsigned int iter = iter_remote_array[omp_get_thread_num()];
-#pragma omp for
+//#pragma omp for
         for (unsigned int i = 0; i < col_remote_size; ++i) {
             for (unsigned int j = 0; j < nnzPerCol_remote[i]; ++j, ++iter) {
+
+//                if(rank==0 && omp_get_thread_num()==0){
+//                    printf("thread = %d\n", omp_get_thread_num());
+//                    printf("%u \t%u \tind_rem = %lu, row = %lu \tcol = %lu \tvecVal = %f \n",
+//                           i, j, indicesP_remote[iter], row_remote[indicesP_remote[iter]],
+//                           col_remote[indicesP_remote[iter]], vecValues[col_remote[indicesP_remote[iter]]]);}
+
                 w[row_remote[indicesP_remote[iter]]] += values_remote[indicesP_remote[iter]] * vecValues[col_remote[indicesP_remote[iter]]];
             }
         }
-    }
+//    }
 
 //    double t22 = MPI_Wtime();
 //    time[2] += (t22-t12);
@@ -1193,6 +1212,9 @@ int saena_matrix::inverse_diag(double* x) {
 
 int saena_matrix::jacobi(std::vector<double>& u, std::vector<double>& rhs) {
 
+    // todo: add std::vector<double> temp in the beginning of vcycle and pass it to jacobi,
+    // todo: to avoid creating temp vector during each jacobi iteration.
+
 // Ax = rhs
 // u = u - (D^(-1))(Ax - rhs)
 // 1. B.matvec(u, one) --> put the value of matvec in one.
@@ -1200,14 +1222,40 @@ int saena_matrix::jacobi(std::vector<double>& u, std::vector<double>& rhs) {
 // 3. three = inverseDiag * two * omega
 // 4. four = u - three
 
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+//    if(rank==0) printf("\njacobi:\n");
+
     auto omega = float(2.0/3);
     unsigned int i;
     std::vector<double> temp(M);
     matvec(u, temp);
+
+//    MPI_Barrier(comm);
+//    if(rank==0)
+//        std::cout << temp[M-1] << "   \ttemp" << std::endl << std::endl;
+//    MPI_Barrier(comm);
+
     for(i=0; i<M; i++){
+
+//        if(rank==0 && i == M-1)
+//            std::cout << rhs[i] << "   \trhs" << std::endl;
+
         temp[i] -= rhs[i];
         temp[i] *= invDiag[i] * omega;
+
+//        if(rank==0 && i == M-1)
+//            std::cout << invDiag[i] << "   \tinvDiag" << std::endl;
+
+//        if(rank==0 && i == M-1)
+//            std::cout << u[i] << "\tu before" << std::endl;
+
         u[i] -= temp[i];
+
+//        if(rank==0 && i == M-1)
+//            std::cout << u[i] << "\tu after" << std::endl;
+
+//        if(rank==0) printf("%u \t%f \n", i, temp[i]);
     }
     return 0;
 }

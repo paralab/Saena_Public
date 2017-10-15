@@ -97,11 +97,11 @@ public:
     bool add_duplicates = false;
 
     bool active = true;
-    float cpu_shrink_thre1 = 0.01;
-    int cpu_shrink_thre2 = 4;
+    int cpu_shrink_thre1 = 400;
+    int cpu_shrink_thre2 = 8;
+    unsigned int last_M_shrink;
 
     saena_matrix();
-//    SaenaMatrix(MPI_Comm com);
     saena_matrix(MPI_Comm com);
     /**
      * @param[in] Aname is the pointer to the matrix
@@ -118,7 +118,7 @@ public:
     int setup_initial_data();
     int repartition();
     int matrix_setup();
-    int matvec(std::vector<double>& v, std::vector<double>& w);
+    int matvec(const std::vector<double>& v, std::vector<double>& w);
     int residual(std::vector<double>& u, std::vector<double>& rhs, std::vector<double>& res);
     int jacobi(std::vector<double>& u, std::vector<double>& rhs);
     int inverse_diag(double* x);
