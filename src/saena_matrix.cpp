@@ -156,6 +156,21 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
         }
     }
 
+    // if duplicates should be added together and last_element == first_element_neighbor
+    // then send only the value of last_element to the right neighbor and add it to the last elements' value.
+    // this has the reverse communication of the previous part.
+    double left_neighbor_last_val;
+    if((last_element == first_element_neighbor) && add_duplicates ){
+
+        if(rank != 0)
+            MPI_Recv(&left_neighbor_last_val, 1, MPI_DOUBLE, rank-1, 0, comm, MPI_STATUS_IGNORE);
+
+        if(rank!= nprocs-1)
+            MPI_Send(&last_element.val, 1, MPI_DOUBLE, rank+1, 0, comm);
+
+        data[2] += left_neighbor_last_val;
+    }
+
 //    if(rank==ran) std::cout << "after  sorting\n" << "data size = " << data.size() << std::endl;
 //    for(int i=0; i<data.size(); i++)
 //        if(rank==ran) std::cout << data[3*i] << "\t" << data[3*i+1] << "\t" << data[3*i+2] << std::endl;
@@ -205,11 +220,17 @@ int saena_matrix::set(unsigned int row, unsigned int col, double val){
     std::pair<std::set<cooEntry>::iterator, bool> p = data_coo.insert(temp_new);
 
     if (!p.second){
-        std::set<cooEntry>::iterator hint = p.first;
+        auto hint = p.first; // hint is std::set<cooEntry>::iterator
         hint++;
         data_coo.erase(p.first);
-        data_coo.insert(hint, temp_new);
+        // in the case of duplicate, if the new value is zero, remove the older one and don't insert the zero.
+        if(val != 0)
+            data_coo.insert(hint, temp_new);
     }
+
+    // if the entry is zero and it was not a duplicate, just erase it.
+    if(p.second && val == 0)
+        data_coo.erase(p.first);
 
     return 0;
 }
@@ -226,19 +247,22 @@ int saena_matrix::set(unsigned int* row, unsigned int* col, double* val, unsigne
     std::pair<std::set<cooEntry>::iterator, bool> p;
 
     for(unsigned int i=0; i<nnz_local; i++){
-        // todo: in the case of duplicate, if the new value is zero, remove that value from the matrix.
-        if(val[i] != 0){
-            temp_new = cooEntry(row[i], col[i], val[i]);
-            p = data_coo.insert(temp_new);
 
-            if (!p.second){
+        temp_new = cooEntry(row[i], col[i], val[i]);
+        p = data_coo.insert(temp_new);
 
-                std::set<cooEntry>::iterator hint = p.first;
-                hint++;
-                data_coo.erase(p.first);
+        if (!p.second){
+            auto hint = p.first; // hint is std::set<cooEntry>::iterator
+            hint++;
+            data_coo.erase(p.first);
+            // if the entry is zero and it was not a duplicate, just erase it.
+            if(val[i] != 0)
                 data_coo.insert(hint, temp_new);
-            }
         }
+
+        // if the entry is zero, erase it.
+        if(p.second && val[i] == 0)
+            data_coo.erase(p.first);
     }
 
     return 0;

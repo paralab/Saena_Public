@@ -97,8 +97,8 @@ public:
     bool add_duplicates = false;
 
     bool active = true;
-    int cpu_shrink_thre1 = 400;
-    int cpu_shrink_thre2 = 8;
+    int cpu_shrink_thre1 = 1;
+    int cpu_shrink_thre2 = 4;
     unsigned int last_M_shrink;
 
     saena_matrix();
