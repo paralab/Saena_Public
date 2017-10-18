@@ -271,6 +271,9 @@ int saena_matrix::set(unsigned int* row, unsigned int* col, double* val, unsigne
 
 int saena_matrix::set2(unsigned int row, unsigned int col, double val){
 
+    // todo: if there are duplicates with different values on two different processors, what should happen?
+    // todo: which one should be removed?
+
     cooEntry temp_old;
     cooEntry temp_new = cooEntry(row, col, val);
 
@@ -1227,17 +1230,23 @@ int saena_matrix::inverse_diag(double* x) {
     MPI_Comm_rank(comm, &rank);
 
     for(unsigned int i=0; i<nnz_l; i++){
-        if(entry[i].row == entry[i].col)
-            x[entry[i].row-split[rank]] = 1/entry[i].val;
+//        std::cout << i << "\t" << entry[i] << "\t" << nnz_l << std::endl;
+        if(entry[i].row == entry[i].col){
+            if(entry[i].val != 0)
+                x[entry[i].row-split[rank]] = 1/entry[i].val;
+            else{
+                // there is no zero entry in the matrix (sparse), but just to be sure this part is added.
+                if(rank==0) printf("Error: there is a zero diagonal element (at row index = %lu)\n", entry[i].row);
+                MPI_Finalize();
+                return -1;
+            }
+        }
     }
     return 0;
 }
 
 
 int saena_matrix::jacobi(std::vector<double>& u, std::vector<double>& rhs, std::vector<double>& temp) {
-
-    // todo: add std::vector<double> temp in the beginning of vcycle and pass it to jacobi,
-    // todo: to avoid creating temp vector during each jacobi iteration.
 
 // Ax = rhs
 // u = u - (D^(-1))(Ax - rhs)
@@ -1252,6 +1261,7 @@ int saena_matrix::jacobi(std::vector<double>& u, std::vector<double>& rhs, std::
     auto omega = float(2.0/3);
     unsigned int i;
     matvec(u, temp);
+#pragma omp parallel for
     for(i=0; i<M; i++){
         temp[i] -= rhs[i];
         temp[i] *= invDiag[i] * omega;

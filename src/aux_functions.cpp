@@ -306,7 +306,9 @@ int generate_rhs(std::vector<double> &rhs, unsigned int size){
     rng.seed(std::random_device{}());
 
     for (long i=0; i<size; i++){
-        rhs[i] = dist(rng);
+//        rhs[i] = dist(rng);
+        rhs[i] = (double)(i+1) /100;
+//        std::cout << i << "\t" << rhs[i] << std::endl;
     }
 
     return 0;
