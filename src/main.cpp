@@ -1,102 +1,147 @@
-
 #include <iostream>
-#include <algorithm>
+#include <vector>
+#include <saena_matrix.h>
+
 #include "mpi.h"
-
-#include "grid.h"
 #include "saena.hpp"
-
-
-using namespace std;
 
 int main(int argc, char* argv[]){
 
     MPI_Init(&argc, &argv);
-    MPI_Comm comm = MPI_COMM_WORLD;
-    int nprocs, rank;
-    MPI_Comm_size(comm, &nprocs);
-    MPI_Comm_rank(comm, &rank);
+//    MPI_Comm comm = MPI_COMM_WORLD;
+//    int nprocs, rank;
+//    MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
+//    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 
-    unsigned long i;
-//    int assert1, assert2, assert3;
+    // ********************* Copy From Here *********************
 
-    if(argc != 3)
-    {
-        if(rank == 0)
-        {
-            cout << "Usage: ./Saena <MatrixA> <rhs_vec>" << endl;
-            cout << "Matrix file should be in triples format." << endl;
+    // ********************* Set Matrix By forloops *********************
+
+/*
+    int iter = 0;
+    unsigned int size = 4;
+    std::vector<unsigned int> I(size*size);
+    std::vector<unsigned int> J(size*size);
+    std::vector<double> V(size*size);
+    for(unsigned int i=0; i<size; i++){
+        for(unsigned int j=0; j<size; j++) {
+            I[iter] = i;
+            J[iter] = j;
+            V[iter] = i + j + 1;
+            if(i == j) // make the matrix strictly diagonally dominant
+                V[iter] *= 4;
+            iter++;
         }
-        MPI_Finalize();
-        return -1;
     }
 
-    // *************************** initialize the matrix ****************************
+    saena::matrix A(MPI_COMM_WORLD); // comm: MPI_Communicator
 
-    char* file_name(argv[1]);
-    saena::matrix A (file_name, comm);
+    A.add_duplicates(false); // in case of duplicates add the values. otherwise ignore this line.
+
+    A.set(&*I.begin(), &*J.begin(), &*V.begin(), size*size); // size: size of I (or J or V, they obviously should have the same size)
+
     A.assemble();
 
-    unsigned int num_local_row = A.get_num_local_rows();
+//    print values
+//    for(auto i:A.get_internal_matrix()->entry)
+//        std::cout << i << std::endl;
+*/
 
-    // *************************** read the vector and set rhs ****************************
+    // ********************* Set Matrix By Laplacian *********************
 
-    MPI_Status status;
-    MPI_File fh;
-    MPI_Offset offset;
+    unsigned int size = 16; // set a square number
+    saena::matrix A(MPI_COMM_WORLD);
+    laplacian2D(&A, size, MPI_COMM_WORLD); // second argument is dof on each processor
+    A.assemble();
 
-    char* Vname(argv[2]);
-    int mpiopen = MPI_File_open(comm, Vname, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
-    if(mpiopen){
-        if (rank==0) cout << "Unable to open the rhs vector file!" << endl;
-        MPI_Finalize();
-        return -1;
-    }
+    //print values
+//    for(auto i:A.get_internal_matrix()->entry)
+//        std::cout << i << std::endl;
 
-    // define the size of v as the local number of rows on each process
-    std::vector <double> rhs(num_local_row);
+    // ********************* Set rhs and u *********************
 
-    // vector should have the following format: first line shows the value in row 0, second line shows the value in row 1
-    offset = A.get_internal_matrix()->split[rank] * 8; // value(double=8)
-    MPI_File_read_at(fh, offset, &(*(rhs.begin())), num_local_row, MPI_DOUBLE, &status);
+    std::vector<double> u(size,0);
+    std::vector<double> rhs(size);
+    for(int i=0; i<size; i++)
+        rhs[i] = i+1;
 
-//    int count;
-//    MPI_Get_count(&status, MPI_UNSIGNED_LONG, &count);
-    //printf("process %d read %d lines of triples\n", rank, count);
-    MPI_File_close(&fh);
+    // *************************** 1 - Saena Test ****************************
 
-    // *************************** set u0 ****************************
+/*
+    int vcycle_num            = 20;
+    double relative_tolerance = 1e-8;
+    std::string smoother      = "jacobi";
+    int preSmooth             = 3;
+    int postSmooth            = 3;
 
-    std::vector<double> u(num_local_row, 0); // initial guess = 0
+    saena::options opts(vcycle_num, relative_tolerance, smoother, preSmooth, postSmooth);
+//    saena::options opts; // use the default options.
 
-    // *************************** AMG - Setup ****************************
-    // There are 3 ways to set options:
-    
-    // 1- set them one by one
-//    int vcycle_num            = 10;
-//    double relative_tolerance = 1e-8;
-//    std::string smoother      = "jacobi";
-//    int preSmooth             = 2;
-//    int postSmooth            = 2;
-//    saena::options opts(vcycle_num, relative_tolerance, smoother, preSmooth, postSmooth);
-
-    // 2- read the options from file
-//    saena::options opts((char*)"options001.xml");
-
-    // 3- use the default options
-    saena::options opts;
     saena::amg solver;
-    solver.set_matrix(&A);
-    solver.set_rhs(rhs);
 
-    // *************************** AMG - Solve ****************************
+    solver.set_verbose(false);
+
+    solver.set_matrix(&A);
+
+    solver.set_rhs(rhs); // rhs should be std::vector double
 
     solver.solve(u, &opts);
-    
-    // *************************** Destroy ****************************
+
+    solver.destroy();
+*/
+
+    // *************************** 2 - Matvec Test ****************************
+    // note: this only works for np = 1.
+
+/*
+    std::vector<double> w1(size);
+    saena_matrix* B = A.get_internal_matrix();
+    B->matvec(rhs, w1);
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(rank==0){
+        std::cout << "\nSaena matvec: rank = " << rank << std::endl;
+        for(auto i:w1)
+            std::cout << i << std::endl;}
+
+    std::vector<double> w2(size,0);
+    for(int i=0; i<B->nnz_l; i++)
+        w2[B->entry[i].row] += B->entry[i].val * rhs[B->entry[i].col];
+
+    MPI_Barrier(MPI_COMM_WORLD);
+    if(rank==0) {
+        std::cout << "\nmanual matvec: rank = " << rank << std::endl;
+        for (auto i:w2)
+            std::cout << i << std::endl;}
+*/
+
+ // *************************** 3 - Jacobi Test ****************************
+
+/*
+    double dot;
+    std::vector<double> temp(size);
+    std::vector<double> res(size);
+    saena_matrix* B = A.get_internal_matrix();
+    u.assign(size, 0);
+
+    for(int i=0; i<10; i++){
+//        std::cout << "\nfirst jacobi:" << std::endl;
+        B->jacobi(u, rhs, temp);
+//        for(auto j:u)
+//            std::cout << j << std::endl;
+
+        B->residual(u, rhs, res);
+        dotProduct(res, res, &dot, MPI_COMM_WORLD);
+        std::cout << "\niter: " << i+1 << ", res_norm = " << sqrt(dot) << std::endl;
+    }
+    std::cout << std::endl;
+*/
+
+// *************************** Destroy ****************************
 
     A.destroy();
-    solver.destroy();
-    MPI_Finalize();
+
+// *************************** Copy Up To Here ****************************
+
     return 0;
 }
