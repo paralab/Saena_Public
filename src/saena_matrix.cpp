@@ -753,15 +753,23 @@ int saena_matrix::matrix_setup(){
     // before using this function these variables of SaenaMatrix should be set:
     // "Mbig", "M", "nnz_g", "split", "entry",
 
-
     if(active) {
         int nprocs, rank;
         MPI_Comm_size(comm, &nprocs);
         MPI_Comm_rank(comm, &rank);
-//        MPI_Barrier(comm); printf("in matrix_setup: rank = %d, Mbig = %u, M = %u, nnz_g = %u, nnz_l = %u \n",
-//                                  rank, Mbig, M, nnz_g, nnz_l); MPI_Barrier(comm);
+        bool verbose_matrx_setup = false;
+
+        if(verbose_matrx_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, Mbig = %u, M = %u, nnz_g = %u, nnz_l = %u \n", rank, Mbig, M, nnz_g, nnz_l);
+            MPI_Barrier(comm);
+        }
 
         freeBoolean = true; // use this parameter to know if destructor for SaenaMatrix class should free the variables or not.
+
+//        for(unsigned int i=0; i<nnz_l; i++)
+//            if(rank==4) printf("%u \t%lu \t%lu \t%f \n", i, entry[i].row, entry[i].col, entry[i].val);
+
 
 //        if (rank==0){
 //            std::cout << std::endl << "split:" << std::endl;
@@ -772,9 +780,14 @@ int saena_matrix::matrix_setup(){
 
         // *************************** set the inverse of diagonal of A (for smoothers) ****************************
 
+        if(verbose_matrx_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, invDiag \n", rank);
+            MPI_Barrier(comm);
+        }
+
         invDiag.resize(M);
-        double *invDiag_p = &(*(invDiag.begin()));
-        inverse_diag(invDiag_p);
+        inverse_diag(invDiag);
 
 //        if(rank==1){
 //            for(unsigned int i=0; i<M; i++)
@@ -803,6 +816,12 @@ int saena_matrix::matrix_setup(){
         // *************************** set and exchange local and remote elements ****************************
         // local elements are elements that correspond to vector elements which are local to this process,
         // and, remote elements correspond to vector elements which should be received from another processes
+
+        if(verbose_matrx_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, local remote1 \n", rank);
+            MPI_Barrier(comm);
+        }
 
         col_remote_size = 0;
         nnz_l_local = 0;
@@ -893,6 +912,12 @@ int saena_matrix::matrix_setup(){
             } // for i
         }
 
+        if(verbose_matrx_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, local remote2 \n", rank);
+            MPI_Barrier(comm);
+        }
+
 //        MPI_Barrier(comm); printf("rank = %d yyyyyyyyyyyyyyy\n", rank);MPI_Barrier(comm);
 
         // don't receive anything from yourself
@@ -931,6 +956,12 @@ int saena_matrix::matrix_setup(){
 
         //    if (rank==0) std::cout << "rank=" << rank << ", numRecvProc=" << numRecvProc << ", numSendProc=" << numSendProc << std::endl;
 
+        if(verbose_matrx_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, local remote3 \n", rank);
+            MPI_Barrier(comm);
+        }
+
         vdispls.resize(nprocs);
         rdispls.resize(nprocs);
         vdispls[0] = 0;
@@ -958,6 +989,12 @@ int saena_matrix::matrix_setup(){
             }
         */
 
+        if(verbose_matrx_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, local remote4 \n", rank);
+            MPI_Barrier(comm);
+        }
+
         // change the indices from global to local
         for (unsigned int i = 0; i < vIndexSize; i++)
             vIndex[i] -= split[rank];
@@ -979,6 +1016,12 @@ int saena_matrix::matrix_setup(){
 
         // *************************** find start and end of each thread for matvec ****************************
         // also, find nnz per row for local and remote matvec
+
+        if(verbose_matrx_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, thread1 \n", rank);
+            MPI_Barrier(comm);
+        }
 
 #pragma omp parallel
         {
@@ -1044,7 +1087,12 @@ int saena_matrix::matrix_setup(){
                         std::cout  << "nnz_l=" << nnz_l << ", iter_remote=" << iter_remote << ", iter_local=" << iter_local << std::endl;
                     }*/
         }
-        //    printf("rank = %d\t 22222222222222222\n", rank);
+
+        if(verbose_matrx_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, thread2 \n", rank);
+            MPI_Barrier(comm);
+        }
 
         //scan of iter_local_array
         for (int i = 1; i < num_threads + 1; i++)
@@ -1088,6 +1136,12 @@ int saena_matrix::matrix_setup(){
         //        indicesP[i] = i;
         //    std::sort(indicesP, &indicesP[nnz_l], sort_indices2(&*entry.begin()));
 
+        if(verbose_matrx_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, done \n", rank);
+            MPI_Barrier(comm);
+        }
+
     } // end of if(active)
 
 
@@ -1098,6 +1152,8 @@ int saena_matrix::matrix_setup(){
 int saena_matrix::matvec(const std::vector<double>& v, std::vector<double>& w) {
 // todo: to reduce the communication during matvec, consider reducing number of columns during coarsening,
 // todo: instead of reducing general non-zeros, since that is what is communicated for matvec.
+
+//    printf("matvec\n");
 
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
@@ -1224,13 +1280,14 @@ int saena_matrix::residual(std::vector<double>& u, std::vector<double>& rhs, std
 }
 
 
-int saena_matrix::inverse_diag(double* x) {
+int saena_matrix::inverse_diag(std::vector<double>& x) {
     int nprocs, rank;
 //    MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
     for(unsigned int i=0; i<nnz_l; i++){
-//        std::cout << i << "\t" << entry[i] << "\t" << nnz_l << std::endl;
+//        if(rank==4) printf("%u \t%lu \t%lu \t%f \n", i, entry[i].row, entry[i].col, entry[i].val);
+
         if(entry[i].row == entry[i].col){
             if(entry[i].val != 0)
                 x[entry[i].row-split[rank]] = 1/entry[i].val;
