@@ -36,6 +36,7 @@ solver.set_rhs(rhs); // rhs should be std::vector double
 // *************************** AMG - Solve ****************************
 
 // u is the initial guess. after calling the solve function, it will be solution. it should be std::vector double
+
 // there are two options for solving the system: 1- solve and 2- solve_pcg
   
 // solver.solve(u, &opts); // AMG as a solver
