@@ -13,7 +13,7 @@ To use Saena inside a library the following commands can be used:
 
 saena::matrix A(comm); // comm: MPI_Communicator
 
-A.add_duplicates(true); // in case of duplicates add the values. otherwise ignore this line.
+A.add_duplicates(true); // in case of duplicates add the values. For removing duplicates ignore this line.
 
 A.set(I, J, V, size); // size: size of I (or J or V, they obviously should have the same size)
 
@@ -34,8 +34,11 @@ solver.set_rhs(rhs); // rhs should be std::vector double
 // *************************** AMG - Solve ****************************
 
 // u is the initial guess. after calling the solve function, it will be solution. it should be std::vector double
+// there are two options for solving the system: 1- solve and 2- solve_pcg
   
-solver.solve(u, &opts); 
+// solver.solve(u, &opts); // AMG as a solver
+
+solver.solve_pcg(u, &opts); // AMG as a preconditioner
 
 // *************************** Destroy ****************************
 
