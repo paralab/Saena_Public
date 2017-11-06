@@ -9,20 +9,20 @@ class Grid;
 
 class saena_object {
 public:
-    int max_level = 15; // fine grid is level 0.
+    int max_level = 20; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 10;
     // coarsening will stop if the number of rows of last level divided by previous level is lower this value.
     double row_reduction_threshold = 0.90;
-    int vcycle_num = 40;
+    int vcycle_num = 200;
     double relative_tolerance = 1e-8;
-    std::string smoother = "jacobi";
+    std::string smoother = "chebyshev";
     int preSmooth  = 3;
     int postSmooth = 3;
     float connStrength = 0.5; // connection strength parameter
     bool doSparsify = false;
     std::vector<Grid> grids;
-    int CG_max_iter = 40;
+    int CG_max_iter = 200;
     double CG_tol = 1e-12;
     bool verbose = false;
     bool repartition = true;
@@ -39,8 +39,10 @@ public:
     int create_prolongation(saena_matrix* A, std::vector<unsigned long>& aggregate, prolong_matrix* P);
     int coarsen(saena_matrix* A, prolong_matrix* P, restrict_matrix* R, saena_matrix* Ac);
     int solve_coarsest(saena_matrix* A, std::vector<double>& u, std::vector<double>& rhs);
+    int smooth(Grid* grid, std::string smoother, std::vector<double>& u, std::vector<double>& rhs, int iter);
     int vcycle(Grid* grid, std::vector<double>& u, std::vector<double>& rhs);
     int solve(std::vector<double>& u);
+    int solve_pcg(std::vector<double>& u);
     int set_repartition_rhs(std::vector<double>& rhs);
     int repartition_u(std::vector<double>& u);
     int repartition_back_u(std::vector<double>& u);

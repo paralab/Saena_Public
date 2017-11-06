@@ -5,7 +5,6 @@ cmake_minimum_required(VERSION 2.8)
 project(Saena)
 
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11 -fopenmp")
 #set(CMAKE_CXX_STANDARD 11)
 
 find_package(OpenMP)
@@ -19,42 +18,54 @@ include_directories(${MPI_INCLUDE_PATH})
 
 include_directories(
         include
-        include/usort
+        external/usort/include
+        external/pugixml/include
+
+        build/elemental_install/include
+        build/external/Elemental-0.87.7/include
+        external/Elemental-0.87.7/include
+        external/Elemental-0.87.7/external/suite_sparse/include
 )
 
-set(SOURCE_FILES
-        src/main.cpp
-        include/saena_matrix.h
-        src/saena_matrix.cpp
-        include/saena_object.h
-        src/saena_object.cpp
-        include/strength_matrix.h
-        src/strength_matrix.cpp
-        include/prolong_matrix.h
-        src/prolong_matrix.cpp
-        include/restrict_matrix.h
-        src/restrict_matrix.cpp
-        include/aux_functions.h
-        src/aux_functions.cpp
-        include/grid.h
-        src/grid.cpp
-        include/saena.hpp
-        src/saena.cpp
-        src/pugixml.cpp
+add_subdirectory(external/Elemental-0.87.7)
+include_directories("${PROJECT_BINARY_DIR}/external/El/include")
+include_directories(${MPI_CXX_INCLUDE_PATH})
 
-        include/usort/binUtils.h
-        include/usort/dtypes.h
-        include/usort/indexHolder.h
-        include/usort/ompUtils.h
-        include/usort/ompUtils.tcc
-        include/usort/parUtils.h
-        include/usort/parUtils.tcc
-        include/usort/seqUtils.h
-        include/usort/seqUtils.tcc
-        include/usort/sort_profiler.h
-        src/usort/binUtils.cpp
-        src/usort/parUtils.cpp
-        src/usort/sort_profiler.cpp
+set(SOURCE_FILES
+        include/saena.hpp
+        include/saena_matrix.h
+        include/saena_object.h
+        include/strength_matrix.h
+        include/prolong_matrix.h
+        include/restrict_matrix.h
+        include/aux_functions.h
+        include/grid.h
+
+        src/main.cpp
+        src/saena_matrix.cpp
+        src/saena_object.cpp
+        src/strength_matrix.cpp
+        src/prolong_matrix.cpp
+        src/restrict_matrix.cpp
+        src/aux_functions.cpp
+        src/grid.cpp
+        src/saena.cpp
+
+        external/pugixml/src/pugixml.cpp
+
+        external/usort/include/binUtils.h
+        external/usort/include/dtypes.h
+        external/usort/include/indexHolder.h
+        external/usort/include/ompUtils.h
+        external/usort/include/ompUtils.tcc
+        external/usort/include/parUtils.h
+        external/usort/include/parUtils.tcc
+        external/usort/include/seqUtils.h
+        external/usort/include/seqUtils.tcc
+        external/usort/include/sort_profiler.h
+        external/usort/src/binUtils.cpp
+        external/usort/src/parUtils.cpp
+        external/usort/src/sort_profiler.cpp
         )
 
 add_executable(Saena ${SOURCE_FILES})
@@ -69,4 +80,4 @@ if(MPI_LINK_FLAGS)
             LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
 
-target_link_libraries(Saena ${MPI_LIBRARIES})
+target_link_libraries(Saena ${MPI_LIBRARIES} El)
