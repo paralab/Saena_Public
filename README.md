@@ -1,13 +1,13 @@
 # Saena_Public
 Instructions:
 
-1- extract external.tar.gz. to the same directory. There will be a folder called external, which external libraries inside it.
+1- extract external.tar.gz. to the same directory. There will be a folder called external, which includes three external libraries.
 
 2- mkdir build and cd into build
 
 3- cmake ..
 
-Note: Elemental is an external library inside Saena and will be install inside system folders. To avoid that, the following argument can be passed to the cmake command to specify the installation path:
+Note: Elemental is an external library inside Saena and will be installed inside system folders. To avoid that, the following argument can be passed to the cmake command to specify the installation path:
 
 cmake -D CMAKE_INSTALL_PREFIX="./elemental_install" ..
 
@@ -29,7 +29,7 @@ To use Saena inside a library the following commands can be used:
 
 saena::matrix A(comm); // comm: MPI_Communicator
 
-A.add_duplicates(true); // in case of duplicates add the values. For removing duplicates ignore this line.
+A.add_duplicates(true); // in case of duplicates add the values. For removing duplicates remove this line.
 
 A.set(I, J, V, size); // size: size of I (or J or V, they obviously should have the same size)
 
@@ -43,7 +43,7 @@ saena::options opts; // use the default options.
 
 saena::amg solver;
 
-// solver.set_multigrid_max_level(0); // 0 means only use direct solver, so no multigrid will be used. otherwise ignore this line.
+// solver.set_multigrid_max_level(0); // 0 means only use direct solver, so no multigrid will be used. otherwise remove this line.
 
 solver.set_matrix(&A);
 
