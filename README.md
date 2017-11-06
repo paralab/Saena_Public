@@ -27,7 +27,7 @@ saena::options opts; // use the default options.
 
 saena::amg solver;
 
-// solver.set_multigrid_max_level(0); // 0 means only use direct solver, so no multigrid will be used.
+// solver.set_multigrid_max_level(0); // 0 means only use direct solver, so no multigrid will be used. otherwise ignore this line.
 
 solver.set_matrix(&A);
 
