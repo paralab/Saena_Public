@@ -15,10 +15,6 @@ In the above example, Elemental will be installed inside a directory called "ele
 
 4- make
 
-5- The main.cpp file in src folder is an example how to use Saena as a stand-alone solver. It reads the matrix and rhs from file. This is one example how to execute it:
-
-mpirun -np 4 ./Saena
-
 --------------------------------------------------------------------------------------------------
 
 To use Saena inside a library the following commands can be used:
