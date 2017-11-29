@@ -60,3 +60,10 @@ solver.solve_pcg(u, &opts); // AMG as a preconditioner
 A.destroy();
 
 solver.destroy();
+
+--------------------------------------------------------------------------------------------------
+
+Some other documentation:
+
+solver.solve_pcg_update(u, &opts, &B)
+if solver is made based of a matrix, let's call it A, and there is an updated version of A, let's call it B, and one wants to solve B*x = rhs, instead of A*x = rhs, then solve_pcg_update() can be used and B can be passed as the third argument.
