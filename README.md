@@ -67,4 +67,4 @@ Some other documentation:
 
 solver.solve_pcg_update(u, &opts, &B):
 
-If solver is made based on a matrix, let's call it A, and there is an updated version of A, let's call it B, and one wants to solve B*x = rhs, instead of A*x = rhs, then solve_pcg_update() can be used and B can be passed as the third argument.
+If solver is made based on a matrix, let's call it A, and there is an updated version of A, let's call it B, and one wants to solve *Bx = rhs*, instead of *Ax = rhs*, then solve_pcg_update() can be used and B can be passed as the third argument.
