@@ -481,12 +481,30 @@ int saena_matrix::destroy(){
 }
 
 
+int saena_matrix::erase(){
+//    data.clear();
+//    data.shrink_to_fit();
+    entry.clear();
+    // todo: is it better to free the memory or it is good to keep the memory saved for performance?
+    entry.shrink_to_fit();
+
+    M = 0;
+    Mbig = 0;
+    nnz_g = 0;
+    nnz_l = 0;
+    
+    return 0;
+}
+
+
 int saena_matrix::repartition(){
     // before using this function these variables of SaenaMatrix should be set:
     // Mbig", "nnz_g", "initial_nnz_l", "data"
 
     // the following variables of SaenaMatrix class will be set in this function:
     // "nnz_l", "M", "split", "entry"
+
+    bool repartition_verbose = false;
 
     // if set functions are used the following function should be used.
     if(!read_from_file)
@@ -495,6 +513,8 @@ int saena_matrix::repartition(){
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+
+    if(repartition_verbose && rank==0) printf("repartition - step 1!\n");
 
     last_M_shrink = Mbig;
 
@@ -552,6 +572,8 @@ int saena_matrix::repartition(){
             std::cout << splitOffset[i] << std::endl;
     }*/
 
+    if(repartition_verbose && rank==0) printf("repartition - step 2!\n");
+
     unsigned long* firstSplit = (unsigned long*)malloc(sizeof(unsigned long)*(n_buckets+1));
     firstSplit[0] = 0;
     for(unsigned int i=1; i<n_buckets; i++){
@@ -606,6 +628,8 @@ int saena_matrix::repartition(){
             std::cout << H_g_scan[i] << std::endl;
     }*/
 
+    if(repartition_verbose && rank==0) printf("repartition - step 3!\n");
+
     long procNum = 0;
     split.resize(nprocs+1);
     split[0]=0;
@@ -630,6 +654,8 @@ int saena_matrix::repartition(){
 
     // set the number of rows for each process
     M = split[rank+1] - split[rank];
+
+    if(repartition_verbose && rank==0) printf("repartition - step 4!\n");
 
 //    unsigned int M_min_global;
 //    MPI_Allreduce(&M, &M_min_global, 1, MPI_UNSIGNED, MPI_MIN, comm);
@@ -685,6 +711,8 @@ int saena_matrix::repartition(){
             std::cout << rOffset[i] << std::endl;
     }*/
 
+    if(repartition_verbose && rank==0) printf("repartition - step 5!\n");
+
     long procOwner;
     unsigned int bufTemp;
     cooEntry* sendBuf = (cooEntry*)malloc(sizeof(cooEntry)*initial_nnz_l);
@@ -725,6 +753,8 @@ int saena_matrix::repartition(){
 //    cooEntry* entryP = &entry[0];
     entry.resize(nnz_l);
 
+    if(repartition_verbose && rank==0) printf("repartition - step 6!\n");
+
     MPI_Alltoallv(sendBuf, sendSizeArray, sOffset, cooEntry::mpi_datatype(), &entry[0], recvSizeArray, rOffset, cooEntry::mpi_datatype(), comm);
 
     free(sendSizeArray);
@@ -746,6 +776,8 @@ int saena_matrix::repartition(){
 //    MPI_Barrier(comm);
 
 //    MPI_Barrier(comm); printf("repartition: rank = %d, Mbig = %u, M = %u, nnz_g = %u, nnz_l = %u \n", rank, Mbig, M, nnz_g, nnz_l); MPI_Barrier(comm);
+
+    if(repartition_verbose && rank==0) printf("repartition - step 7!\n");
 
     return 0;
 }
@@ -1140,13 +1172,19 @@ int saena_matrix::matrix_setup() {
 
         if(verbose_matrix_setup) {
             MPI_Barrier(comm);
-            printf("matrix_setup: rank = %d, done \n", rank);
+            printf("matrix_setup: rank = %d, find_eig \n", rank);
             MPI_Barrier(comm);
         }
 
         // todo: execute this line only if the smoother is set to chebyshev.
         // set eig_max here
         find_eig();
+
+        if(verbose_matrix_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, done \n", rank);
+            MPI_Barrier(comm);
+        }
 
     } // end of if(active)
     return 0;
@@ -1169,7 +1207,7 @@ int saena_matrix::matvec(const std::vector<double>& v, std::vector<double>& w) {
 
     // put the values of the vector in vSend, for sending to other processors
 #pragma omp parallel for
-    for(unsigned int i=0;i<vIndexSize;i++)
+    for(unsigned int i = 0; i < vIndexSize; i++)
         vSend[i] = v[( vIndex[i] )];
 //    double t20 = MPI_Wtime();
 //    time[0] += (t20-t10);
@@ -1203,12 +1241,13 @@ int saena_matrix::matvec(const std::vector<double>& v, std::vector<double>& w) {
 
 //    double t11 = MPI_Wtime();
     // local loop
-    std::fill(&*w.begin(), &*w.end(), 0);
+//    std::fill(&*w.begin(), &*w.end(), 0);
 #pragma omp parallel
     {
         long iter = iter_local_array[omp_get_thread_num()];
 #pragma omp for
         for (unsigned int i = 0; i < M; ++i) {
+            w[i] = 0;
             for (unsigned int j = 0; j < nnzPerRow_local[i]; ++j, ++iter) {
                 w[i] += values_local[indicesP_local[iter]] * v[col_local[indicesP_local[iter]] - split[rank]];
             }
@@ -1377,7 +1416,7 @@ int saena_matrix::find_eig() {
     El::Zero( A );
     A.Reserve(nnz_l);
     for(unsigned long i = 0; i < nnz_l; i++){
-//        if(rank==1) std::cout << entry[i].row << "\t" << entry[i].col << "\t" << entry[i].val << std::endl;
+//        if(rank==1) printf("%lu \t%lu \t%f \t%lu \t%f \n", entry[i].row, entry[i].col, entry[i].val, entry[i].row - split[rank], invDiag[entry[i].row - split[rank]]);
         A.QueueUpdate(entry[i].row, entry[i].col, entry[i].val * invDiag[entry[i].row - split[rank]]);
     }
     A.ProcessQueues();
@@ -1391,7 +1430,10 @@ int saena_matrix::find_eig() {
     schurCtrl.time = false;
 //    schurCtrl.hessSchurCtrl.progress = true;
 //    El::Schur( A, w, V, schurCtrl ); //  eigenvectors will be saved in V.
+
+//    printf("before Schur!\n");
     El::Schur( A, w, schurCtrl ); // eigenvalues will be saved in w.
+//    printf("after Schur!\n");
 //    MPI_Barrier(comm); El::Print( w, "eigenvalues:" ); MPI_Barrier(comm);
 
     eig_max_diagxA = w.Get(0,0).real();

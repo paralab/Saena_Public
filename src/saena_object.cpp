@@ -112,6 +112,12 @@ int saena_object::setup(saena_matrix* A) {
 
     MPI_Bcast(&max_level, 1, MPI_INT, 0, grids[0].A->comm);
     grids.resize(max_level);
+
+    if(verbose) if(rank==0){
+            printf("_____________________________\n\n");
+            printf("number of levels = %d, (the finest level is 0)\n", max_level);
+        }
+
 //    printf("\nrank = %d, end of setup() \n", rank);
     return 0;
 }
@@ -2106,15 +2112,16 @@ int saena_object::solve_coarsest(saena_matrix* A, std::vector<double>& u, std::v
     // this is CG.
     // u is zero in the beginning. At the end, it is the solution.
 
-//    printf("start of solve_coarsest()\n");
-
     MPI_Comm comm = A->comm;
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
+    MPI_Comm_rank(comm, &rank);
     long i, j;
+    bool verbose_solve_coarse = false;
+
+    if(verbose_solve_coarse && rank==0) printf("start of solve_coarsest()\n");
 
     // res = A*u - rhs
-    MPI_Comm_rank(comm, &rank);
     std::vector<double> res(A->M);
     A->residual(u, rhs, res);
 
@@ -2160,8 +2167,8 @@ int saena_object::solve_coarsest(saena_matrix* A, std::vector<double>& u, std::v
             u[j] += factor * dir[j];
 //        if(rank==1){
 //            std::cout << "\nsolveCoarsest: u" << std::endl;
-//            for(auto i:u)
-//                std::cout << i << std::endl;}
+//            for(i = 0; i < u.size(); i++)
+//                printf("%.9f\n", u[i]);}
 
         // update residual
         for(j = 0; j < A->M; j++)
@@ -2177,6 +2184,7 @@ int saena_object::solve_coarsest(saena_matrix* A, std::vector<double>& u, std::v
 //        if(rank==0) std::cout << "absolute norm(res) = " << sqrt(dot) << "\t( r_i / r_0 ) = " << sqrt(dot)/initialNorm << "  \t( r_i / r_i-1 ) = " << sqrt(dot)/sqrt(dot_prev) << std::endl;
 //        if(rank==0) std::cout << sqrt(dot)/initialNorm << std::endl;
 
+        if(verbose_solve_coarse && rank==0) std::cout << "sqrt(dot)/sqrt(initial_dot) = " << sqrt(dot)/sqrt(initial_dot) << "  \tCG_tol = " << CG_tol << std::endl;
         if (dot/initial_dot < CG_tol*CG_tol)
             break;
 
@@ -2194,8 +2202,7 @@ int saena_object::solve_coarsest(saena_matrix* A, std::vector<double>& u, std::v
         i++;
     }
 
-//    printf("CG iterations = %lu\n \n", --i);
-//    if(rank==0) std::cout << "end of solve_coarsest!" << std::endl;
+    if(verbose_solve_coarse && rank==0) printf("end of solve_coarsest! it took CG iterations = %ld\n \n", --i);
 
     return 0;
 }
@@ -2536,6 +2543,7 @@ int saena_object::solve_pcg(std::vector<double>& u){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
     unsigned long i, j;
+    bool solve_verbose = false;
 
     // ************** check u size **************
 
@@ -2548,9 +2556,13 @@ int saena_object::solve_pcg(std::vector<double>& u){
         return -1;
     }
 
+    if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: check u size!\n");
+
     // ************** repartition u **************
 
     repartition_u(u);
+
+    if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: repartition u!\n");
 
     // ************** solve **************
 
@@ -2587,6 +2599,8 @@ int saena_object::solve_pcg(std::vector<double>& u){
     std::vector<double> rho(grids[0].A->M, 0);
     vcycle(&grids[0], rho, r);
 
+    if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: first vcycle!\n");
+
 //    for(i = 0; i < r.size(); i++)
 //        printf("rho[%lu] = %f,\t r[%lu] = %f \n", i, rho[i], i, r[i]);
 
@@ -2612,6 +2626,7 @@ int saena_object::solve_pcg(std::vector<double>& u){
         if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
             break;
 
+        if(verbose) if(rank==0) printf("_______________________________ \n\n***** Vcycle %lu *****\n", i+1);
         rho.assign(rho.size(), 0);
         vcycle(&grids[0], rho, r);
         dotProduct(r, rho, &beta, comm);
@@ -2635,9 +2650,13 @@ int saena_object::solve_pcg(std::vector<double>& u){
         std::cout << "******************************************************" << std::endl;
     }
 
+    if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: solve!\n");
+
     // ************** repartition u back **************
 
     repartition_back_u(u);
+
+    if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: repartition back u!\n");
 
     return 0;
 }
@@ -2684,10 +2703,10 @@ int saena_object::solve_pcg_update(std::vector<double>& u, saena_matrix* A_new){
 //    dot(rhs, rhs, &temp, comm);
 //    if(rank==0) std::cout << "norm(rhs) = " << sqrt(temp) << std::endl;
 
-    std::vector<double> r(grids[0].A->M);
-    grids[0].A_new->residual(u, grids[0].rhs, r);
+    std::vector<double> res(grids[0].A->M);
+    grids[0].A_new->residual(u, grids[0].rhs, res);
     double initial_dot, current_dot;
-    dotProduct(r, r, &initial_dot, comm);
+    dotProduct(res, res, &initial_dot, comm);
     if(rank==0) std::cout << "******************************************************" << std::endl;
     if(rank==0) printf("\ninitial residual = %e \n\n", sqrt(initial_dot));
 
@@ -2695,8 +2714,8 @@ int saena_object::solve_pcg_update(std::vector<double>& u, saena_matrix* A_new){
     if(max_level == 0){
 
         vcycle(&grids[0], u, grids[0].rhs);
-        grids[0].A_new->residual(u, grids[0].rhs, r);
-        dotProduct(r, r, &current_dot, comm);
+        grids[0].A_new->residual(u, grids[0].rhs, res);
+        dotProduct(res, res, &current_dot, comm);
 
         if(rank==0){
             std::cout << "******************************************************" << std::endl;
@@ -2711,12 +2730,12 @@ int saena_object::solve_pcg_update(std::vector<double>& u, saena_matrix* A_new){
     }
 
     std::vector<double> rho(grids[0].A->M, 0);
-    vcycle(&grids[0], rho, r);
+    vcycle(&grids[0], rho, res);
 
     if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: first vcycle!\n");
 
-//    for(i = 0; i < r.size(); i++)
-//        printf("rho[%lu] = %f,\t r[%lu] = %f \n", i, rho[i], i, r[i]);
+//    for(i = 0; i < res.size(); i++)
+//        printf("rho[%lu] = %f,\t res[%lu] = %f \n", i, rho[i], i, res[i]);
 
     std::vector<double> h(grids[0].A->M);
     std::vector<double> p(grids[0].A->M);
@@ -2725,7 +2744,7 @@ int saena_object::solve_pcg_update(std::vector<double>& u, saena_matrix* A_new){
     double rho_res, pdoth, alpha, beta;
     for(i=0; i<vcycle_num; i++){
         grids[0].A_new->matvec(p, h);
-        dotProduct(r, rho, &rho_res, comm);
+        dotProduct(res, rho, &rho_res, comm);
         dotProduct(p, h, &pdoth, comm);
         alpha = rho_res / pdoth;
 //        printf("rho_res = %e, pdoth = %e, alpha = %f \n", rho_res, pdoth, alpha);
@@ -2733,16 +2752,16 @@ int saena_object::solve_pcg_update(std::vector<double>& u, saena_matrix* A_new){
 #pragma omp parallel for
         for(j = 0; j < u.size(); j++){
             u[j] -= alpha * p[j];
-            r[j] -= alpha * h[j];
+            res[j] -= alpha * h[j];
         }
 
-        dotProduct(r, r, &current_dot, comm);
+        dotProduct(res, res, &current_dot, comm);
         if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
             break;
 
         rho.assign(rho.size(), 0);
-        vcycle(&grids[0], rho, r);
-        dotProduct(r, rho, &beta, comm);
+        vcycle(&grids[0], rho, res);
+        dotProduct(res, rho, &beta, comm);
         beta /= rho_res;
 
 #pragma omp parallel for
@@ -2937,6 +2956,7 @@ int saena_object::solve(std::vector<double>& u){
         printf("\nonly using the direct solver! \n");
 
     for(i=0; i<vcycle_num; i++){
+        if(rank==0) printf("Vcycle %lu \n", i);
         vcycle(&grids[0], u, grids[0].rhs);
         grids[0].A->residual(u, grids[0].rhs, r);
         dotProduct(r, r, &current_dot, comm);
@@ -3262,7 +3282,7 @@ int saena_object::repartition_u(std::vector<double>& u0){
 //    int ran = 3;
 
     if(repartition){
-        // make a copy of u0 to be used in Alltoall as sendbuf. u0 itself will be recvbuf there.
+        // make a copy of u0 to be used in Alltoallv as sendbuf. u0 itself will be recvbuf there.
         std::vector<double> u_temp = u0;
 
         // ************** repartition u, based on A.split **************
@@ -3270,12 +3290,11 @@ int saena_object::repartition_u(std::vector<double>& u0){
         std::vector<int> rdispls(nprocs);
         rdispls[0] = 0;
         for(i = 1; i < nprocs; i++)
-            rdispls[i] = grids[0].rcount[i-1] + rdispls[i-1];
+            rdispls[i] = rdispls[i-1] + grids[0].rcount[i-1];
 
 //    if(rank==ran) printf("\n");
 //    for(i = 0; i < nprocs; i++)
 //        if(rank==0) printf("%lu \t rdispls[i] = %d\n", i, rdispls[i]);
-
 
         std::vector<int> sdispls(nprocs);
         sdispls[0] = 0;
