@@ -11,8 +11,10 @@ namespace saena {
     class matrix {
     public:
         matrix(MPI_Comm comm);
+        matrix();
         matrix(char* name, MPI_Comm comm); // read from file
 
+      void set_comm(MPI_Comm comm);
         int set(unsigned int i, unsigned int j, double val); // set individual value
         int set(unsigned int* row, unsigned int* col, double* val, unsigned int nnz_local); // set multiple values
         int set(unsigned int i, unsigned int j, unsigned int size_x, unsigned int size_y, double* val); // set contiguous block

@@ -14,6 +14,14 @@ saena::matrix::matrix(MPI_Comm comm) {
     m_pImpl = new saena_matrix(comm);
 }
 
+saena::matrix::matrix() {
+    m_pImpl = new saena_matrix();
+}
+
+void saena::matrix::set_comm(MPI_Comm comm) {
+  m_pImpl->set_comm(comm);
+}
+
 saena::matrix::matrix(char *name, MPI_Comm comm) {
     m_pImpl = new saena_matrix(name, comm);
 }

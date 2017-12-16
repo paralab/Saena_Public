@@ -270,6 +270,10 @@ int saena_matrix::set(unsigned int* row, unsigned int* col, double* val, unsigne
     return 0;
 }
 
+void saena_matrix::set_comm(MPI_Comm com){
+      comm = com;
+    comm_old = com;
+}
 
 int saena_matrix::set2(unsigned int row, unsigned int col, double val){
 
@@ -293,7 +297,6 @@ int saena_matrix::set2(unsigned int row, unsigned int col, double val){
 
     return 0;
 }
-
 
 int saena_matrix::set2(unsigned int* row, unsigned int* col, double* val, unsigned int nnz_local){
 
