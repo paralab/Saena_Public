@@ -19,7 +19,7 @@ saena::matrix::matrix() {
 }
 
 void saena::matrix::set_comm(MPI_Comm comm) {
-  m_pImpl->set_comm(comm);
+    m_pImpl->set_comm(comm);
 }
 
 saena::matrix::matrix(char *name, MPI_Comm comm) {
@@ -264,6 +264,14 @@ int saena::amg::solve_pcg_update2(std::vector<double>& u, saena::options* opts, 
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pcg_update2(u, A_new->get_internal_matrix());
+    return 0;
+}
+
+
+int saena::amg::solve_pcg_update3(std::vector<double>& u, saena::options* opts, saena::matrix* A_new){
+    m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
+                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
+    m_pImpl->solve_pcg_update3(u, A_new->get_internal_matrix());
     return 0;
 }
 
