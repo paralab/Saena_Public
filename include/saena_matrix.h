@@ -34,8 +34,8 @@ public:
 
     unsigned int M = 0;    // local number of rows
     unsigned int Mbig = 0; // global number of rows
-    unsigned int nnz_g;
-    unsigned int nnz_l;
+    unsigned int nnz_g = 0;
+    unsigned int nnz_l = 0;
     std::vector<unsigned long> split;
     std::vector<unsigned long> split_old;
 
