@@ -636,6 +636,65 @@ int saena_matrix::erase(){
 }
 
 
+int saena_matrix::finish_update() {
+// update values_local, values_remote and invDiag.
+
+    int rank, nprocs;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nprocs);
+
+    if(!entry.empty()){
+        if (entry[0].col >= split[rank] && entry[0].col < split[rank + 1]) {
+            values_local.push_back(entry[0].val);
+//            row_local.push_back(entry[0].row);
+//            col_local.push_back(entry[0].col);
+        } else {
+            values_remote.push_back(entry[0].val);
+//            row_remote.push_back(entry[0].row);
+//            col_remote.push_back(col_remote_size - 1);
+//            col_remote2.push_back(entry[0].col);
+        }
+    }
+
+    if(entry.size() >= 2){
+        for (long i = 1; i < nnz_l; i++) {
+            if (entry[i].col >= split[rank] && entry[i].col < split[rank + 1]) {
+                values_local.push_back(entry[i].val);
+//                row_local.push_back(entry[i].row);
+//                col_local.push_back(entry[i].col);
+            } else {
+                values_remote.push_back(entry[i].val);
+//                row_remote.push_back(entry[i].row);
+                // col_remote2 is the original col value and will be used in making strength matrix. col_remote will be used for matevec.
+//                col_remote2.push_back(entry[i].col);
+                // the original col values are not being used. the ordering starts from 0, and goes up by 1.
+//                col_remote.push_back(col_remote_size - 1);
+            }
+        }
+    }
+
+    inverse_diag(invDiag);
+
+    // update eig_max here
+    find_eig();
+
+    return 0;
+}
+
+
+int saena_matrix::set_zero(){
+
+    // todo: add openmp
+    for(unsigned long i = 0; i < nnz_l; i++)
+        entry[i].val = 0;
+
+    values_local.clear();
+    values_remote.clear();
+
+    return 0;
+}
+
+
 int saena_matrix::repartition(){
     // before using this function these variables of SaenaMatrix should be set:
     // Mbig", "nnz_g", "initial_nnz_l", "data"

@@ -117,9 +117,7 @@ saena_matrix* saena::matrix::get_internal_matrix(){
 }
 
 int saena::matrix::set_zero(){
-    //todo: add openmp
-    for(unsigned long i = 0; i < m_pImpl->nnz_l; i++)
-        m_pImpl->entry[i].val = 0;
+    m_pImpl->set_zero();
     return 0;
 }
 
@@ -142,6 +140,11 @@ int saena::matrix::add_duplicates(bool add) {
         add_dup = false;
         m_pImpl->add_duplicates = false;
     }
+    return 0;
+}
+
+int saena::matrix::finish_update() {
+    m_pImpl->finish_update();
     return 0;
 }
 
