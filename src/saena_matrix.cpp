@@ -665,9 +665,9 @@ int saena_matrix::setup_initial_data2(){
 //    MPI_Barrier(comm); printf("rank = %d\t setup_initial 6666666666666666666\n", rank);  MPI_Barrier(comm);
 
     initial_nnz_l = data_size;
-    unsigned long nnz_g_temp;
-    MPI_Allreduce(&initial_nnz_l, &nnz_g_temp, 1, MPI_UNSIGNED, MPI_SUM, comm);
-    if(rank == 0 && nnz_g_temp != nnz_g) printf("error: number of nonzeros is changed during the matrix update!\n");
+    unsigned long nnz_g_temp = nnz_g;
+    MPI_Allreduce(&initial_nnz_l, &nnz_g, 1, MPI_UNSIGNED, MPI_SUM, comm);
+    if(rank == 0 && (nnz_g_temp != nnz_g) ) printf("error: number of global nonzeros is changed during the matrix update!\n");
 
     return 0;
 }
