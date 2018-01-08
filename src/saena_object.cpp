@@ -2859,9 +2859,9 @@ int saena_object::vcycle(Grid* grid, std::vector<double>& u, std::vector<double>
         //        for(auto i:u)
         //            std::cout << i << std::endl;
 
-        //    residual(grid->A, u, rhs, res);
-        //    dotProduct(res, res, &dot, comm);
-        //    if(rank==0) std::cout << "current level = " << grid->currentLevel << ", after post-smooth = " << sqrt(dot) << std::endl;
+//        residual(grid->A, u, rhs, res);
+//        dotProduct(res, res, &dot, comm);
+//        if(rank==0) std::cout << "current level = " << grid->currentLevel << ", after post-smooth = " << sqrt(dot) << std::endl;
 
     } // end of if(active)
 
@@ -3296,7 +3296,7 @@ int saena_object::solve_pcg_update3(std::vector<double>& u, saena_matrix* A_new)
 
     std::vector<double> r(grids[0].A->M);
     grids[0].A->residual(u, grids[0].rhs, r);
-    double initial_dot, current_dot;
+    double initial_dot, current_dot, previous_dot;
     dotProduct(r, r, &initial_dot, comm);
     if(rank==0) std::cout << "******************************************************" << std::endl;
     if(rank==0) printf("\ninitial residual = %e \n\n", sqrt(initial_dot));
@@ -3332,6 +3332,8 @@ int saena_object::solve_pcg_update3(std::vector<double>& u, saena_matrix* A_new)
     std::vector<double> p(grids[0].A->M);
     p = rho;
 
+    previous_dot = initial_dot;
+    current_dot  = initial_dot;
     double rho_res, pdoth, alpha, beta;
     for(i=0; i<vcycle_num; i++){
         grids[0].A->matvec(p, h);
@@ -3346,11 +3348,13 @@ int saena_object::solve_pcg_update3(std::vector<double>& u, saena_matrix* A_new)
             r[j] -= alpha * h[j];
         }
 
+        previous_dot = current_dot;
         dotProduct(r, r, &current_dot, comm);
         if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
             break;
 
         if(verbose) if(rank==0) printf("_______________________________ \n\n***** Vcycle %lu *****\n", i+1);
+        if(rank==0) printf("%.10f \t%.10f \n", sqrt(current_dot), sqrt(current_dot/previous_dot));
         rho.assign(rho.size(), 0);
         vcycle(&grids[0], rho, r);
         dotProduct(r, rho, &beta, comm);
@@ -3408,6 +3412,14 @@ int saena_object::solve_pcg_update4(std::vector<double>& u, saena_matrix* A_new)
 //            Grid(&grids[i].Ac, max_level, i + 1);
         }
     }
+
+
+
+//    saena_matrix* B = grids[0].Ac->get_internal_matrix();
+//    if(rank==0){
+//        printf("\n", );
+//    }
+
 
     // ************** check u size **************
 
