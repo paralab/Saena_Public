@@ -2536,6 +2536,7 @@ int saena_object::solve_coarsest(saena_matrix* A, std::vector<double>& u, std::v
     }
 
     if(verbose_solve_coarse && rank==0) printf("end of solve_coarsest! it took CG iterations = %ld\n \n", --i);
+    if(rank==0) printf("end of solve_coarsest! it took CG iterations = %ld\n \n", --i);
 
     return 0;
 }
