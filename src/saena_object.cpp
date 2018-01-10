@@ -8,8 +8,8 @@
 #include <algorithm>
 #include <set>
 #include <mpi.h>
-#include <parUtils.h>
 
+#include <parUtils.h>
 #include "saena_object.h"
 #include "saena_matrix.h"
 #include "strength_matrix.h"
@@ -17,6 +17,7 @@
 #include "restrict_matrix.h"
 #include "aux_functions.h"
 #include "grid.h"
+#include "El.hpp"
 
 
 saena_object::saena_object(){
@@ -47,15 +48,13 @@ int saena_object::setup(saena_matrix* A) {
 //    MPI_Comm_size(A->comm, &nprocs);
     MPI_Comm_rank(A->comm, &rank);
     A->active_old_comm = true;
-
-//    if(A->active_old_comm)
-//        printf("rank = %d, nprocs = %d active\n", rank, nprocs);
+    bool verbose_setup = true;
 
     int i;
     unsigned int M_current;
     float row_reduction_local, row_reduction_min;
 
-    if(verbose)
+    if(verbose_setup)
         if(rank==0) std::cout << "_____________________________\n\n" << "size of matrix level 0: " << A->Mbig
                               << "\nnnz level 0: " << A->nnz_g << std::endl;
 
@@ -72,7 +71,7 @@ int saena_object::setup(saena_matrix* A) {
             grids[i].coarseGrid = &grids[i + 1]; // connect grids[i+1] to grids[i]
 //            if (grids[i + 1].A->active) MPI_Comm_dup(grids[i + 1].A->comm, &grids[i + 1].comm);
 
-            if (verbose)
+            if (verbose_setup)
                 if (rank == 0)
                     std::cout << "_____________________________\n\n" << "size of matrix level "
                               << grids[i + 1].currentLevel << ": " << grids[i + 1].A->Mbig
@@ -113,9 +112,9 @@ int saena_object::setup(saena_matrix* A) {
     MPI_Bcast(&max_level, 1, MPI_INT, 0, grids[0].A->comm);
     grids.resize(max_level);
 
-    if(verbose) if(rank==0){
+    if(verbose_setup) if(rank==0){
             printf("_____________________________\n\n");
-            printf("number of levels = %d, (the finest level is 0)\n", max_level);
+            printf("number of levels = %d (the finest level is 0)\n\n", max_level);
         }
 
 //    printf("\nrank = %d, end of setup() \n", rank);
@@ -2441,7 +2440,7 @@ int saena_object::coarsen2(saena_matrix* A, prolong_matrix* P, restrict_matrix* 
 } // end of SaenaObject::coarsen
 
 
-int saena_object::solve_coarsest(saena_matrix* A, std::vector<double>& u, std::vector<double>& rhs){
+int saena_object::solve_coarsest_CG(saena_matrix* A, std::vector<double>& u, std::vector<double>& rhs){
     // this is CG.
     // u is zero in the beginning. At the end, it is the solution.
 
@@ -2452,7 +2451,7 @@ int saena_object::solve_coarsest(saena_matrix* A, std::vector<double>& u, std::v
     long i, j;
     bool verbose_solve_coarse = false;
 
-    if(verbose_solve_coarse && rank==0) printf("start of solve_coarsest()\n");
+    if(verbose_solve_coarse && rank==0) printf("start of solve_coarsest_CG()\n");
 
     // res = A*u - rhs
     std::vector<double> res(A->M);
@@ -2481,7 +2480,7 @@ int saena_object::solve_coarsest(saena_matrix* A, std::vector<double>& u, std::v
 
     double factor, dot_prev;
     std::vector<double> matvecTemp(A->M);
-    i = 0;
+    i = 1;
     while (i < max_iter) {
 //        if(rank==0) std::cout << "starting iteration of CG = " << i << std::endl;
         // factor = sq_norm/ (dir' * A * dir)
@@ -2535,12 +2534,91 @@ int saena_object::solve_coarsest(saena_matrix* A, std::vector<double>& u, std::v
         i++;
     }
 
-    if(verbose_solve_coarse && rank==0) printf("end of solve_coarsest! it took CG iterations = %ld\n \n", --i);
-    if(rank==0) printf("end of solve_coarsest! it took CG iterations = %ld\n \n", --i);
+    if(i == max_iter && max_iter != 0)
+        i--;
+
+    if(verbose_solve_coarse && rank==0) printf("end of solve_coarsest! it took CG iterations = %ld\n \n", i);
+//    if(rank==0) printf("end of solve_coarsest! it took CG iterations = %ld\n \n", i);
 
     return 0;
 }
 
+
+int saena_object::solve_coarsest_Elemental(saena_matrix *A_S, std::vector<double> &u, std::vector<double> &rhs){
+
+    int argc = 0;
+    char** argv = {NULL};
+//    El::Environment env( argc, argv );
+    El::Initialize( argc, argv );
+
+    int rank, nprocs;
+    MPI_Comm_rank(A_S->comm, &rank);
+    MPI_Comm_size(A_S->comm, &nprocs);
+
+//    printf("solve_coarsest_Elemental!\n");
+
+    const El::Int n = A_S->Mbig;
+//    printf("size = %d\n", n);
+
+    // set the matrix
+    // --------------
+    El::DistMatrix<double> A(n,n);
+    El::Zero( A );
+    A.Reserve(A_S->nnz_l);
+    for(unsigned long i = 0; i < A_S->nnz_l; i++){
+//        if(rank==1) printf("%lu \t%lu \t%f \n", A_S->entry[i].row, A_S->entry[i].col, A_S->entry[i].val);
+        A.QueueUpdate(A_S->entry[i].row, A_S->entry[i].col, A_S->entry[i].val);
+    }
+    A.ProcessQueues();
+//    El::Print( A, "\nGlobal Elemental matrix:\n" );
+
+    // set the rhs
+    // --------------
+    El::DistMatrix<double> w(n,1);
+    El::Zero( w );
+    w.Reserve(n);
+    for(unsigned long i = 0; i < rhs.size(); i++){
+//        if(rank==0) printf("%lu \t%f \n", i+A_S->split[rank], rhs[i]);
+        w.QueueUpdate(i+A_S->split[rank], 0, rhs[i]);
+    }
+    w.ProcessQueues();
+//    El::Print( w, "\nrhs (w):\n" );
+
+    // solve the system
+    // --------------
+    // w is the rhs. after calling the solve function, it will be the solution.
+//    El::DistMatrix<double> C(n,n);
+//    El::SymmetricSolve(El::LOWER, El::NORMAL, &A, &);
+    El::LinearSolve(A, w);
+//    El::Print( w, "\nsolution (w):\n" );
+
+/*
+    double temp;
+//    if(rank==1) printf("w solution:\n");
+    for(unsigned long i = A_S->split[rank]; i < A_S->split[rank+1]; i++){
+//        if(rank==1) printf("before: %lu \t%f \n", i, w.Get(i,0));
+        temp = w.Get(i,0);
+//        u[i-A_S->split[rank]] = temp;
+//        if(rank==0) printf("rank = %d \t%lu \t%f \n", rank, i, u[i-A_S->split[rank]]);
+//        if(rank==1) printf("rank = %d \t%lu \t%f \n", rank, i, u[i-A_S->split[rank]]);
+        if(rank==0) printf("rank = %d \t%lu \t%f \n", rank, i, temp);
+        if(rank==1) printf("rank = %d \t%lu \t%f \n", rank, i, temp);
+    }
+*/
+
+    std::vector<double> temp(n);
+    for(unsigned long i = 0; i < n; i++){
+        temp[i] = w.Get(i,0);
+//        if(rank==1) printf("rank = %d \t%lu \t%f \n", rank, i, temp);
+    }
+
+    for(unsigned long i = A_S->split[rank]; i < A_S->split[rank+1]; i++) {
+        u[i-A_S->split[rank]] = temp[i];
+    }
+
+    El::Finalize();
+    return 0;
+}
 
 // int SaenaObject::solveCoarsest(SaenaMatrix* A, std::vector<double>& x, std::vector<double>& b, int& max_iter, double& tol, MPI_Comm comm){
 /*
@@ -2698,11 +2776,30 @@ int saena_object::vcycle(Grid* grid, std::vector<double>& u, std::vector<double>
 //                std::cout << "current level = " << grid->currentLevel << ", Solving the coarsest level!" << std::endl;
             t1 = MPI_Wtime();
 
-            solve_coarsest(grid->A, u, rhs);
+//            solve_coarsest_CG(grid->A, u, rhs);
+            solve_coarsest_Elemental(grid->A, u, rhs);
 
             t2 = MPI_Wtime();
             func_name = "Vcycle: level " + std::to_string(grid->currentLevel) + ": solve coarsest";
             if (verbose) print_time(t1, t2, func_name, grid->A->comm);
+
+            // print the solution
+            // ------------------
+//            if(rank==0){
+//                printf("\nsolution from the direct solver:\n");
+//                for(i = 0; i < u.size(); i++)
+//                    printf("%.10f \n", u[i]);}
+
+            // check if the solution is correct
+            // --------------------------------
+//            std::vector<double> rhs_matvec(u.size(), 0);
+//            grid->A->matvec(u, rhs_matvec);
+//            if(rank==0){
+//                printf("\nA*u - rhs:\n");
+//                for(i = 0; i < rhs_matvec.size(); i++){
+//                    if(rhs_matvec[i] - rhs[i] > 1e-6)
+//                        printf("%lu \t%f - %f = \t%f \n", i, rhs_matvec[i], rhs[i], rhs_matvec[i] - rhs[i]);}
+//                printf("-----------------------\n");}
 
             return 0;
         }
@@ -2906,7 +3003,7 @@ int saena_object::solve_pcg(std::vector<double>& u){
 
     std::vector<double> r(grids[0].A->M);
     grids[0].A->residual(u, grids[0].rhs, r);
-    double initial_dot, current_dot;
+    double initial_dot, current_dot, previous_dot;
     dotProduct(r, r, &initial_dot, comm);
     if(rank==0) std::cout << "******************************************************" << std::endl;
     if(rank==0) printf("\ninitial residual = %e \n\n", sqrt(initial_dot));
@@ -2942,6 +3039,8 @@ int saena_object::solve_pcg(std::vector<double>& u){
     std::vector<double> p(grids[0].A->M);
     p = rho;
 
+    previous_dot = initial_dot;
+    current_dot  = initial_dot;
     double rho_res, pdoth, alpha, beta;
     for(i=0; i<vcycle_num; i++){
         grids[0].A->matvec(p, h);
@@ -2956,7 +3055,11 @@ int saena_object::solve_pcg(std::vector<double>& u){
             r[j] -= alpha * h[j];
         }
 
+        previous_dot = current_dot;
         dotProduct(r, r, &current_dot, comm);
+        // this prints the "absolute residual" and the "convergence factor":
+        if(rank==0) printf("Vcycle %lu: %.10f \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
+//        if(rank==0) printf("Vcycle %lu: aboslute residual = %.10f \n", i+1, sqrt(current_dot));
         if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
             break;
 
@@ -2980,7 +3083,7 @@ int saena_object::solve_pcg(std::vector<double>& u){
     if(rank==0){
         std::cout << "******************************************************" << std::endl;
         printf("\nfinal:\nstopped at iteration    = %ld \nfinal absolute residual = %e"
-                       "\nrelative residual       = %e \n\n", ++i, sqrt(current_dot), sqrt(current_dot/initial_dot));
+                       "\nrelative residual       = %e \n\n", i+1, sqrt(current_dot), sqrt(current_dot/initial_dot));
         std::cout << "******************************************************" << std::endl;
     }
 
@@ -3355,7 +3458,8 @@ int saena_object::solve_pcg_update3(std::vector<double>& u, saena_matrix* A_new)
             break;
 
         if(verbose) if(rank==0) printf("_______________________________ \n\n***** Vcycle %lu *****\n", i+1);
-        if(rank==0) printf("%.10f \t%.10f \n", sqrt(current_dot), sqrt(current_dot/previous_dot));
+        // this prints the "absolute residual" and the "convergence factor":
+//        if(rank==0) printf("%.10f \t%.10f \n", sqrt(current_dot), sqrt(current_dot/previous_dot));
         rho.assign(rho.size(), 0);
         vcycle(&grids[0], rho, r);
         dotProduct(r, rho, &beta, comm);
@@ -3652,20 +3756,20 @@ int saena_object::set_repartition_rhs(std::vector<double>& rhs0){
     unsigned long i;
     int ran = 0;
 
-//    MPI_Barrier(grids[0].comm);
+//    MPI_Barrier(grids[0].A->comm);
 //    if(rank==0){
 //        printf("\nThis is how RHS is received from Nektar++: \n");
 //        printf("\nrank = %d \trhs.size = %lu\n", rank, rhs0.size());
 //        for(i = 0; i < rhs0.size(); i++)
 //            printf("%lu \t%f\n", i, rhs0[i]);
 //    }
-//    MPI_Barrier(grids[0].comm);
+//    MPI_Barrier(grids[0].A->comm);
 //    if(rank==1){
 //        printf("\nrank = %d \trhs.size = %lu\n", rank, rhs0.size());
 //        for(i = 0; i < rhs0.size(); i++)
 //            printf("%lu \t%f\n", i+grids[0].A->split[rank], rhs0[i]);
 //    }
-//    MPI_Barrier(grids[0].comm);
+//    MPI_Barrier(grids[0].A->comm);
 //    if(rank==2){
 //        printf("\nrank = %d \trhs.size = %lu\n", rank, rhs0.size());
 //        for(i = 0; i < rhs0.size(); i++)

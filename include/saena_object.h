@@ -22,7 +22,7 @@ public:
     float connStrength = 0.5; // connection strength parameter
     bool doSparsify = false;
     std::vector<Grid> grids;
-    int CG_max_iter = 400;
+    int CG_max_iter = 200;
     double CG_tol = 1e-10;
     bool verbose = false;
     bool repartition = true;
@@ -40,7 +40,8 @@ public:
     int coarsen(saena_matrix* A, prolong_matrix* P, restrict_matrix* R, saena_matrix* Ac);
     // this function is similar to the coarsen(), but does R*A*P for only local (diagonal) blocks.
     int coarsen2(saena_matrix* A, prolong_matrix* P, restrict_matrix* R, saena_matrix* Ac);
-    int solve_coarsest(saena_matrix* A, std::vector<double>& u, std::vector<double>& rhs);
+    int solve_coarsest_CG(saena_matrix* A, std::vector<double>& u, std::vector<double>& rhs);
+    int solve_coarsest_Elemental(saena_matrix* A, std::vector<double>& u, std::vector<double>& rhs);
     int smooth(Grid* grid, std::string smoother, std::vector<double>& u, std::vector<double>& rhs, int iter);
     int vcycle(Grid* grid, std::vector<double>& u, std::vector<double>& rhs);
     int solve(std::vector<double>& u);
