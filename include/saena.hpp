@@ -66,6 +66,7 @@ namespace saena {
         amg();
         int set_matrix(saena::matrix* A);
         int set_rhs(std::vector<double> rhs);
+        saena_object* get_object();
         void save_to_file(char* name, unsigned int* agg); // to save aggregates to a file.
         unsigned int* load_from_file(char* name); // to load aggregates from a file.
         // before calling solve function, vector "u" is the initial guess.

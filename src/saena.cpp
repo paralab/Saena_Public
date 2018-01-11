@@ -250,6 +250,11 @@ int saena::amg::set_rhs(std::vector<double> rhs){
 }
 
 
+saena_object* saena::amg::get_object() {
+    return m_pImpl;
+}
+
+
 int saena::amg::solve(std::vector<double>& u, saena::options* opts){
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
