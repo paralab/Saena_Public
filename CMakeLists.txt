@@ -81,4 +81,4 @@ if(MPI_LINK_FLAGS)
 endif()
 
 #target_link_libraries(Saena ${MPI_LIBRARIES} El)
-target_link_libraries(Saena ${MPI_LIBRARIES} El)
+target_link_libraries(Saena ${MPI_LIBRARIES})
