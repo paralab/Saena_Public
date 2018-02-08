@@ -36,6 +36,10 @@ long lower_bound2(T *left, T *right, T val){
         }
     }
     if(val == *left){
+        // when using on split, some procs have equal split value (M=0), so go to the next proc until M != 0.
+//        while(*left == *(left+1))
+//            left++;
+
         return std::distance(first, left);
     }
     else
@@ -132,6 +136,9 @@ public:
 std::ostream & operator<<(std::ostream & stream, const cooEntry & item);
 
 
+bool row_major (const cooEntry& node1, const cooEntry& node2);
+
+
 //template <class T>
 //float myNorm(std::vector<T>& v);
 
@@ -191,7 +198,7 @@ void setIJV(char* file_name, unsigned int* I,unsigned int* J, double* V, unsigne
 int dotProduct(std::vector<double>& r, std::vector<double>& s, double* dot, MPI_Comm comm);
 
 
-int print_time(double t1, double t2, std::string function_name, MPI_Comm comm);
+double print_time(double t1, double t2, std::string function_name, MPI_Comm comm);
 
 
 int print_time_average(double t1, double t2, std::string function_name, int iter, MPI_Comm comm);

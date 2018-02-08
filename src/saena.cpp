@@ -328,7 +328,7 @@ int saena::amg::set_multigrid_max_level(int max){
 }
 
 
-int saena::laplacian2D(saena::matrix* A, unsigned int n_matrix_local, MPI_Comm comm){
+int saena::laplacian2D_old(saena::matrix* A, unsigned int n_matrix_local, MPI_Comm comm){
 
     int rank, nprocs;
     MPI_Comm_size(comm, &nprocs);
