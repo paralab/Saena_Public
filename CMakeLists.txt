@@ -21,15 +21,15 @@ include_directories(
         external/usort/include
         external/pugixml/include
 
-        build/elemental_install/include
-        build/external/Elemental-0.87.7/include
-        external/Elemental-0.87.7/include
-        external/Elemental-0.87.7/external/suite_sparse/include
+#        build/elemental_install/include
+#        build/external/Elemental-0.87.7/include
+#        external/Elemental-0.87.7/include
+#        external/Elemental-0.87.7/external/suite_sparse/include
 )
 
-add_subdirectory(external/Elemental-0.87.7)
-include_directories("${PROJECT_BINARY_DIR}/external/El/include")
-include_directories(${MPI_CXX_INCLUDE_PATH})
+#add_subdirectory(external/Elemental-0.87.7)
+#include_directories("${PROJECT_BINARY_DIR}/external/El/include")
+#include_directories(${MPI_CXX_INCLUDE_PATH})
 
 set(SOURCE_FILES
         include/saena.hpp
@@ -80,4 +80,5 @@ if(MPI_LINK_FLAGS)
             LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
 
+#target_link_libraries(Saena ${MPI_LIBRARIES} El)
 target_link_libraries(Saena ${MPI_LIBRARIES} El)
