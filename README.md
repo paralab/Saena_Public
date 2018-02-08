@@ -39,7 +39,7 @@ saena::options opts; // use the default options.
 
 saena::amg solver;
 
-// solver.set_multigrid_max_level(0); // 0 means only use direct solver, so no multigrid will be used. otherwise remove this line.
+// solver.set_multigrid_max_level(0); // 0 means only use direct solver, so multigrid won't be used. otherwise remove this line.
 
 solver.set_matrix(&A);
 
@@ -47,7 +47,7 @@ solver.set_rhs(rhs); // rhs should be std::vector double
 
 // *************************** AMG - Solve ****************************
 
-// u is the initial guess. after calling the solve function, it will be solution. it should be std::vector double
+// u is the initial guess. after calling the solve function, it will be the solution. it should be std::vector double
 
 // there are two options for solving the system: 1- solve and 2- solve_pcg
   
