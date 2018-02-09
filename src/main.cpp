@@ -27,36 +27,36 @@ int main(int argc, char* argv[]){
     if(verbose) if(rank==0) std::cout << "\nnumber of processes = " << nprocs << std::endl;
 
 /*
-    if(argc != 4)
-    {
+    if(argc != 4){
         if(rank == 0)
-            std::cout << "Usage to make a 3DLaplacian: ./Saena <x grid size> <y grid size> <z grid size>" << std::endl;
+            std::cout << "This is how to make a 3DLaplacian: ./Saena <x grid size> <y grid size> <z grid size>" << std::endl;
         MPI_Finalize();
-        return -1;
-    }
+        return -1;}
 */
-    if(argc != 3)
-    {
-        if(rank == 0)
-        {
-            std::cout << "Usage: ./Saena <MatrixA> <rhs_vec>" << std::endl;
-            std::cout << "Matrix file should be in triples format." << std::endl;
-        }
+
+    if(argc != 2){
+        if(rank == 0){
+            std::cout << "Usage: ./Saena <MatrixA>" << std::endl;
+            std::cout << "Matrix file should be in triples format." << std::endl;}
         MPI_Finalize();
-        return -1;
-    }
+        return -1;}
 /*
-    if(argc != 4)
-    {
-        if(rank == 0)
-        {
-            std::cout << "Usage: ./Saena <MatrixA> <rhs_vec> <MatrixA_new>" << std::endl;
-            std::cout << "Matrix file should be in triples format." << std::endl;
-        }
+    if(argc != 3){
+        if(rank == 0){
+            std::cout << "Usage: ./Saena <MatrixA> <rhs_vec>" << std::endl;
+            std::cout << "Matrix file should be in triples format." << std::endl;}
         MPI_Finalize();
-        return -1;
-    }
+        return -1;}
 */
+/*
+    if(argc != 4){
+        if(rank == 0){
+            std::cout << "Usage: ./Saena <MatrixA> <rhs_vec> <MatrixA_new>" << std::endl;
+            std::cout << "Matrix file should be in triples format." << std::endl;}
+        MPI_Finalize();
+        return -1;}
+*/
+
 
     // *************************** get number of rows ****************************
 
@@ -160,6 +160,7 @@ int main(int argc, char* argv[]){
 
     unsigned int num_local_row = A.get_num_local_rows();
     std::vector<double> rhs(num_local_row);
+    generate_rhs_old(rhs);
 
 //    MPI_Barrier(comm);
 //    saena_matrix* B = A.get_internal_matrix();
@@ -270,7 +271,7 @@ int main(int argc, char* argv[]){
 */
 
     // ********** 2 - set rhs: read from file **********
-
+/*
     char* Vname(argv[2]);
 //    char* Vname(argv[3]);
 
@@ -313,7 +314,7 @@ int main(int argc, char* argv[]){
     // set rhs
 //    A.get_internal_matrix()->matvec(v, rhs);W
     rhs = v;
-
+*/
     // ********** repartition checking part **********
 
     // this part is for testing repartition functionality of set_rhs and also set_u and repartition_back_u functions.
@@ -476,6 +477,7 @@ int main(int argc, char* argv[]){
         for(long i = 0; i < B->nnz_l; i++)
             std::cout << B->entry[i] << std::endl;
 */
+/*
     saena_object* AA = solver.get_object();
     if(rank==0)
         for(long i = 0; i < AA->grids[0].rhs.size(); i++)
@@ -485,7 +487,7 @@ int main(int argc, char* argv[]){
     if(rank==1)
         for(long i = 0; i < AA->grids[0].rhs.size(); i++)
             std::cout << AA->grids[0].rhs[i] << std::endl;
-
+*/
 //    A.add_duplicates(true);
 //    A.set(8, 7, 100);
 //    A.set(2, 1, 100);
