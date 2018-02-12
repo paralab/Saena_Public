@@ -14,15 +14,16 @@ public:
     unsigned int least_row_threshold = 10;
     // coarsening will stop if the number of rows of last level divided by previous level is lower this value.
     double row_reduction_threshold = 0.90;
-    int vcycle_num = 200;
-    double relative_tolerance = 1e-8;
+    int vcycle_num = 300;
+    double relative_tolerance = 1e-12;
     std::string smoother = "chebyshev";
     int preSmooth  = 3;
     int postSmooth = 3;
+    std::string direct_solver = "Elemental"; // options: 1- CG, 2- Elemental (uncomment #include "El.hpp" in saena_object.cpp)
     float connStrength = 0.7; // connection strength parameter
     bool doSparsify = false;
     std::vector<Grid> grids;
-    int CG_max_iter = 200;
+    int CG_max_iter = 100;
     double CG_tol = 1e-10;
     bool verbose = false;
     bool repartition = true;
@@ -55,9 +56,10 @@ public:
     int set_repartition_rhs(std::vector<double>& rhs);
     int repartition_u(std::vector<double>& u);
     int repartition_back_u(std::vector<double>& u);
-    int shrink_cpu_A(saena_matrix* Ac, std::vector<unsigned long>& P_splitNew);
+//    int shrink_cpu_A(saena_matrix* Ac, std::vector<unsigned long>& P_splitNew);
     int shrink_rhs_u(Grid* grid, std::vector<double>& u, std::vector<double>& rhs);
     int unshrink_u(Grid* grid, std::vector<double>& u);
+    bool active(int l);
 
     int writeMatrixToFileA(saena_matrix* A, std::string name);
     int writeMatrixToFileP(prolong_matrix* P, std::string name);
