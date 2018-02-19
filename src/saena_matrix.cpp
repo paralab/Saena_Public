@@ -4122,7 +4122,7 @@ int saena_matrix::matvec_timing3(std::vector<double>& v, std::vector<double>& w,
 }
 
 
-int saena_matrix::matvec_timing4(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time) {
+int saena_matrix::matvec_timing4(std::vector<double>& v, std::vector<double>& w, std::vector<double>& time) {
 // todo: to reduce the communication during matvec, consider reducing number of columns during coarsening,
 // todo: instead of reducing general non-zeros, since that is what is communicated for matvec.
 /*
