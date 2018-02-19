@@ -19,7 +19,6 @@ public:
     Grid* coarseGrid;
     std::vector<int> rcount;
     std::vector<int> scount;
-    bool active = false;
 //    MPI_Comm comm;
 
     Grid();

@@ -24,12 +24,8 @@ namespace saena {
         bool add_dup = false; // if false replace the duplicate, otherwise add the values together.
         int add_duplicates(bool add);
         int assemble();
-        saena_matrix* get_internal_matrix();
-        unsigned int get_num_rows();
         unsigned int get_num_local_rows();
-        unsigned long get_nnz();
-        unsigned long get_local_nnz();
-
+        saena_matrix* get_internal_matrix();
         int erase();
         void destroy();
 
@@ -98,7 +94,7 @@ namespace saena {
     };
 
     // second argument is dof on each processor
-    int laplacian2D_old(saena::matrix* A, unsigned int dof_local, MPI_Comm comm);
+    int laplacian2D(saena::matrix* A, unsigned int dof_local, MPI_Comm comm);
     int laplacian3D(saena::matrix* A, unsigned int mx, unsigned int my, unsigned int mz, MPI_Comm comm);
     int laplacian3D_old(saena::matrix* A, unsigned int dof_local, MPI_Comm comm);
 }

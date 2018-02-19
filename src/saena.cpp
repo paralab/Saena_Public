@@ -107,27 +107,13 @@ int saena::matrix::assemble() {
     return 0;
 }
 
-
-saena_matrix* saena::matrix::get_internal_matrix(){
-    return m_pImpl;
-}
-
-unsigned int saena::matrix::get_num_rows(){
-    return m_pImpl->Mbig;
-}
-
 unsigned int saena::matrix::get_num_local_rows() {
     return m_pImpl->M;
 }
 
-unsigned long saena::matrix::get_nnz(){
-    return m_pImpl->nnz_g;
+saena_matrix* saena::matrix::get_internal_matrix(){
+    return m_pImpl;
 }
-
-unsigned long saena::matrix::get_local_nnz(){
-    return m_pImpl->nnz_l;
-}
-
 
 int saena::matrix::erase(){
     m_pImpl->erase();
@@ -149,6 +135,7 @@ int saena::matrix::add_duplicates(bool add) {
     }
     return 0;
 }
+
 
 // ******************************* options *******************************
 
@@ -341,7 +328,7 @@ int saena::amg::set_multigrid_max_level(int max){
 }
 
 
-int saena::laplacian2D_old(saena::matrix* A, unsigned int n_matrix_local, MPI_Comm comm){
+int saena::laplacian2D(saena::matrix* A, unsigned int n_matrix_local, MPI_Comm comm){
 
     int rank, nprocs;
     MPI_Comm_size(comm, &nprocs);

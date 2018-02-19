@@ -36,10 +36,6 @@ long lower_bound2(T *left, T *right, T val){
         }
     }
     if(val == *left){
-        // when using on split, some procs have equal split value (M=0), so go to the next proc until M != 0.
-//        while(*left == *(left+1))
-//            left++;
-
         return std::distance(first, left);
     }
     else
@@ -136,85 +132,6 @@ public:
 std::ostream & operator<<(std::ostream & stream, const cooEntry & item);
 
 
-bool row_major (const cooEntry& node1, const cooEntry& node2);
-
-
-// the order of this class is called "Row-major order"
-class cooEntry_row{
-public:
-    unsigned long row;
-    unsigned long col;
-    double val;
-
-    cooEntry_row(){}
-
-    cooEntry_row(unsigned long i, unsigned long j, double v){
-        row = i;
-        col = j;
-        val = v;
-    }
-
-    bool operator == (const cooEntry& node2) const
-    {
-        return (row == node2.row && col == node2.col);
-    }
-
-    bool operator < (const cooEntry& node2) const
-    {
-        if(row < node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col < node2.col);
-        else
-            return false;
-    }
-
-    bool operator <= (const cooEntry& node2) const
-    {
-        if(row < node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col <= node2.col);
-        else
-            return false;
-    }
-
-    bool operator > (const cooEntry& node2) const
-    {
-        if(row > node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col > node2.col);
-        else
-            return false;
-    }
-
-    bool operator >= (const cooEntry& node2) const
-    {
-        if(  row > node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col >= node2.col);
-        else
-            return false;
-    }
-
-    static MPI_Datatype mpi_datatype()
-    {
-        static bool         first = true;
-        static MPI_Datatype datatype;
-
-        if (first)
-        {
-            first = false;
-            MPI_Type_contiguous(sizeof(cooEntry), MPI_BYTE, &datatype);
-            MPI_Type_commit(&datatype);
-        }
-
-        return datatype;
-    }
-};
-
 //template <class T>
 //float myNorm(std::vector<T>& v);
 
@@ -274,7 +191,7 @@ void setIJV(char* file_name, unsigned int* I,unsigned int* J, double* V, unsigne
 int dotProduct(std::vector<double>& r, std::vector<double>& s, double* dot, MPI_Comm comm);
 
 
-double print_time(double t1, double t2, std::string function_name, MPI_Comm comm);
+int print_time(double t1, double t2, std::string function_name, MPI_Comm comm);
 
 
 int print_time_average(double t1, double t2, std::string function_name, int iter, MPI_Comm comm);
