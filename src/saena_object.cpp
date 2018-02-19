@@ -13,7 +13,7 @@
 #include "restrict_matrix.h"
 #include "aux_functions.h"
 #include "grid.h"
-#include "El.hpp"
+//#include "El.hpp"
 
 
 saena_object::saena_object(){
@@ -2500,7 +2500,7 @@ int saena_object::solve_coarsest_CG(saena_matrix* A, std::vector<double>& u, std
 
 
 int saena_object::solve_coarsest_Elemental(saena_matrix *A_S, std::vector<double> &u, std::vector<double> &rhs){
-
+/*
     int argc = 0;
     char** argv = {NULL};
 //    El::Environment env( argc, argv );
@@ -2571,7 +2571,7 @@ int saena_object::solve_coarsest_Elemental(saena_matrix *A_S, std::vector<double
         u[i-A_S->split[rank]] = temp[i];
 
     El::Finalize();
-
+*/
     return 0;
 }
 

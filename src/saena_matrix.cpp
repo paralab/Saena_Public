@@ -6,7 +6,7 @@
 #include <omp.h>
 #include "saena_matrix.h"
 #include "parUtils.h"
-#include "El.hpp"
+//#include "El.hpp"
 
 
 // #pragma omp declare reduction(vec_double_plus : std::vector<double> : \
@@ -4343,7 +4343,7 @@ int saena_matrix::jacobi(int iter, std::vector<double>& u, std::vector<double>& 
 
 
 int saena_matrix::find_eig() {
-
+/*
     int argc = 0;
     char** argv = {NULL};
 //    El::Environment env( argc, argv );
@@ -4400,60 +4400,8 @@ int saena_matrix::find_eig() {
 
 //    if(rank==0) printf("eig_max = %f \n", eig_max_diagxA);
 
-/*
-    // parallel (draft)
-    const El::Grid grid(comm, nprocs);
-//    const El::Grid grid(comm, nprocs, El::ROW_MAJOR);
-//    printf("rank = %d, Row = %d, Col = %d \n", rank, grid.Row(), grid.Col());
-
-
-//    El::DistMatrix<double> A(n, n, grid);
-//    El::Zero( A );
-    El::SetDefaultBlockHeight(M);
-    El::SetDefaultBlockWidth(Mbig);
-    El::DistMatrix<double,El::VC, El::STAR, El::BLOCK> B(n, n, grid);
-
-//    printf("rank = %d, BlockHeight = %d, BlockWidth = %d, ColCut = %d, RowCut = %d \n", rank, B.BlockHeight(), B.BlockWidth(), B.ColCut(), B.RowCut());
-//    printf("rank = %d, LocalRowOffset[1] = %d, GlobalRow[1] = %d, GlobalCol[40] = %d, DefaultBlockHeight = %d \n", rank, B.LocalRowOffset(1), B.GlobalRow(1), B.GlobalCol(40), El::DefaultBlockHeight());
-
-//    bool colMajor = true;
-//    const El::GridOrder order = ( colMajor ? El::COLUMN_MAJOR : ROW_MAJOR );
-
-    auto& C = B.Matrix();
-    C.Resize( M, Mbig ); // change the submatrices' sizes to Saena's sizes.
-    El::Zero( C );
-//    printf("rank = %d, C.Height() = %d, C.Width() = %d, B.LocalRowOffset(5) = %d \n", rank, C.Height(), C.Width(), B.LocalRowOffset(5));
-//    El::Matrix<double> C(M, Mbig);
-
-//    const El::Int localHeight = A.LocalHeight();
-//    const El::Int localWidth  = A.LocalWidth();
-//    printf("rank = %d, localHeight = %d, localWidth = %d \n", rank, localHeight, localWidth);
-
-//    long iter = 0;
-//    for( El::Int jLoc=0; jLoc<localWidth; ++jLoc )
-//        for( El::Int iLoc=0; iLoc<localHeight; ++iLoc ){
-//            if(rank==1) ALoc(iLoc,jLoc) = rank*1000 + iter;
-//            A.Set(iLoc, jLoc, rank*1000 + iter);
-//            iter++;
-//            ALoc(iLoc,jLoc) = iLoc+split[rank] + jLoc * localHeight;
-//        }
-
-//    for(unsigned long i = 0; i<nnz_l; i++){
-//        if(rank==1) std::cout << entry[i].row - split[rank] << "\t" << entry[i].col << "\t" << entry[i].val << std::endl;
-//        C(entry[i].row - split[rank], entry[i].col) = entry[i].val;
-//    }
-
-//    MPI_Barrier(comm);
-//    if(rank==0) El::Print( C, "\nLocal Elemental matrix:\n" );
-//    MPI_Barrier(comm);
-//    if(rank==1) El::Print( C, "\nLocal Elemental matrix:\n" );
-
-//    El::DistMatrix<double> E(B);
-//    MPI_Barrier(comm);
-//    El::Print( E, "\nGlobal Elemental matrix:\n" );
-*/
-
     El::Finalize();
+*/
     return 0;
 }
 
