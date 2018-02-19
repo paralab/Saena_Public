@@ -25,7 +25,7 @@ To use Saena inside a library the following commands can be used:
 
 saena::matrix A(comm); // comm: MPI_Communicator
 
-A.add_duplicates(true); // in case of duplicates add the values. For removing duplicates remove this line.
+A.add_duplicates(true); // in case of duplicates add the values. For removing duplicates remove this line (default is false).
 
 A.set(I, J, V, size); // size: size of I (or J or V, they obviously should have the same size)
 
