@@ -1,7 +1,4 @@
-#SET(CMAKE_CXX_COMPILER mpicxx)
-#SET(CMAKE_C_COMPILER mpicc)
-
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.3)
 project(Saena)
 
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
@@ -21,15 +18,15 @@ include_directories(
         external/usort/include
         external/pugixml/include
 
-#        build/elemental_install/include
-#        build/external/Elemental-0.87.7/include
-#        external/Elemental-0.87.7/include
-#        external/Elemental-0.87.7/external/suite_sparse/include
+        build/elemental_install/include
+        build/external/Elemental-0.87.7/include
+        external/Elemental-0.87.7/include
+        external/Elemental-0.87.7/external/suite_sparse/include
 )
 
-#add_subdirectory(external/Elemental-0.87.7)
-#include_directories("${PROJECT_BINARY_DIR}/external/El/include")
-#include_directories(${MPI_CXX_INCLUDE_PATH})
+add_subdirectory(external/Elemental-0.87.7)
+include_directories("${PROJECT_BINARY_DIR}/external/El/include")
+include_directories(${MPI_CXX_INCLUDE_PATH})
 
 set(SOURCE_FILES
         include/saena.hpp
@@ -80,5 +77,5 @@ if(MPI_LINK_FLAGS)
             LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
 
-#target_link_libraries(Saena ${MPI_LIBRARIES} El)
-target_link_libraries(Saena ${MPI_LIBRARIES})
+target_link_libraries(Saena ${MPI_LIBRARIES} El)
+#target_link_libraries(Saena ${MPI_LIBRARIES})
