@@ -3378,7 +3378,7 @@ int saena_matrix::matvec3(std::vector<double>& v, std::vector<double>& w) {
 }
 
 
-int saena_matrix::matvec4(std::vector<value_t>& v, std::vector<value_t>& w) {
+int saena_matrix::matvec4(std::vector<double>& v, std::vector<double>& w) {
 /*
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
