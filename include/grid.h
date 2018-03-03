@@ -14,11 +14,12 @@ public:
     saena_matrix  Ac;
     prolong_matrix P;
     restrict_matrix R;
-    std::vector<double> rhs;
+    std::vector<value_t> rhs;
     int currentLevel, maxLevel;
     Grid* coarseGrid;
     std::vector<int> rcount;
     std::vector<int> scount;
+    bool active = false;
 //    MPI_Comm comm;
 
     Grid();
