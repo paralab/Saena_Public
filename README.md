@@ -41,7 +41,7 @@ saena::amg solver;
 
 // solver.set_multigrid_max_level(0); // 0 means only use direct solver, so multigrid won't be used. otherwise remove this line.
 
-solver.set_matrix(&A);
+solver.set_matrix(&A, &opts);
 
 solver.set_rhs(rhs); // rhs should be std::vector double
 
