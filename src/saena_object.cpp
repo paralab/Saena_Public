@@ -277,8 +277,8 @@ int saena_object::find_aggregation(saena_matrix* A, std::vector<unsigned long>& 
         new_size_local = aggArray.size();
         MPI_Allreduce(&new_size_local, &new_size, 1, MPI_UNSIGNED, MPI_SUM, A->comm);
         division = A->Mbig / new_size;
-        if(rank==0) printf("connStrength = %f, current size = %u, new size = %u,  division = %d\n",
-               connStrength, A->Mbig, new_size, division);
+//        if(rank==0) printf("connStrength = %f, current size = %u, new size = %u,  division = %d\n",
+//               connStrength, A->Mbig, new_size, division);
 
         if( division > 8 ){
             connStrength += 0.05;
