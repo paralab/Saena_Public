@@ -280,7 +280,7 @@ int saena_object::find_aggregation(saena_matrix* A, std::vector<unsigned long>& 
         if(rank==0) printf("connStrength = %f, current size = %u, new size = %u,  division = %d\n",
                connStrength, A->Mbig, new_size, division);
 
-        if( division > 6 ){
+        if( division > 8 ){
             connStrength += 0.05;
             if(connStrength > 0.95)
                 continue_agg = false;
@@ -290,7 +290,7 @@ int saena_object::find_aggregation(saena_matrix* A, std::vector<unsigned long>& 
                 S.erase();
                 create_strength_matrix(A, &S);
             }
-        } else if( division < 2 ){
+        } else if( division < 1.5 ){
             connStrength -= 0.05;
             if(connStrength < 0.2)
                 continue_agg = false;

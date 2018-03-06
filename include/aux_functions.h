@@ -8,6 +8,8 @@
 #include <iostream>
 #include <algorithm>
 #include <mpi.h>
+#include <cmath>
+#include <cmath>
 
 typedef unsigned int index_t;
 typedef unsigned long nnz_t;
@@ -292,5 +294,12 @@ int generate_rhs(std::vector<value_t>& rhs, index_t mx, index_t my, index_t mz, 
 
 
 int generate_rhs_old(std::vector<value_t>& rhs);
+
+
+// returns true if val is less than the machine precision for data type T, which means it is almost zero.
+template<class T>
+bool almost_zero(T val){
+    return (fabs(val) < std::numeric_limits<T>::min());
+}
 
 #endif //SAENA_AUXFUNCTIONS_H
