@@ -33,7 +33,7 @@ saena::matrix::~matrix(){
 }
 
 
-int saena::matrix::set(index_t i, index_t j, value_t val){
+int saena::matrix::set(unsigned int i, unsigned int j, double val){
 
     if( val != 0) {
         if (!add_dup)
@@ -45,7 +45,7 @@ int saena::matrix::set(index_t i, index_t j, value_t val){
     return 0;
 }
 
-int saena::matrix::set(index_t* row, index_t* col, double* val, nnz_t nnz_local){
+int saena::matrix::set(unsigned int* row, unsigned int* col, double* val, unsigned int nnz_local){
 
     if (!add_dup)
         m_pImpl->set(row, col, val, nnz_local);
@@ -55,10 +55,10 @@ int saena::matrix::set(index_t* row, index_t* col, double* val, nnz_t nnz_local)
     return 0;
 }
 
-int saena::matrix::set(index_t i, index_t j, unsigned int size_x, unsigned int size_y, value_t* val){
+int saena::matrix::set(unsigned int i, unsigned int j, unsigned int size_x, unsigned int size_y, double* val){
 // ordering of val should be first columns, then rows.
-    unsigned int ii, jj;
-    nnz_t iter = 0;
+    unsigned int ii, jj, iter;
+    iter = 0;
 
     //todo: add openmp
     for(jj = 0; jj < size_y; jj++) {
@@ -77,8 +77,8 @@ int saena::matrix::set(index_t i, index_t j, unsigned int size_x, unsigned int s
     return 0;
 }
 
-int saena::matrix::set(index_t i, index_t j, unsigned int* di, unsigned int* dj, double* val, nnz_t nnz_local){
-    nnz_t ii;
+int saena::matrix::set(unsigned int i, unsigned int j, unsigned int* di, unsigned int* dj, double* val, unsigned int nnz_local){
+    unsigned int ii;
 
     for(ii = 0; ii < nnz_local; ii++) {
         if(val[ii] != 0){
@@ -107,27 +107,13 @@ int saena::matrix::assemble() {
     return 0;
 }
 
+unsigned int saena::matrix::get_num_local_rows() {
+    return m_pImpl->M;
+}
 
 saena_matrix* saena::matrix::get_internal_matrix(){
     return m_pImpl;
 }
-
-index_t saena::matrix::get_num_rows(){
-    return m_pImpl->Mbig;
-}
-
-index_t saena::matrix::get_num_local_rows() {
-    return m_pImpl->M;
-}
-
-nnz_t saena::matrix::get_nnz(){
-    return m_pImpl->nnz_g;
-}
-
-nnz_t saena::matrix::get_local_nnz(){
-    return m_pImpl->nnz_l;
-}
-
 
 int saena::matrix::erase(){
     m_pImpl->erase();
@@ -149,6 +135,7 @@ int saena::matrix::add_duplicates(bool add) {
     }
     return 0;
 }
+
 
 // ******************************* options *******************************
 
@@ -252,14 +239,12 @@ saena::amg::amg(){
     m_pImpl = new saena_object();
 }
 
-int saena::amg::set_matrix(saena::matrix* A, saena::options* opts){
-    m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
-                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
+int saena::amg::set_matrix(saena::matrix* A){
     m_pImpl->setup(A->get_internal_matrix());
     return 0;
 }
 
-int saena::amg::set_rhs(std::vector<value_t> rhs){
+int saena::amg::set_rhs(std::vector<double> rhs){
     m_pImpl->set_repartition_rhs(rhs);
     return 0;
 }
@@ -270,7 +255,7 @@ saena_object* saena::amg::get_object() {
 }
 
 
-int saena::amg::solve(std::vector<value_t>& u, saena::options* opts){
+int saena::amg::solve(std::vector<double>& u, saena::options* opts){
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve(u);
@@ -278,7 +263,7 @@ int saena::amg::solve(std::vector<value_t>& u, saena::options* opts){
 }
 
 
-int saena::amg::solve_pcg(std::vector<value_t>& u, saena::options* opts){
+int saena::amg::solve_pcg(std::vector<double>& u, saena::options* opts){
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pcg(u);
@@ -286,7 +271,7 @@ int saena::amg::solve_pcg(std::vector<value_t>& u, saena::options* opts){
 }
 
 
-int saena::amg::solve_pcg_update(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new){
+int saena::amg::solve_pcg_update(std::vector<double>& u, saena::options* opts, saena::matrix* A_new){
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pcg_update(u, A_new->get_internal_matrix());
@@ -294,7 +279,7 @@ int saena::amg::solve_pcg_update(std::vector<value_t>& u, saena::options* opts, 
 }
 
 
-int saena::amg::solve_pcg_update2(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new){
+int saena::amg::solve_pcg_update2(std::vector<double>& u, saena::options* opts, saena::matrix* A_new){
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pcg_update2(u, A_new->get_internal_matrix());
@@ -302,7 +287,7 @@ int saena::amg::solve_pcg_update2(std::vector<value_t>& u, saena::options* opts,
 }
 
 
-int saena::amg::solve_pcg_update3(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new){
+int saena::amg::solve_pcg_update3(std::vector<double>& u, saena::options* opts, saena::matrix* A_new){
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pcg_update3(u, A_new->get_internal_matrix());
@@ -310,7 +295,7 @@ int saena::amg::solve_pcg_update3(std::vector<value_t>& u, saena::options* opts,
 }
 
 
-int saena::amg::solve_pcg_update4(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new){
+int saena::amg::solve_pcg_update4(std::vector<double>& u, saena::options* opts, saena::matrix* A_new){
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pcg_update4(u, A_new->get_internal_matrix());
@@ -319,11 +304,11 @@ int saena::amg::solve_pcg_update4(std::vector<value_t>& u, saena::options* opts,
 
 
 
-void saena::amg::save_to_file(char* name, unsigned long* agg){
+void saena::amg::save_to_file(char* name, unsigned int* agg){
 
 }
 
-unsigned long* saena::amg::load_from_file(char* name){
+unsigned int* saena::amg::load_from_file(char* name){
     return nullptr;
 }
 
@@ -333,7 +318,6 @@ void saena::amg::destroy(){
 
 int saena::amg::set_verbose(bool verb) {
     m_pImpl->verbose = verb;
-    m_pImpl->verbose_setup = verb;
     verbose = verb;
     return 0;
 }
@@ -344,14 +328,14 @@ int saena::amg::set_multigrid_max_level(int max){
 }
 
 
-int saena::laplacian2D_old(saena::matrix* A, index_t n_matrix_local, MPI_Comm comm){
+int saena::laplacian2D(saena::matrix* A, unsigned int n_matrix_local, MPI_Comm comm){
 
     int rank, nprocs;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    index_t n_matrix = nprocs * n_matrix_local;
-    index_t n_grid = floor(sqrt(n_matrix)); // number of rows (or columns) of the matrix
+    unsigned int n_matrix = nprocs * n_matrix_local;
+    unsigned int n_grid = floor(sqrt(n_matrix)); // number of rows (or columns) of the matrix
 //    if(rank==0) std::cout << "n_matrix = " << n_matrix << ", n_grid = " << n_grid << ", != " << (n_matrix != n_grid * n_grid) << std::endl;
 
     if(n_matrix != n_grid * n_grid){
@@ -360,7 +344,7 @@ int saena::laplacian2D_old(saena::matrix* A, index_t n_matrix_local, MPI_Comm co
         return -1;
     }
 
-    index_t node, node_start, node_end; // node = global node index
+    unsigned int node, node_start, node_end; // node = global node index
 //    auto offset = (unsigned int)floor(n_matrix / nprocs);
 
     node_start = rank * n_matrix_local;
@@ -423,13 +407,13 @@ int saena::laplacian3D(saena::matrix* A, unsigned int mx, unsigned int my, unsig
     MPI_Comm_rank(comm, &rank);
 
     int       i,j,k,xm,ym,zm,xs,ys,zs,num, numi, numj, numk;
-    value_t    v[7],Hx,Hy,Hz,HyHzdHx,HxHzdHy,HxHydHz;
-    index_t col_index[7];
-    index_t node;
+    double    v[7],Hx,Hy,Hz,HyHzdHx,HxHzdHy,HxHydHz;
+    unsigned int col_index[7];
+    unsigned int node;
 
-    Hx      = 1.0 / (value_t)(mx);
-    Hy      = 1.0 / (value_t)(my);
-    Hz      = 1.0 / (value_t)(mz);
+    Hx      = 1.0 / (double)(mx);
+    Hy      = 1.0 / (double)(my);
+    Hz      = 1.0 / (double)(mz);
 //    printf("\nrank %d: mx = %d, my = %d, mz = %d, Hx = %f, Hy = %f, Hz = %f\n", rank, mx, my, mz, Hx, Hy, Hz);
 
     HyHzdHx = Hy*Hz/Hx;
@@ -504,7 +488,7 @@ int saena::laplacian3D(saena::matrix* A, unsigned int mx, unsigned int my, unsig
                         col_index[num] = node + (mx * my);
                         num++; numk++;
                     }
-                    v[num]     = (value_t)(numk)*HxHydHz + (value_t)(numj)*HxHzdHy + (value_t)(numi)*HyHzdHx;
+                    v[num]     = (double)(numk)*HxHydHz + (double)(numj)*HxHzdHy + (double)(numi)*HyHzdHx;
 //                    col[num].i = i;   col[num].j = j;   col[num].k = k;
                     col_index[num] = node;
                     num++;
@@ -565,14 +549,14 @@ int saena::laplacian3D(saena::matrix* A, unsigned int mx, unsigned int my, unsig
 }
 
 
-int saena::laplacian3D_old(saena::matrix* A, index_t n_matrix_local, MPI_Comm comm){
+int saena::laplacian3D_old(saena::matrix* A, unsigned int n_matrix_local, MPI_Comm comm){
 
     int rank, nprocs;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    index_t n_matrix = nprocs * n_matrix_local;
-    index_t n_grid = cbrt(n_matrix); // number of rows (or columns) of the matrix
+    unsigned int n_matrix = nprocs * n_matrix_local;
+    unsigned int n_grid = cbrt(n_matrix); // number of rows (or columns) of the matrix
 //    if(rank==0) std::cout << "n_matrix = " << n_matrix << ", n_grid = " << n_grid << std::endl;
 
     if(n_matrix != n_grid * n_grid * n_grid){
@@ -581,7 +565,7 @@ int saena::laplacian3D_old(saena::matrix* A, index_t n_matrix_local, MPI_Comm co
         return -1;
     }
 
-    index_t node, node_start, node_end; // node = global node index
+    unsigned int node, node_start, node_end; // node = global node index
 //    auto offset = (unsigned int)floor(n_matrix / nprocs);
 
     node_start = rank * n_matrix_local;

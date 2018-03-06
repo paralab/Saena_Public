@@ -10,10 +10,10 @@ using namespace std;
 class sort_indices
 {
 private:
-    index_t *mparr;
+    unsigned long* mparr;
 public:
-    sort_indices(index_t *parr) : mparr(parr) {}
-    bool operator()(index_t i, index_t j) const { return mparr[i]<mparr[j]; }
+    sort_indices(unsigned long* parr) : mparr(parr) {}
+    bool operator()(unsigned long i, unsigned long j) const { return mparr[i]<mparr[j]; }
 };
 
 // binary search tree using the lower bound
@@ -37,7 +37,7 @@ T lower_bound2(T *left, T *right, T val) {
 }
 
 
-int strength_matrix::strength_matrix_set(std::vector<index_t> &r, std::vector<index_t> &c, std::vector<value_t > &v, index_t m1, index_t m2, nnz_t m3, std::vector<index_t> &spl, MPI_Comm com){
+int strength_matrix::strength_matrix_set(unsigned long* r, unsigned long* c, double* v, long m1, long m2, long m3, unsigned long* spl, MPI_Comm com){
 
     comm = com;
     int nprocs, rank;
@@ -49,6 +49,36 @@ int strength_matrix::strength_matrix_set(std::vector<index_t> &r, std::vector<in
     nnz_l = m3;
     split = spl;
 
+    /*
+    rowIndex.resize(M+1);
+    rowIndex.assign(M+1, 0);
+    col.resize(nnz_l);
+    values.resize(nnz_l);
+
+//    long* row = r;
+//    col = c;
+//    values = v;
+
+    // save row-wise sorting in indicesRow_p
+    long* indicesRow_p = (long*)malloc(sizeof(long)*nnz_l);
+    for(int i=0; i<nnz_l; i++)
+        indicesRow_p[i] = i;
+    std::sort(indicesRow_p, &indicesRow_p[nnz_l], sort_indices(r));
+
+    unsigned int i;
+    for(i=0; i<nnz_l; i++){
+        rowIndex[r[i]+1 - split[rank]]++;
+        col[i] = c[indicesRow_p[i]];
+        values[i] = v[indicesRow_p[i]];
+//        if (rank==1) cout << "[" << r[indicesRow_p[i]]+1 << "," << c[indicesRow_p[i]]+1 << "] = " << v[indicesRow_p[i]] << endl;
+    }
+
+    for(i=0; i<M; i++)
+        rowIndex[i+1] += rowIndex[i];
+
+    MPI_Allreduce(&nnz_l, &nnz_g, 1, MPI_LONG, MPI_SUM, comm);
+    average_sparsity = (1.0*nnz_g)/Mbig;
+*/
     long procNum;
     unsigned long i;
     col_remote_size = 0; // number of remote columns
@@ -161,9 +191,8 @@ int strength_matrix::strength_matrix_set(std::vector<index_t> &r, std::vector<in
     vIndexSize = vdispls[nprocs-1] + vIndexCount[nprocs-1];
     recvSize = rdispls[nprocs-1] + recvCount[nprocs-1];
 
-    vIndex.resize(vIndexSize);
-    MPI_Alltoallv(&*vElement_remote.begin(), recvCount, &*rdispls.begin(), MPI_UNSIGNED,
-                  &vIndex[0], vIndexCount, &*vdispls.begin(), MPI_UNSIGNED, comm);
+    vIndex = (unsigned long*)malloc(sizeof(unsigned long)*vIndexSize);
+    MPI_Alltoallv(&(*(vElement_remote.begin())), recvCount, &*(rdispls.begin()), MPI_UNSIGNED_LONG, vIndex, vIndexCount, &(*(vdispls.begin())), MPI_UNSIGNED_LONG, comm);
 
     free(vIndexCount);
     free(recvCount);
@@ -181,31 +210,33 @@ int strength_matrix::strength_matrix_set(std::vector<index_t> &r, std::vector<in
     }*/
 
     // change the indices from global to local
-#pragma omp parallel for
-    for (unsigned int i=0; i<vIndexSize; i++)
+    for (unsigned int i=0; i<vIndexSize; i++){
         vIndex[i] -= split[rank];
+    }
 
     // change the indices from global to local
-#pragma omp parallel for
-    for (unsigned int i=0; i<row_local.size(); i++)
+    for (unsigned int i=0; i<row_local.size(); i++){
         row_local[i] -= split[rank];
-
-#pragma omp parallel for
-    for (unsigned int i=0; i<row_remote.size(); i++)
+//        col_local[i] -= split[rank];
+    }
+    for (unsigned int i=0; i<row_remote.size(); i++){
         row_remote[i] -= split[rank];
+//        col_remote[i] -= split[rank];
+    }
 
     // vSend = vector values to send to other procs
     // vecValues = vector values that received from other procs
     // These will be used in matvec and they are set here to reduce the time of matvec.
-    vSend.resize(2*vIndexSize); // make them double size for prolongation the communication in the aggregation function.
-    vecValues.resize(2*recvSize); // make them double size for prolongation the communication in the aggregation function.
+    vSend     = (unsigned long*)malloc(sizeof(unsigned long) * 2*vIndexSize); // make them double size for prolongation the communication in the aggregation function.
+//    vSend2 = (int*)malloc(sizeof(int) * vIndexSize);
+    vecValues = (unsigned long*)malloc(sizeof(unsigned long) * 2*recvSize); // make them double size for prolongation the communication in the aggregation function.
+//    vecValues2 = (int*) malloc(sizeof(int) * recvSize);
 
-    indicesP_local.resize(nnz_l_local);
+    indicesP_local = (unsigned long*)malloc(sizeof(unsigned long)*nnz_l_local);
     for(i=0; i<nnz_l_local; i++)
         indicesP_local[i] = i;
-
-    index_t *row_localP = &*row_local.begin();
-    std::sort(&indicesP_local[0], &indicesP_local[nnz_l_local], sort_indices(row_localP));
+    unsigned long* row_localP = &(*(row_local.begin()));
+    std::sort(indicesP_local, &indicesP_local[nnz_l_local], sort_indices(row_localP));
 
 //    indicesP_remote = (unsigned long*)malloc(sizeof(unsigned long)*nnz_l_remote);
 //    for(i=0; i<nnz_l_remote; i++)
@@ -216,59 +247,18 @@ int strength_matrix::strength_matrix_set(std::vector<index_t> &r, std::vector<in
     return 0;
 }
 
-
 strength_matrix::~strength_matrix(){
-//    free(vIndex);
-//    free(vSend);
-//    free(vecValues);
-//    free(indicesP_local);
+    free(vIndex);
+    free(vSend);
+//    free(vSend2);
+    free(vecValues);
+//    free(vecValues2);
+    free(indicesP_local);
 //    free(indicesP_remote);
 //    rowIndex.resize(0);
 //    col.resize(0);
 //    values.resize(0);
 }
-
-
-int strength_matrix::erase(){
-    M    = 0;
-    Mbig = 0;
-    nnz_l  = 0;
-    nnz_l_local  = 0;
-    nnz_l_remote = 0;
-    col_remote_size = 0;
-    vIndexSize = 0;
-    recvSize = 0;
-    numRecvProc = 0;
-    numSendProc = 0;
-
-    vIndex.clear();
-    vSend.clear();
-    vecValues.clear();
-    split.clear();
-    values_local.clear();
-    values_remote.clear();
-    row_local.clear();
-    row_remote.clear();
-    col_local.clear();
-    col_remote.clear();
-    col_remote2.clear();
-    nnzPerRow.clear();
-    nnzPerRow_local.clear();
-    nnz_col_remote.clear();
-    vElement_remote.clear();
-    vElementRep_local.clear();
-    vElementRep_remote.clear();
-    indicesP_local.clear();
-    indicesP_remote.clear();
-    vdispls.clear();
-    rdispls.clear();
-    recvProcRank.clear();
-    recvProcCount.clear();
-    sendProcRank.clear();
-    sendProcCount.clear();
-    return 0;
-}
-
 
 void strength_matrix::print(int r){
 //    int rank;

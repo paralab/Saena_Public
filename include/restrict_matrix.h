@@ -5,45 +5,41 @@
 
 class prolong_matrix;
 
-typedef unsigned int index_t;
-typedef unsigned long nnz_t;
-typedef double value_t;
-
 class restrict_matrix {
 // A matrix of this class is ordered first column-wise, then row-wise, using std:sort with cooEntry class "< operator".
 // It is sorted in restrictMatrix constructor function in restrictmatrix.cpp.
 private:
 
 public:
-    index_t M;
-    index_t Mbig;
-    index_t Nbig;
-    nnz_t nnz_g;
-    nnz_t nnz_l;
-    nnz_t nnz_l_local;
-    nnz_t nnz_l_remote;
+    unsigned int M;
+    unsigned int Mbig;
+    unsigned int Nbig;
+    unsigned long nnz_g;
+    unsigned long nnz_l;
+    unsigned long nnz_l_local;
+    unsigned long nnz_l_remote;
 
     std::vector<cooEntry> entry;
     std::vector<cooEntry> entry_local;
     std::vector<cooEntry> entry_remote;
-    std::vector<index_t> row_local;
-    std::vector<index_t> row_remote;
-    std::vector<index_t> col_remote; // index starting from 0, instead of the original column index
+    std::vector<unsigned long> row_local;
+    std::vector<unsigned long> row_remote;
+    std::vector<unsigned long> col_remote; // index starting from 0, instead of the original column index
 
-    std::vector<index_t> split;
-    std::vector<index_t> splitNew;
+    std::vector<unsigned long> split;
+    std::vector<unsigned long> splitNew;
 
-    std::vector<index_t> vIndex;
-    std::vector<value_t> vSend;
-    std::vector<value_t> vecValues;
+    unsigned long* vIndex;
+    double* vSend;
+    double* vecValues;
 
-    index_t col_remote_size; // number of remote columns. this is the same as vElement_remote.size()
-    std::vector<index_t> nnzPerRow_local;
-    std::vector<index_t> vElement_remote;
-    std::vector<index_t> vElementRep_local;
-    std::vector<index_t> vElementRep_remote;
-    std::vector<index_t> nnzPerCol_remote; //todo: number of columns is large!
-    std::vector<nnz_t> nnzPerRowScan_local;
+    unsigned long col_remote_size; // number of remote columns. this is the same as vElement_remote.size()
+    std::vector<unsigned int> nnzPerRow_local;
+    std::vector<unsigned long> vElement_remote;
+    std::vector<unsigned long> vElementRep_local;
+    std::vector<unsigned long> vElementRep_remote;
+    std::vector<unsigned int> nnzPerCol_remote; //todo: number of columns is large!
+    std::vector<unsigned int> nnzPerRowScan_local;
     std::vector<int> vdispls;
     std::vector<int> rdispls;
     std::vector<int> recvProcRank;
@@ -55,17 +51,17 @@ public:
     int numRecvProc;
     int numSendProc;
 
-    std::vector<nnz_t> indicesP_local;
-    std::vector<nnz_t> indicesP_remote;
+    unsigned long* indicesP_local;
+    unsigned long* indicesP_remote;
 
     bool arrays_defined = false; // set to true if transposeP function is called. it will be used for destructor.
 
     MPI_Comm comm;
 
     restrict_matrix();
-    ~restrict_matrix();
     int transposeP(prolong_matrix* P);
-    int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    ~restrict_matrix();
+    int matvec(std::vector<double>& v, std::vector<double>& w);
 };
 
 #endif //SAENA_RESTRICT_MATRIX_H
