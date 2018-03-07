@@ -89,7 +89,6 @@ int main(int argc, char* argv[]){
 */
     // ******** 2 - initialize the matrix: read from file *************
 
-
     char* file_name(argv[1]);
     MPI_Barrier(comm);
     double t1 = omp_get_wtime();
@@ -179,7 +178,7 @@ int main(int argc, char* argv[]){
 //    solver.set_verbose(verbose); // set verbose at the beginning of the main function.
 //    solver.set_multigrid_max_level(0); // 0 means only use direct solver, so no multigrid will be used.
 
-    solver.set_matrix(&A, &opts);
+    solver.set_matrix(&A);
     solver.set_rhs(rhs);
 
     t2 = omp_get_wtime();

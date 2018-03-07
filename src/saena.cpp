@@ -55,6 +55,7 @@ int saena::matrix::set(unsigned int* row, unsigned int* col, double* val, unsign
     return 0;
 }
 
+
 int saena::matrix::set(unsigned int i, unsigned int j, unsigned int size_x, unsigned int size_y, double* val){
 // ordering of val should be first columns, then rows.
     unsigned int ii, jj, iter;

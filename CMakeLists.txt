@@ -1,11 +1,8 @@
-#SET(CMAKE_CXX_COMPILER mpicxx)
-#SET(CMAKE_C_COMPILER mpicc)
-
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.3)
 project(Saena)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-#set(CMAKE_CXX_STANDARD 11)
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_STANDARD 11)
 
 find_package(OpenMP)
 if (OPENMP_FOUND)
@@ -28,6 +25,7 @@ include_directories(
 )
 
 add_subdirectory(external/Elemental-0.87.7)
+include_directories("${PROJECT_BINARY_DIR}/external/Elemental-0.87.7/elemental_install/include")
 include_directories("${PROJECT_BINARY_DIR}/external/El/include")
 include_directories(${MPI_CXX_INCLUDE_PATH})
 

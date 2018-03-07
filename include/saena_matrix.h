@@ -107,6 +107,8 @@ public:
     float jacobi_omega = float(2.0/3);
     double eig_max_diagxA;
 
+    double double_machine_prec = 1e-12;
+
     saena_matrix();
     saena_matrix(MPI_Comm com);
     /**

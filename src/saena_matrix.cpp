@@ -225,12 +225,12 @@ int saena_matrix::set(unsigned int row, unsigned int col, double val){
         hint++;
         data_coo.erase(p.first);
         // in the case of duplicate, if the new value is zero, remove the older one and don't insert the zero.
-        if(val != 0)
+        if(val > double_machine_prec)
             data_coo.insert(hint, temp_new);
     }
 
     // if the entry is zero and it was not a duplicate, just erase it.
-    if(p.second && val == 0)
+    if(p.second && val < double_machine_prec)
         data_coo.erase(p.first);
 
     return 0;
@@ -258,12 +258,12 @@ int saena_matrix::set(unsigned int* row, unsigned int* col, double* val, unsigne
             hint++;
             data_coo.erase(p.first);
             // if the entry is zero and it was not a duplicate, just erase it.
-            if(val[i] != 0)
+            if(val[i] > double_machine_prec)
                 data_coo.insert(hint, temp_new);
         }
 
         // if the entry is zero, erase it.
-        if(p.second && val[i] == 0)
+        if(p.second && val[i] < double_machine_prec)
             data_coo.erase(p.first);
     }
 
@@ -306,7 +306,7 @@ int saena_matrix::set2(unsigned int* row, unsigned int* col, double* val, unsign
     std::pair<std::set<cooEntry>::iterator, bool> p;
 
     for(unsigned int i=0; i<nnz_local; i++){
-        if(val[i] != 0){
+        if(val[i] > double_machine_prec){
             temp_new = cooEntry(row[i], col[i], val[i]);
             p = data_coo.insert(temp_new);
 
@@ -325,90 +325,6 @@ int saena_matrix::set2(unsigned int* row, unsigned int* col, double* val, unsign
     return 0;
 }
 
-/*
-int saena_matrix::set3(unsigned int row, unsigned int col, double val){
-
-    int nprocs, rank;
-    MPI_Comm_size(comm, &nprocs);
-    MPI_Comm_rank(comm, &rank);
-
-    // update the matrix size if required.
-//    if(row >= Mbig)
-//        Mbig = row + 1; // "+ 1" is there since row starts from 0, not 1.
-//    if(col >= Mbig)
-//        Mbig = col + 1;
-
-//    auto proc_num = lower_bound2(&*split.begin(), &*split.end(), (unsigned long)row);
-//    printf("proc_num = %ld\n", proc_num);
-
-    cooEntry recv_buf;
-    cooEntry send_buf(row, col, val);
-
-//    if(rank == proc_num)
-//        MPI_Recv(&send_buf, 1, cooEntry::mpi_datatype(), , 0, comm, NULL);
-//    if(rank != )
-//        MPI_Send(&recv_buf, 1, cooEntry::mpi_datatype(), proc_num, 0, comm);
-
-    //todo: change send_buf to recv_buf after completing the communication for the parallel version.
-    auto position = lower_bound2(&*entry.begin(), &*entry.end(), send_buf);
-//    printf("position = %lu \n", position);
-//    printf("%lu \t%lu \t%f \n", entry[position].row, entry[position].col, entry[position].val);
-
-    if(send_buf == entry[position]){
-        if(add_duplicates){
-            entry[position].val += send_buf.val;
-        }else{
-            entry[position].val = send_buf.val;
-        }
-    }else{
-        printf("\nAttention: the structure of the matrix is being changed, so matrix.assemble() is required to call after being done calling matrix.set()!\n\n");
-        entry.push_back(send_buf);
-        std::sort(&*entry.begin(), &*entry.end());
-        nnz_g++;
-        nnz_l++;
-    }
-
-//    printf("\nentry:\n");
-//    for(long i = 0; i < nnz_l; i++)
-//        std::cout << entry[i] << std::endl;
-
-    return 0;
-}
-
-int saena_matrix::set3(unsigned int* row, unsigned int* col, double* val, unsigned int nnz_local){
-
-    if(nnz_local <= 0){
-        printf("size in the set function is either zero or negative!");
-        return 0;
-    }
-
-    cooEntry temp;
-    long position;
-    for(unsigned int i = 0; i < nnz_local; i++){
-        temp = cooEntry(row[i], col[i], val[i]);
-        position = lower_bound2(&*entry.begin(), &*entry.end(), temp);
-        if(temp == entry[position]){
-            if(add_duplicates){
-                entry[position].val += temp.val;
-            }else{
-                entry[position].val  = temp.val;
-            }
-        }else{
-            printf("\nAttention: the structure of the matrix is being changed, so matrix.assemble() is required to call after being done calling matrix.set()!\n\n");
-            entry.push_back(temp);
-            std::sort(&*entry.begin(), &*entry.end());
-            nnz_g++;
-            nnz_l++;
-        }
-    }
-
-//    printf("\nentry:\n");
-//    for(long i = 0; i < nnz_l; i++)
-//        std::cout << entry[i] << std::endl;
-
-    return 0;
-}
-*/
 
 void saena_matrix::set_comm(MPI_Comm com){
     comm = com;
