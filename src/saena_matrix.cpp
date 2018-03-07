@@ -225,12 +225,12 @@ int saena_matrix::set(unsigned int row, unsigned int col, double val){
         hint++;
         data_coo.erase(p.first);
         // in the case of duplicate, if the new value is zero, remove the older one and don't insert the zero.
-        if(val > double_machine_prec)
+        if( fabs(val) > double_machine_prec)
             data_coo.insert(hint, temp_new);
     }
 
     // if the entry is zero and it was not a duplicate, just erase it.
-    if(p.second && val < double_machine_prec)
+    if(p.second && fabs(val) < double_machine_prec)
         data_coo.erase(p.first);
 
     return 0;
@@ -258,12 +258,12 @@ int saena_matrix::set(unsigned int* row, unsigned int* col, double* val, unsigne
             hint++;
             data_coo.erase(p.first);
             // if the entry is zero and it was not a duplicate, just erase it.
-            if(val[i] > double_machine_prec)
+            if(fabs(val[i]) > double_machine_prec)
                 data_coo.insert(hint, temp_new);
         }
 
         // if the entry is zero, erase it.
-        if(p.second && val[i] < double_machine_prec)
+        if(p.second && fabs(val[i]) < double_machine_prec)
             data_coo.erase(p.first);
     }
 
@@ -306,7 +306,7 @@ int saena_matrix::set2(unsigned int* row, unsigned int* col, double* val, unsign
     std::pair<std::set<cooEntry>::iterator, bool> p;
 
     for(unsigned int i=0; i<nnz_local; i++){
-        if(val[i] > double_machine_prec){
+        if(fabs(val[i]) > double_machine_prec){
             temp_new = cooEntry(row[i], col[i], val[i]);
             p = data_coo.insert(temp_new);
 
