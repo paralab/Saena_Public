@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 3.3)
 project(Saena)
 
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+#set(CMAKE_CXX_STANDARD 11)
 
 find_package(OpenMP)
 if (OPENMP_FOUND)
@@ -17,29 +17,17 @@ include_directories(
         include
         external/usort/include
         external/pugixml/include
-
-        build/elemental_install/include
-        build/external/Elemental-0.87.7/include
-        external/Elemental-0.87.7/include
-        external/Elemental-0.87.7/external/suite_sparse/include
 )
 
 add_subdirectory(external/Elemental-0.87.7)
-include_directories("${PROJECT_BINARY_DIR}/external/Elemental-0.87.7/elemental_install/include")
-include_directories("${PROJECT_BINARY_DIR}/external/El/include")
+
+include_directories("${PROJECT_BINARY_DIR}/external/Elemental-0.87.7/include")
+include_directories("external/Elemental-0.87.7/include")
+include_directories("external/Elemental-0.87.7/external/suite_sparse/include")
 include_directories(${MPI_CXX_INCLUDE_PATH})
 
 set(SOURCE_FILES
-        include/saena.hpp
-        include/saena_matrix.h
-        include/saena_object.h
-        include/strength_matrix.h
-        include/prolong_matrix.h
-        include/restrict_matrix.h
-        include/aux_functions.h
-        include/grid.h
-
-        src/main.cpp
+	
         src/saena_matrix.cpp
         src/saena_object.cpp
         src/strength_matrix.cpp
@@ -51,6 +39,20 @@ set(SOURCE_FILES
 
         external/pugixml/src/pugixml.cpp
 
+        external/usort/src/binUtils.cpp
+        external/usort/src/parUtils.cpp
+        external/usort/src/sort_profiler.cpp
+        )
+
+set(HEADER_FILES
+        include/saena.hpp
+        include/saena_matrix.h
+        include/saena_object.h
+        include/strength_matrix.h
+        include/prolong_matrix.h
+        include/restrict_matrix.h
+        include/aux_functions.h
+        include/grid.h
         external/usort/include/binUtils.h
         external/usort/include/dtypes.h
         external/usort/include/indexHolder.h
@@ -61,21 +63,24 @@ set(SOURCE_FILES
         external/usort/include/seqUtils.h
         external/usort/include/seqUtils.tcc
         external/usort/include/sort_profiler.h
-        external/usort/src/binUtils.cpp
-        external/usort/src/parUtils.cpp
-        external/usort/src/sort_profiler.cpp
-        )
+	)
 
-add_executable(Saena ${SOURCE_FILES})
-
+add_executable(SaenaTest ${SOURCE_FILES} src/main.cpp)
 if(MPI_COMPILE_FLAGS)
-    set_target_properties(Saena PROPERTIES
+    set_target_properties(SaenaTest PROPERTIES
             COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
 endif()
-
 if(MPI_LINK_FLAGS)
-    set_target_properties(Saena PROPERTIES
+    set_target_properties(SaenaTest PROPERTIES
             LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
+target_link_libraries(SaenaTest ${MPI_LIBRARIES} El)
 
-target_link_libraries(Saena ${MPI_LIBRARIES} El)
+
+ADD_NEKTAR_LIBRARY(Saena
+    SOURCES ${SOURCE_FILES}
+    HEADERS ${HEADER_FILES}
+    DEPENDS El
+    SUMMARY "Nektar++ Saena fast multigrid solver library"
+    DESCRIPTION "This library provides fast multigrid solves.")
+
