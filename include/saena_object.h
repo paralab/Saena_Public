@@ -34,7 +34,7 @@ public:
     bool shrink_cpu = false;
     bool dynamic_levels = true;
     bool adaptive_coarsening = true;
-    float dense_threshold = 0.8; // 0<dense_threshold<=1 decide when to switch to the dense structure.
+    float dense_threshold = 2; // 0<dense_threshold<=1 decide when to switch to the dense structure.
 
     bool verbose = false;
     bool verbose_setup = true;
