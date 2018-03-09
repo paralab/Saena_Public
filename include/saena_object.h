@@ -13,13 +13,13 @@ class Grid;
 
 class saena_object {
 public:
-    int max_level = 1; // fine grid is level 0.
+    int max_level = 5; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 15;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,
     // which means the number of rows was not reduced much.
     double row_reduction_threshold = 0.90;
-    int vcycle_num = 200;
+    int vcycle_num = 300;
     double relative_tolerance = 1e-8;
     std::string smoother = "chebyshev";
     int preSmooth  = 3;
@@ -28,12 +28,12 @@ public:
     float connStrength = 0.5; // connection strength parameter: control coarsening aggressiveness
     bool doSparsify = false;
     std::vector<Grid> grids;
-    int CG_max_iter = 200;
+    int CG_max_iter = 100;
     double CG_tol = 1e-10;
     bool repartition = false;
     bool shrink_cpu = false;
     bool dynamic_levels = true;
-    bool adaptive_coarsening = false;
+    bool adaptive_coarsening = true;
     float dense_threshold = 0.8; // 0<dense_threshold<=1 decide when to switch to the dense structure.
 
     bool verbose = false;
