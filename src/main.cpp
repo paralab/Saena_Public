@@ -432,7 +432,7 @@ int main(int argc, char* argv[]){
     solver.set_verbose(verbose); // set verbose at the beginning of the main function.
 //    solver.set_multigrid_max_level(0); // 0 means only use direct solver, so no multigrid will be used.
 
-    solver.set_matrix(&A);
+    solver.set_matrix(&A, &opts);
     solver.set_rhs(rhs);
 
     t2 = MPI_Wtime();
