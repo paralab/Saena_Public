@@ -3805,7 +3805,7 @@ int saena_object::set_repartition_rhs(std::vector<value_t>& rhs0){
 
 //    if(rank==ran) printf("\n");
     for(i = 0; i < nprocs+1; i++)
-        if(rank==ran) printf("%lu \t init_partition_scan[i] = %lu\n", i, init_partition_scan[i]);
+        if(rank==0) printf("%lu \t init_partition_scan[i] = %lu\n", i, init_partition_scan[i]);
 
 
     index_t start, end, start_proc, end_proc;
