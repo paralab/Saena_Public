@@ -101,6 +101,7 @@ int main(int argc, char* argv[]){
     if(verbose) print_time(t1, t2, "Matrix Assemble:", comm);
 
     // *************************** set rhs ****************************
+    // ********** 1 - set rhs: generate randomly **********
 
     unsigned int num_local_row = A.get_num_local_rows();
     std::vector<value_t> rhs(num_local_row);
@@ -179,7 +180,7 @@ int main(int argc, char* argv[]){
 //    solver.set_verbose(verbose); // set verbose at the beginning of the main function.
 //    solver.set_multigrid_max_level(0); // 0 means only use direct solver, so no multigrid will be used.
 
-    solver.set_matrix(&A);
+    solver.set_matrix(&A, &opts);
     solver.set_rhs(rhs);
 
     t2 = omp_get_wtime();
@@ -201,6 +202,7 @@ int main(int argc, char* argv[]){
 
     t2 = omp_get_wtime();
     if(solver.verbose) print_time(t1, t2, "Solve:", comm);
+
 
     // print A*u
 //    std::vector<double> temp1(num_local_row, 0);
@@ -277,9 +279,11 @@ int main(int argc, char* argv[]){
                 std::cout << time_e1[0] / (matvec_iter) << std::endl; // set vSend
                 std::cout << (time_e1[3] - time_e1[1] - time_e1[2]) / (matvec_iter) << std::endl; // comm
             }
-
+        }
+    }
+*/
             // *************************** matvec1 - alltoall ****************************
-
+/*
             generate_rhs_old(rhs);
             u.assign(num_local_row, 0);
             time_e1.assign(time_e1.size(), 0);
@@ -331,7 +335,7 @@ int main(int argc, char* argv[]){
             }
         }
     }
-*/
+/*
         // *************************** matvec3 ****************************
 /*
         generate_rhs_old(rhs);

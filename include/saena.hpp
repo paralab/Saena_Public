@@ -6,6 +6,10 @@
 class saena_matrix;
 class saena_object;
 
+typedef unsigned int index_t;
+typedef unsigned long nnz_t;
+typedef double value_t;
+
 namespace saena {
 
     class matrix {
@@ -16,16 +20,20 @@ namespace saena {
         ~matrix();
 
         void set_comm(MPI_Comm comm);
-        int set(unsigned int i, unsigned int j, double val); // set individual value
-        int set(unsigned int* row, unsigned int* col, double* val, unsigned int nnz_local); // set multiple values
-        int set(unsigned int i, unsigned int j, unsigned int size_x, unsigned int size_y, double* val); // set contiguous block
-        int set(unsigned int i, unsigned int j, unsigned int* di, unsigned int* dj, double* val, unsigned int nnz_local); // set generic block
+        int set(index_t i, index_t j, double val); // set individual value
+        int set(index_t* row, index_t* col, double* val, nnz_t nnz_local); // set multiple values
+        int set(index_t i, index_t j, unsigned int size_x, unsigned int size_y, double* val); // set contiguous block
+        int set(index_t i, index_t j, unsigned int* di, unsigned int* dj, double* val, nnz_t nnz_local); // set generic block
 
         bool add_dup = false; // if false replace the duplicate, otherwise add the values together.
         int add_duplicates(bool add);
         int assemble();
-        unsigned int get_num_local_rows();
         saena_matrix* get_internal_matrix();
+        index_t get_num_rows();
+        index_t get_num_local_rows();
+        nnz_t get_nnz();
+        nnz_t get_local_nnz();
+
         int erase();
         void destroy();
 
@@ -64,24 +72,24 @@ namespace saena {
     class amg {
     public:
         amg();
-        int set_matrix(saena::matrix* A);
-        int set_rhs(std::vector<double> rhs);
+        int set_matrix(saena::matrix* A, saena::options* opts);
+        int set_rhs(std::vector<value_t> rhs);
         saena_object* get_object();
-        void save_to_file(char* name, unsigned int* agg); // to save aggregates to a file.
-        unsigned int* load_from_file(char* name); // to load aggregates from a file.
+        void save_to_file(char* name, unsigned long* agg); // to save aggregates to a file.
+        unsigned long* load_from_file(char* name); // to load aggregates from a file.
         // before calling solve function, vector "u" is the initial guess.
         // After calling solve, it will be the solution.
-        int solve(std::vector<double>& u, saena::options* opts);
-        int solve_pcg(std::vector<double>& u, saena::options* opts);
+        int solve(std::vector<value_t>& u, saena::options* opts);
+        int solve_pcg(std::vector<value_t>& u, saena::options* opts);
         // if solver is made based of a matrix, let's call it A, and there is an updated version of A, let's call it B,
         // and one wants to solve B*x = rhs instead of A*x = rhs, then solve_pcg_update can be used and B can be passed as the third argument.
-        int solve_pcg_update(std::vector<double>& u, saena::options* opts, saena::matrix* A_new);
+        int solve_pcg_update(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new);
         // similar to solve_pcg_update, but updates the LHS with A_new.
-        int solve_pcg_update2(std::vector<double>& u, saena::options* opts, saena::matrix* A_new);
+        int solve_pcg_update2(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new);
         // similar to solve_pcg_update, but updates grids[i].A for all levels, using the previously made grids[i].P and R.
-        int solve_pcg_update3(std::vector<double>& u, saena::options* opts, saena::matrix* A_new);
+        int solve_pcg_update3(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new);
         // similar to solve_pcg_update3, but does R*A*P only for the local (diagonal blocks).
-        int solve_pcg_update4(std::vector<double>& u, saena::options* opts, saena::matrix* A_new);
+        int solve_pcg_update4(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new);
         void destroy();
 
         bool verbose = false;
@@ -94,7 +102,7 @@ namespace saena {
     };
 
     // second argument is dof on each processor
-    int laplacian2D(saena::matrix* A, unsigned int dof_local, MPI_Comm comm);
+    int laplacian2D_old(saena::matrix* A, unsigned int dof_local, MPI_Comm comm);
     int laplacian3D(saena::matrix* A, unsigned int mx, unsigned int my, unsigned int mz, MPI_Comm comm);
     int laplacian3D_old(saena::matrix* A, unsigned int dof_local, MPI_Comm comm);
 }
