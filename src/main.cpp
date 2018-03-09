@@ -419,7 +419,7 @@ int main(int argc, char* argv[]){
     t1 = MPI_Wtime();
 
 //    int max_level             = 2; // this is moved to saena_object.
-    int vcycle_num            = 100;
+    int vcycle_num            = 300;
     double relative_tolerance = 1e-12;
     std::string smoother      = "chebyshev"; // choices: "jacobi", "chebyshev"
     int preSmooth             = 3;
@@ -476,15 +476,15 @@ int main(int argc, char* argv[]){
         for(long i = 0; i < B->nnz_l; i++)
             std::cout << B->entry[i] << std::endl;
 */
-    saena_object* AA = solver.get_object();
-    if(rank==0)
-        for(long i = 0; i < AA->grids[0].rhs.size(); i++)
-            std::cout << AA->grids[0].rhs[i] << std::endl;
+//    saena_object* AA = solver.get_object();
+//    if(rank==0)
+//        for(long i = 0; i < AA->grids[0].rhs.size(); i++)
+//            std::cout << AA->grids[0].rhs[i] << std::endl;
 
-    MPI_Barrier(comm);
-    if(rank==1)
-        for(long i = 0; i < AA->grids[0].rhs.size(); i++)
-            std::cout << AA->grids[0].rhs[i] << std::endl;
+//    MPI_Barrier(comm);
+//    if(rank==1)
+//        for(long i = 0; i < AA->grids[0].rhs.size(); i++)
+//            std::cout << AA->grids[0].rhs[i] << std::endl;
 
 //    A.add_duplicates(true);
 //    A.set(8, 7, 100);

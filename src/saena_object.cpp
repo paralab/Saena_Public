@@ -4844,7 +4844,7 @@ int saena_object::find_eig_Elemental(saena_matrix& A) {
             A.eig_max_of_invdiagXA = fabs(w.Get(i, 0).real());
     }
 
-    if(rank==0) printf("\nthe biggest eigenvalue is %f (Elemental) \n", A.eig_max_of_invdiagXA);
+//    if(rank==0) printf("\nthe biggest eigenvalue is %f (Elemental) \n", A.eig_max_of_invdiagXA);
 
     El::Finalize();
 
