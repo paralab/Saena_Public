@@ -39,21 +39,22 @@ int main(int argc, char* argv[]){
         MPI_Finalize();
         return -1;}
 */
-
+/*
     if(argc != 2){
         if(rank == 0){
             std::cout << "Usage: ./Saena <MatrixA>" << std::endl;
             std::cout << "Matrix file should be in triples format." << std::endl;}
         MPI_Finalize();
         return -1;}
-/*
+*/
+
     if(argc != 3){
         if(rank == 0){
             std::cout << "Usage: ./Saena <MatrixA> <rhs_vec>" << std::endl;
             std::cout << "Matrix file should be in triples format." << std::endl;}
         MPI_Finalize();
         return -1;}
-*/
+
 /*
     if(argc != 4){
         if(rank == 0){
@@ -103,10 +104,10 @@ int main(int argc, char* argv[]){
 
     unsigned int num_local_row = A.get_num_local_rows();
     std::vector<value_t> rhs(num_local_row);
-    generate_rhs_old(rhs);
+//    generate_rhs_old(rhs);
 
     // ********** 2 - set rhs: read from file **********
-/*
+
     char* Vname(argv[2]);
 //    char* Vname(argv[3]);
 
@@ -149,7 +150,7 @@ int main(int argc, char* argv[]){
     // set rhs
 //    A.get_internal_matrix()->matvec(v, rhs);
     rhs = v;
-*/
+
     // ********** print rhs **********
 
 //    if(rank==0)
@@ -165,9 +166,9 @@ int main(int argc, char* argv[]){
     t1 = omp_get_wtime();
 
 //    int max_level             = 2; // this is moved to saena_object.
-    int vcycle_num            = 200;
+    int vcycle_num            = 300;
     double relative_tolerance = 1e-12;
-    std::string smoother      = "jacobi"; // choices: "jacobi", "chebyshev"
+    std::string smoother      = "chebyshev"; // choices: "jacobi", "chebyshev"
     int preSmooth             = 3;
     int postSmooth            = 3;
 

@@ -2154,7 +2154,7 @@ int saena_matrix::find_eig() {
         if(w.Get(i,0).real() > eig_max_diagxA)
             eig_max_diagxA = w.Get(i,0).real();
 
-//    if(rank==0) printf("eig_max = %f \n", eig_max_diagxA);
+    if(rank==0) printf("eig_max = %f \n", eig_max_diagxA);
 
 /*
     // parallel (draft)

@@ -2847,8 +2847,9 @@ int saena_object::vcycle(Grid* grid, std::vector<double>& u, std::vector<double>
         //        for(auto i:res)
         //            std::cout << i << std::endl;
 
-        //    dotProduct(res, res, &dot, comm);
-        //    if(rank==0) std::cout << "current level = " << grid->currentLevel << ", after pre-smooth  = " << sqrt(dot) << std::endl;
+//        double dot;
+//        dotProduct(res, res, &dot, grid->A->comm);
+//        if(rank==0) std::cout << "current level = " << grid->currentLevel << ", after pre-smooth  = " << sqrt(dot) << std::endl;
 
         // **************************************** 3. restrict ****************************************
 
