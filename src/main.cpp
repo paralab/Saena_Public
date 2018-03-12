@@ -35,6 +35,7 @@ int main(int argc, char* argv[]){
         return -1;
     }
 */
+/*
     if(argc != 3)
     {
         if(rank == 0)
@@ -45,7 +46,8 @@ int main(int argc, char* argv[]){
         MPI_Finalize();
         return -1;
     }
-/*
+*/
+
     if(argc != 4)
     {
         if(rank == 0)
@@ -56,7 +58,7 @@ int main(int argc, char* argv[]){
         MPI_Finalize();
         return -1;
     }
-*/
+
 
     // *************************** get number of rows ****************************
 
@@ -157,32 +159,11 @@ int main(int argc, char* argv[]){
 */
 
     // *************************** set rhs ****************************
+    // ********** 1 - set rhs: generate randomly **********
 
     unsigned int num_local_row = A.get_num_local_rows();
-    std::vector<double> rhs(num_local_row);
-
-//    MPI_Barrier(comm);
-//    saena_matrix* B = A.get_internal_matrix();
-//    if(rank==0){
-//        printf("split_old:\n");
-//        for(int i=0; i<nprocs+1; i++)
-//            printf("%lu \n", B->split[i]);
-//    }
-//    MPI_Barrier(comm);
-
-//    std::vector<double> rhs;
-
-    // ********** 1 - set rhs: use generate_rhs **********
-/*
-    std::vector<double> v(num_local_row);
-    generate_rhs_old(v);
-    A.get_internal_matrix()->matvec(v, rhs);
-*/
-//    generate_rhs(rhs, mx, my, mz, comm);
-
-//    if(rank==0)
-//        for(unsigned long i=0; i<rhs.size(); i++)
-//            std::cout << i << "\t" << rhs[i] << std::endl;
+    std::vector<value_t> rhs(num_local_row);
+//    generate_rhs_old(rhs);
 
     // repartition rhs to have the same partition as the matrix A
     // ----------------------------------------------------------
@@ -241,9 +222,7 @@ int main(int argc, char* argv[]){
             printf("%d \t %d\n", i, sdispls[i]);}
 
 
-
     MPI_Barrier(comm); printf("\nrank = %d, rhs.resize = %lu\n", rank, B->split[rank+1] - B->split[rank]); MPI_Barrier(comm);
-
 
 
     rhs.clear();
@@ -449,7 +428,7 @@ int main(int argc, char* argv[]){
     t1 = MPI_Wtime();
 
 //    solver.solve(u, &opts);
-    solver.solve_pcg(u, &opts);
+//    solver.solve_pcg(u, &opts);
 
     t2 = MPI_Wtime();
     if(solver.verbose) print_time(t1, t2, "Solve:", comm);
@@ -508,11 +487,10 @@ int main(int argc, char* argv[]){
     // try this: ./Saena ./data/25o1s4.bin ./data/vectors/v25.bin ./data/25o1s4_2.bin
     // or:       ./Saena ./data/81s4x8o1mu1.bin ./data/vectors/v81.bin ./data/81s4x8o1mu1_2.bin
     // or:       ./Saena ./data/2DMed_sorted.bin ./data/vectors/v961.bin ./data/2DMed_sorted_2.bin
-/*
+
     char* file_name2(argv[3]);
     saena::matrix A_new (file_name2, comm);
     A_new.assemble();
-*/
 
 /*
     saena_matrix *B = A_new.get_internal_matrix();
@@ -539,8 +517,14 @@ int main(int argc, char* argv[]){
 
 //    u.assign(num_local_row, 0);
 //    solver.solve_pcg_update(u, &opts, &A_new);
+
+//    u.assign(num_local_row, 0);
 //    solver.solve_pcg_update2(u, &opts, &A_new);
+
+//    u.assign(num_local_row, 0);
 //    solver.solve_pcg_update3(u, &opts, &A_new);
+
+//    u.assign(num_local_row, 0);
 //    solver.solve_pcg_update4(u, &opts, &A_new);
 
 //    printf("\nprint u:\n");

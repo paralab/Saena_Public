@@ -3334,19 +3334,22 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
-    unsigned long i, j;
+    bool solve_verbose = false;
+//    unsigned long i, j;
 
     // ************** update grids[0].A **************
 // this part is specific to solve_pcg_update2(), in comparison to solve_pcg().
 // the difference between this function and solve_pcg(): the finest level matrix (original LHS) is updated with
 // the new one.
 
+    // first set A_new.eig_max_of_invdiagXA equal to the previous A's. Since we only need an upper bound, this is good enough.
+    A_new->eig_max_of_invdiagXA = grids[0].A->eig_max_of_invdiagXA;
+
     grids[0].A = A_new;
 
     // ************** check u size **************
 
-    unsigned int u_size_local = u.size();
-    unsigned int u_size_total;
+    index_t u_size_local = u.size(), u_size_total;
     MPI_Allreduce(&u_size_local, &u_size_total, 1, MPI_UNSIGNED, MPI_SUM, grids[0].A->comm);
     if(grids[0].A->Mbig != u_size_total){
         if(rank==0) printf("Error: size of LHS (=%u) and the solution vector u (=%u) are not equal!\n", grids[0].A->Mbig, u_size_total);
@@ -3354,9 +3357,14 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
         return -1;
     }
 
+    if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: check u size!\n");
+
     // ************** repartition u **************
+
     if(repartition)
         repartition_u(u);
+
+    if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: repartition u!\n");
 
     // ************** solve **************
 
@@ -3364,16 +3372,15 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
 //    dot(rhs, rhs, &temp, comm);
 //    if(rank==0) std::cout << "norm(rhs) = " << sqrt(temp) << std::endl;
 
-    std::vector<double> r(grids[0].A->M);
+    std::vector<value_t> r(grids[0].A->M);
     grids[0].A->residual(u, grids[0].rhs, r);
-    double initial_dot, current_dot;
+    double initial_dot, current_dot, previous_dot;
     dotProduct(r, r, &initial_dot, comm);
     if(rank==0) std::cout << "******************************************************" << std::endl;
     if(rank==0) printf("\ninitial residual = %e \n\n", sqrt(initial_dot));
 
     // if max_level==0, it means only direct solver is being used inside the previous vcycle, and that is all needed.
     if(max_level == 0){
-
         vcycle(&grids[0], u, grids[0].rhs);
         grids[0].A->residual(u, grids[0].rhs, r);
         dotProduct(r, r, &current_dot, comm);
@@ -3392,18 +3399,23 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
         return 0;
     }
 
-    std::vector<double> rho(grids[0].A->M, 0);
+    std::vector<value_t> rho(grids[0].A->M, 0);
     vcycle(&grids[0], rho, r);
+
+    if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: first vcycle!\n");
 
 //    for(i = 0; i < r.size(); i++)
 //        printf("rho[%lu] = %f,\t r[%lu] = %f \n", i, rho[i], i, r[i]);
 
-    std::vector<double> h(grids[0].A->M);
-    std::vector<double> p(grids[0].A->M);
+    std::vector<value_t> h(grids[0].A->M);
+    std::vector<value_t> p(grids[0].A->M);
     p = rho;
 
+    int i;
+    previous_dot = initial_dot;
+    current_dot  = initial_dot;
     double rho_res, pdoth, alpha, beta;
-    for(i=0; i<vcycle_num; i++){
+    for(i = 0; i < vcycle_num; i++){
         grids[0].A->matvec(p, h);
         dotProduct(r, rho, &rho_res, comm);
         dotProduct(p, h, &pdoth, comm);
@@ -3411,22 +3423,27 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
 //        printf("rho_res = %e, pdoth = %e, alpha = %f \n", rho_res, pdoth, alpha);
 
 #pragma omp parallel for
-        for(j = 0; j < u.size(); j++){
+        for(index_t j = 0; j < u.size(); j++){
             u[j] -= alpha * p[j];
             r[j] -= alpha * h[j];
         }
 
+        previous_dot = current_dot;
         dotProduct(r, r, &current_dot, comm);
+        // this prints the "absolute residual" and the "convergence factor":
+        if(rank==0) printf("Vcycle %d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
+//        if(rank==0) printf("Vcycle %lu: aboslute residual = %.10f \n", i+1, sqrt(current_dot));
         if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
             break;
 
+        if(verbose) if(rank==0) printf("_______________________________ \n\n***** Vcycle %u *****\n", i+1);
         rho.assign(rho.size(), 0);
         vcycle(&grids[0], rho, r);
         dotProduct(r, rho, &beta, comm);
         beta /= rho_res;
 
 #pragma omp parallel for
-        for(j = 0; j < u.size(); j++)
+        for(index_t j = 0; j < u.size(); j++)
             p[j] = rho[j] + beta * p[j];
 //        printf("beta = %e \n", beta);
     }
@@ -3438,15 +3455,19 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
 
     if(rank==0){
         std::cout << "******************************************************" << std::endl;
-        printf("\nfinal:\nstopped at iteration    = %ld \nfinal absolute residual = %e"
-                       "\nrelative residual       = %e \n\n", ++i, sqrt(current_dot), sqrt(current_dot/initial_dot));
+        printf("\nfinal:\nstopped at iteration    = %d \nfinal absolute residual = %e"
+                       "\nrelative residual       = %e \n\n", i+1, sqrt(current_dot), sqrt(current_dot/initial_dot));
         std::cout << "******************************************************" << std::endl;
     }
+
+    if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: solve!\n");
 
     // ************** repartition u back **************
 
     if(repartition)
         repartition_back_u(u);
+
+    if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: repartition back u!\n");
 
     return 0;
 }
@@ -3463,12 +3484,19 @@ int saena_object::solve_pcg_update3(std::vector<value_t>& u, saena_matrix* A_new
 
     // ************** update grids[i].A for all levels i **************
 
+    // first set A_new.eig_max_of_invdiagXA equal to the previous A's. Since we only need an upper bound, this is good enough.
+    // do the same for the next level matrices.
+    A_new->eig_max_of_invdiagXA = grids[0].A->eig_max_of_invdiagXA;
+
+    double eigen_temp;
     grids[0].A = A_new;
     for(i = 0; i < max_level; i++){
         if(grids[i].A->active) {
+            eigen_temp = grids[i].Ac.eig_max_of_invdiagXA;
             grids[i].Ac.erase();
             coarsen(grids[i].A, &grids[i].P, &grids[i].R, &grids[i].Ac);
             grids[i + 1].A = &grids[i].Ac;
+            grids[i].Ac.eig_max_of_invdiagXA = eigen_temp;
 //            Grid(&grids[i].Ac, max_level, i + 1);
         }
     }
@@ -3609,14 +3637,21 @@ int saena_object::solve_pcg_update4(std::vector<value_t>& u, saena_matrix* A_new
 
     // ************** update grids[i].A for all levels i **************
 
+    // first set A_new.eig_max_of_invdiagXA equal to the previous A's. Since we only need an upper bound, this is good enough.
+    // do the same for the next level matrices.
+    A_new->eig_max_of_invdiagXA = grids[0].A->eig_max_of_invdiagXA;
+
+    double eigen_temp;
     grids[0].A = A_new;
     for(i = 0; i < max_level; i++){
         if(grids[i].A->active) {
+            eigen_temp = grids[i].Ac.eig_max_of_invdiagXA;
 //            grids[i].Ac.erase();
 //            coarsen(grids[i].A, &grids[i].P, &grids[i].R, &grids[i].Ac);
             grids[i].Ac.erase_keep_remote();
             coarsen2(grids[i].A, &grids[i].P, &grids[i].R, &grids[i].Ac);
             grids[i + 1].A = &grids[i].Ac;
+            grids[i].Ac.eig_max_of_invdiagXA = eigen_temp;
 //            Grid(&grids[i].Ac, max_level, i + 1);
         }
     }
@@ -3804,8 +3839,8 @@ int saena_object::set_repartition_rhs(std::vector<value_t>& rhs0){
         init_partition_scan[i] = init_partition_scan[i-1] + rhs_init_partition[i-1];
 
 //    if(rank==ran) printf("\n");
-    for(long i = 0; i < nprocs+1; i++)
-        if(rank==0) printf("%lu \t init_partition_scan[i] = %u\n", i, init_partition_scan[i]);
+//    for(i = 0; i < nprocs+1; i++)
+//        if(rank==ran) printf("%lu \t init_partition_scan[i] = %lu\n", i, init_partition_scan[i]);
 
 
     index_t start, end, start_proc, end_proc;

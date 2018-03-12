@@ -149,14 +149,10 @@ public:
     int shrink_cpu();
 
     int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec2(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec3(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec4(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec5(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec_timing(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
-    int matvec_timing_alltoall(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
+    int matvec_timing1(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
     int matvec_timing2(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
     int matvec_timing3(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
+    int matvec_timing3_alltoall(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
     int matvec_timing4(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
     int matvec_timing5(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
     int matvec_timing5_alltoall(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
@@ -165,6 +161,7 @@ public:
     int inverse_diag(std::vector<value_t>& x);
     int jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp);
     int chebyshev(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp, std::vector<value_t>& temp2);
+
 
     int set_zero();
     int erase();

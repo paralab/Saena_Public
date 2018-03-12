@@ -7,6 +7,7 @@
 
 using namespace std;
 
+
 restrict_matrix::restrict_matrix(){}
 
 

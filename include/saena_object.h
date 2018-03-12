@@ -11,9 +11,11 @@ class prolong_matrix;
 class restrict_matrix;
 class Grid;
 
+
 class saena_object {
 public:
-    int max_level = 5; // fine grid is level 0.
+
+    int max_level = 7; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 15;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,
@@ -33,7 +35,7 @@ public:
     bool repartition = false;
     bool shrink_cpu = false;
     bool dynamic_levels = true;
-    bool adaptive_coarsening = false;
+    bool adaptive_coarsening = true;
     float dense_threshold = 0.8; // 0<dense_threshold<=1 decide when to switch to the dense structure.
 
     bool verbose = false;
