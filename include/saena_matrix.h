@@ -105,7 +105,7 @@ public:
     bool active = true;
     bool active_old_comm = false; // this is used for prolong and post-smooth
 
-    bool enable_shrink = true;
+    bool enable_shrink = false;
     bool shrinked = false; // if shrinking happens for the matrix, set this to true.
     int cpu_shrink_thre1 = 2; // set 0 to shrink at every level. density >= (last_density_shrink * cpu_shrink_thre1)
     int cpu_shrink_thre2 = 2; // number of procs after shrinking = nprocs / cpu_shrink_thre2
