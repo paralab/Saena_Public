@@ -1,6 +1,3 @@
-#SET(CMAKE_CXX_COMPILER mpicxx)
-#SET(CMAKE_C_COMPILER mpicc)
-
 cmake_minimum_required(VERSION 2.8)
 project(Saena)
 
@@ -32,6 +29,7 @@ include_directories(${MPI_CXX_INCLUDE_PATH})
 set(SOURCE_FILES
 	
         src/saena_matrix.cpp
+	src/saena_matrix_dense.cpp
         src/saena_object.cpp
         src/strength_matrix.cpp
         src/prolong_matrix.cpp
@@ -50,6 +48,7 @@ set(SOURCE_FILES
 set(HEADER_FILES
         include/saena.hpp
         include/saena_matrix.h
+	include/saena_matrix_dense.h
         include/saena_object.h
         include/strength_matrix.h
         include/prolong_matrix.h
