@@ -1,8 +1,10 @@
-cmake_minimum_required(VERSION 2.8)
+cmake_minimum_required(VERSION 3.3)
 project(Saena)
 
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
-#set(CMAKE_CXX_STANDARD 11)
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -std=c++11")
+set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD_REQUIRED ON)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
 find_package(OpenMP)
 if (OPENMP_FOUND)
@@ -15,6 +17,7 @@ include_directories(${MPI_INCLUDE_PATH})
 
 include_directories(
         include
+#	external/ietl
         external/usort/include
         external/pugixml/include
 )
@@ -77,7 +80,7 @@ if(MPI_LINK_FLAGS)
             LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
 target_link_libraries(SaenaTest ${MPI_LIBRARIES} El)
-
+#target_link_libraries(Saena ${MPI_LIBRARIES} El lapack blas)
 
 ADD_NEKTAR_LIBRARY(Saena
     SOURCES ${SOURCE_FILES}
@@ -85,5 +88,3 @@ ADD_NEKTAR_LIBRARY(Saena
     DEPENDS El
     SUMMARY "Nektar++ Saena fast multigrid solver library"
     DESCRIPTION "This library provides fast multigrid solves.")
-
-
