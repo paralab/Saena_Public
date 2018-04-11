@@ -8,6 +8,7 @@
 
 class saena_matrix;
 
+
 int randomVector(std::vector<unsigned long>& V, long size, strength_matrix* S, MPI_Comm comm) {
 
     int rank;
@@ -236,6 +237,7 @@ void setIJV(char* file_name, index_t *I, index_t *J, value_t *V, nnz_t nnz_g, nn
 }
 
 
+
 int dotProduct(std::vector<value_t>& r, std::vector<value_t>& s, double* dot, MPI_Comm comm){
 
     double dot_l = 0;
@@ -400,8 +402,8 @@ int generate_rhs_old(std::vector<value_t>& rhs){
     rng.seed(std::random_device{}());
 
     for (index_t i=0; i<size; i++){
-//        rhs[i] = dist(rng);
-        rhs[i] = (value_t)(i+1) / 100;
+        rhs[i] = dist(rng);
+//        rhs[i] = (value_t)(i+1) / 100;
 //        std::cout << i << "\t" << rhs[i] << std::endl;
     }
 

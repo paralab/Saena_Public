@@ -1,5 +1,6 @@
 #include "iostream"
 #include <saena_matrix_dense.h>
+#include <saena_matrix.h>
 #include <aux_functions.h>
 
 saena_matrix_dense::saena_matrix_dense(){}
@@ -34,6 +35,23 @@ saena_matrix_dense::~saena_matrix_dense() {
             delete [] entry[i];
         delete [] entry;
     }
+}
+
+
+int saena_matrix_dense::erase(){
+
+    if(allocated){
+        for(index_t i = 0; i < M; i++)
+            delete [] entry[i];
+        delete [] entry;
+    }
+
+    allocated = false;
+    split.clear();
+    Nbig = 0;
+    M = 0;
+
+    return 0;
 }
 
 
@@ -135,6 +153,7 @@ int saena_matrix_dense::matvec(std::vector<value_t>& v, std::vector<value_t>& w)
         MPI_Isend(&v_send[0], send_size, MPI_DOUBLE, left_neighbor,  rank,           comm, &requests[1]);
 
         owner = k%nprocs;
+#pragma omp parallel for
         for(index_t i = 0; i < M; i++) {
             for (index_t j = split[owner]; j < split[owner + 1]; j++) {
                 w[i] += entry[i][j] * v_send[j - split[owner]];
@@ -152,6 +171,8 @@ int saena_matrix_dense::matvec(std::vector<value_t>& v, std::vector<value_t>& w)
 
     return 0;
 }
+
+
 
 // another dense matvec implementation, but without overlapping.
 /*
@@ -237,3 +258,33 @@ int saena_matrix_dense::matvec(std::vector<value_t>& v, std::vector<value_t>& w)
 }
 */
 
+
+int saena_matrix_dense::convert_saena_matrix(saena_matrix *A){
+
+    comm = A->comm;
+    int rank, nprocs;
+//    MPI_Comm_size(comm, &nprocs);
+    MPI_Comm_rank(comm, &rank);
+
+    M = A->M;
+    Nbig = A->Mbig;
+    split = A->split;
+
+    if(!allocated){
+        entry = new value_t*[M];
+        for(index_t i = 0; i < M; i++)
+            entry[i] = new value_t[Nbig];
+        allocated = true;
+    }
+
+#pragma omp parallel for
+    for(index_t i = 0; i < M; i++)
+        for(index_t j = 0; j < Nbig; j++)
+            entry[i][j] = 0;
+
+#pragma omp parallel for
+    for(nnz_t i = 0; i < A->nnz_l; i++)
+        entry[A->entry[i].row-split[rank]][A->entry[i].col] = A->entry[i].val;
+
+    return 0;
+}

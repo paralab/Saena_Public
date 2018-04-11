@@ -23,6 +23,10 @@ void saena::matrix::set_comm(MPI_Comm comm) {
     m_pImpl->set_comm(comm);
 }
 
+MPI_Comm saena::matrix::get_comm(){
+    return m_pImpl->comm;
+}
+
 saena::matrix::matrix(char *name, MPI_Comm comm) {
     m_pImpl = new saena_matrix(name, comm);
 }
@@ -108,6 +112,21 @@ int saena::matrix::assemble() {
     return 0;
 }
 
+int saena::matrix::assemble_band_matrix(){
+    m_pImpl->matrix_setup();
+
+//    if(!m_pImpl->assembled){
+//        m_pImpl->repartition();
+//        m_pImpl->matrix_setup();
+//    }else{
+//        m_pImpl->setup_initial_data2();
+//        m_pImpl->repartition2();
+//        m_pImpl->matrix_setup2();
+//    }
+
+    return 0;
+}
+
 
 saena_matrix* saena::matrix::get_internal_matrix(){
     return m_pImpl;
@@ -127,6 +146,17 @@ nnz_t saena::matrix::get_nnz(){
 
 nnz_t saena::matrix::get_local_nnz(){
     return m_pImpl->nnz_l;
+}
+
+int saena::matrix::print(int ran){
+    m_pImpl->print(ran);
+    return 0;
+}
+
+
+int saena::matrix::enable_shrink(bool val){
+    m_pImpl->enable_shrink = val;
+    return 0;
 }
 
 
@@ -271,6 +301,44 @@ saena_object* saena::amg::get_object() {
 }
 
 
+int saena::amg::set_shrink_levels(std::vector<bool> sh_lev_vec) {
+    m_pImpl->set_shrink_levels(sh_lev_vec);
+    return 0;
+}
+
+int saena::amg::set_shrink_values(std::vector<int> sh_val_vec) {
+    m_pImpl->set_shrink_values(sh_val_vec);
+    return 0;
+}
+
+
+int saena::amg::switch_repartition(bool val) {
+    m_pImpl->switch_repartition = val;
+    return 0;
+}
+
+
+int saena::amg::set_repartition_threshold(float thre){
+    m_pImpl->set_repartition_threshold(thre);
+    return 0;
+}
+
+int saena::amg::switch_to_dense(bool val) {
+    m_pImpl->switch_to_dense = val;
+    return 0;
+}
+
+
+int saena::amg::set_dense_threshold(float thre){
+    m_pImpl->dense_threshold = thre;
+    return 0;
+}
+
+
+double saena::amg::get_dense_threshold(){
+    return m_pImpl->dense_threshold;
+}
+
 int saena::amg::solve(std::vector<value_t>& u, saena::options* opts){
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
@@ -317,7 +385,6 @@ int saena::amg::solve_pcg_update4(std::vector<value_t>& u, saena::options* opts,
     m_pImpl->solve_pcg_update4(u, A_new->get_internal_matrix());
     return 0;
 }
-
 
 
 void saena::amg::save_to_file(char* name, unsigned long* agg){
@@ -657,6 +724,88 @@ int saena::laplacian3D_old(saena::matrix* A, index_t n_matrix_local, MPI_Comm co
         if(modulo == 0 || modulo == (n_grid-1) || division == 0 || division == (n_grid-1) || division_sq == 0 || division_sq == (n_grid-1)  )
             A->set(node, node, 1);
     }
+
+    return 0;
+}
+
+
+
+int saena::band_matrix(saena::matrix &A, index_t M, unsigned int bandwidth){
+    // generates a band matrix with bandwidth "bandwidth".
+    // set bandwidth to 0 to have a diagonal matrix.
+
+    int rank, nprocs;
+    MPI_Comm_size(A.get_comm(), &nprocs);
+    MPI_Comm_rank(A.get_comm(), &rank);
+
+    index_t Mbig = M * nprocs;
+//    printf("rank %d: M = %u, Mbig = %u \n", rank, M, Mbig);
+
+    if(bandwidth >= Mbig){
+        printf("Error: bandwidth is greater than the size of the matrix\n");
+        MPI_Finalize();
+        return -1;
+    }
+
+    //Type of random number distribution
+    std::uniform_real_distribution<value_t> dist(0, 1); //(min, max)
+    //Mersenne Twister: Good quality random number generator
+    std::mt19937 rng;
+    //Initialize with non-deterministic seeds
+    rng.seed(std::random_device{}());
+
+    value_t val = 1;
+    index_t d;
+    for(index_t i = rank*M; i < (rank+1)*M; i++){
+        d = 0;
+        for(index_t j = i; j <= i+bandwidth; j++){
+            val = dist(rng); // comment out this to have all values equal to 1.
+            if(i==j){
+//                printf("%u \t%u \n", i, j);
+                A.set(i, j, val);
+            }
+            else{
+                if(j < Mbig){
+//                    printf("%u \t%u \n", i, j);
+                    A.set(i, j, val);
+                }
+                if(j >= 2*d) { // equivalent to if(j-2*d >= 0)
+//                    printf("%u \t%u \n", i, j - (2 * d));
+                    A.set(i, j - (2 * d), val);
+                }
+            }
+            d++;
+        }
+    }
+//    printf("hereeeeee\n");
+
+    saena_matrix *B = A.get_internal_matrix();
+//    B->print(-1);
+//    std::sort(B->data_coo.begin(), B->data_coo.end());
+//    B->print(-1);
+
+    B->entry.resize(B->data_coo.size());
+    nnz_t iter = 0;
+    for(auto i:B->data_coo){
+        B->entry[iter] = i;
+        iter++;
+    }
+    std::sort(B->entry.begin(), B->entry.end());
+
+    B->nnz_l = iter;
+    MPI_Allreduce(&iter, &B->nnz_g, 1, MPI_UNSIGNED_LONG, MPI_SUM, A.get_comm());
+    B->Mbig = Mbig;
+    B->M = M;
+    B->split.resize(nprocs+1);
+    for(index_t i = 0; i < nprocs+1; i++)
+        B->split[i] = i*M;
+//
+//    B->print(-1);
+
+//    A.assemble();
+    A.assemble_band_matrix();
+//    printf("rank %d: M = %u, Mbig = %u, nnz_l = %lu, nnz_g = %lu \n",
+//           rank, A.get_num_local_rows(), A.get_num_rows(), A.get_local_nnz(), A.get_nnz());
 
     return 0;
 }

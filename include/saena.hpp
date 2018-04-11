@@ -11,6 +11,7 @@ typedef unsigned int index_t;
 typedef unsigned long nnz_t;
 typedef double value_t;
 
+
 namespace saena {
 
     class matrix {
@@ -21,6 +22,8 @@ namespace saena {
         ~matrix();
 
         void set_comm(MPI_Comm comm);
+        MPI_Comm get_comm();
+
         int set(index_t i, index_t j, double val); // set individual value
         int set(index_t* row, index_t* col, double* val, nnz_t nnz_local); // set multiple values
         int set(index_t i, index_t j, unsigned int size_x, unsigned int size_y, double* val); // set contiguous block
@@ -29,11 +32,16 @@ namespace saena {
         bool add_dup = false; // if false replace the duplicate, otherwise add the values together.
         int add_duplicates(bool add);
         int assemble();
+        int assemble_band_matrix();
         saena_matrix* get_internal_matrix();
         index_t get_num_rows();
         index_t get_num_local_rows();
         nnz_t get_nnz();
         nnz_t get_local_nnz();
+
+        int print(int ran);
+
+        int enable_shrink(bool val);
 
         int erase();
         void destroy();
@@ -76,8 +84,14 @@ namespace saena {
         int set_matrix(saena::matrix* A, saena::options* opts);
         int set_rhs(std::vector<value_t> rhs);
         saena_object* get_object();
-        void save_to_file(char* name, unsigned long* agg); // to save aggregates to a file.
-        unsigned long* load_from_file(char* name); // to load aggregates from a file.
+        int set_shrink_levels(std::vector<bool> sh_lev_vec);
+        int set_shrink_values(std::vector<int> sh_val_vec);
+        int switch_repartition(bool val);
+        int set_repartition_threshold(float thre);
+        int switch_to_dense(bool val);
+        int set_dense_threshold(float thre);
+        double get_dense_threshold();
+
         // before calling solve function, vector "u" is the initial guess.
         // After calling solve, it will be the solution.
         int solve(std::vector<value_t>& u, saena::options* opts);
@@ -91,6 +105,10 @@ namespace saena {
         int solve_pcg_update3(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new);
         // similar to solve_pcg_update3, but does R*A*P only for the local (diagonal blocks).
         int solve_pcg_update4(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new);
+
+        void save_to_file(char* name, unsigned long* agg); // to save aggregates to a file.
+        unsigned long* load_from_file(char* name); // to load aggregates from a file.
+
         void destroy();
 
         bool verbose = false;
@@ -106,4 +124,5 @@ namespace saena {
     int laplacian2D_old(saena::matrix* A, unsigned int dof_local, MPI_Comm comm);
     int laplacian3D(saena::matrix* A, unsigned int mx, unsigned int my, unsigned int mz, MPI_Comm comm);
     int laplacian3D_old(saena::matrix* A, unsigned int dof_local, MPI_Comm comm);
+    int band_matrix(saena::matrix &A, index_t M, unsigned int bandwidth);
 }
