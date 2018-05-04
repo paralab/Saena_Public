@@ -389,7 +389,6 @@ int generate_rhs(std::vector<value_t>& rhs, index_t mx, index_t my, index_t mz, 
     return 0;
 }
 
-
 int generate_rhs_old(std::vector<value_t>& rhs){
 
     index_t size = rhs.size();

@@ -11,11 +11,10 @@ class prolong_matrix;
 class restrict_matrix;
 class Grid;
 
-
 class saena_object {
 public:
 
-    int max_level = 8; // fine grid is level 0.
+    int max_level = 1; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 20;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,
@@ -69,17 +68,17 @@ public:
     int create_prolongation(saena_matrix* A, std::vector<unsigned long>& aggregate, prolong_matrix* P);
     int coarsen(Grid *grid);
     // this function is similar to the coarsen(), but does R*A*P for only local (diagonal) blocks.
-    int coarsen2(saena_matrix* A, prolong_matrix* P, restrict_matrix* R, saena_matrix* Ac);
+    int coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff);
+//    int coarsen2(saena_matrix* A, prolong_matrix* P, restrict_matrix* R, saena_matrix* Ac);
     int solve_coarsest_CG(saena_matrix* A, std::vector<value_t>& u, std::vector<value_t>& rhs);
     int solve_coarsest_Elemental(saena_matrix* A, std::vector<value_t>& u, std::vector<value_t>& rhs);
     int smooth(Grid* grid, std::string smoother, std::vector<value_t>& u, std::vector<value_t>& rhs, int iter);
     int vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
     int solve(std::vector<value_t>& u);
     int solve_pcg(std::vector<value_t>& u);
-    int solve_pcg_update(std::vector<value_t>& u, saena_matrix* A_new);
+    int solve_pcg_update1(std::vector<value_t>& u, saena_matrix* A_new);
     int solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new);
     int solve_pcg_update3(std::vector<value_t>& u, saena_matrix* A_new);
-    int solve_pcg_update4(std::vector<value_t>& u, saena_matrix* A_new);
     int set_repartition_rhs(std::vector<value_t>& rhs);
     int repartition_u(std::vector<value_t>& u);
     int repartition_back_u(std::vector<value_t>& u);
@@ -91,6 +90,7 @@ public:
     int unshrink_u(Grid* grid, std::vector<value_t>& u);
     bool active(int l);
     int find_eig_Elemental(saena_matrix& A);
+    int local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEntry> &C);
 
     int writeMatrixToFileA(saena_matrix* A, std::string name);
     int writeMatrixToFileP(prolong_matrix* P, std::string name);

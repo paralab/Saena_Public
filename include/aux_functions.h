@@ -300,7 +300,6 @@ vector<cooEntry> sort_indices3(const vector<cooEntry>& v){
 }
 */
 
-
 class sort_indices2
 {
 private:
@@ -376,7 +375,7 @@ int print_vector(const std::vector<T> &v, const int ran, const std::string &name
         for(index_t proc = 0; proc < nprocs; proc++){
             MPI_Barrier(comm);
             if (rank == proc) {
-                printf("\n%s on proc = %d, size = %ld: \n", name.c_str(), ran, v.size());
+                printf("\n%s on proc = %d, size = %ld: \n", name.c_str(), proc, v.size());
                 for (auto i:v)
                     std::cout << i << std::endl;
             }

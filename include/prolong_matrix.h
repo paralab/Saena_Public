@@ -57,7 +57,6 @@ public:
     std::vector<index_t> vElementRep_remote;
 //    std::vector<unsigned int> nnz_row_remote;
 
-
     bool arrays_defined = false; // set to true if findLocalRemote function is called. it will be used for destructor.
     int vIndexSize;
     int vIndexSize_t;
@@ -96,6 +95,7 @@ public:
     ~prolong_matrix();
     int findLocalRemote();
     int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    int print(int ran);
 };
 
 

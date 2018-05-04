@@ -2,6 +2,7 @@
 #include <string>
 #include <cstring>
 #include <mpi.h>
+#include <random>
 
 #include "saena.hpp"
 #include "saena_matrix.h"
@@ -181,6 +182,7 @@ int saena::matrix::add_duplicates(bool add) {
     return 0;
 }
 
+
 // ******************************* options *******************************
 
 saena::options::options(){}
@@ -355,10 +357,10 @@ int saena::amg::solve_pcg(std::vector<value_t>& u, saena::options* opts){
 }
 
 
-int saena::amg::solve_pcg_update(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new){
+int saena::amg::solve_pcg_update1(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new){
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
-    m_pImpl->solve_pcg_update(u, A_new->get_internal_matrix());
+    m_pImpl->solve_pcg_update1(u, A_new->get_internal_matrix());
     return 0;
 }
 
@@ -375,14 +377,6 @@ int saena::amg::solve_pcg_update3(std::vector<value_t>& u, saena::options* opts,
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pcg_update3(u, A_new->get_internal_matrix());
-    return 0;
-}
-
-
-int saena::amg::solve_pcg_update4(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new){
-    m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
-                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
-    m_pImpl->solve_pcg_update4(u, A_new->get_internal_matrix());
     return 0;
 }
 
