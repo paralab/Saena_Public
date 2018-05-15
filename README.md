@@ -71,7 +71,7 @@ If solver is made based on a matrix, let's call it A, and there is an updated ve
 
 solver.solve_pcg_update2(u, &opts, &B):
 
-Similar to solve_pcg_update1(), but all coarse matrices are being updated. The previous-made prolongation and restriction matrices are being untouched. For complete description check "Strategy 2" of the paper.
+Similar to solve_pcg_update1(), but all coarse matrices are being updated. The previous-made prolongation and restriction matrices are being kept untouched. For complete description check "Strategy 2" of the paper.
 
 solver.solve_pcg_update3(u, &opts, &B):
 
