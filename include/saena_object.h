@@ -96,8 +96,6 @@ public:
     int writeMatrixToFileP(prolong_matrix* P, std::string name);
     int writeMatrixToFileR(restrict_matrix* R, std::string name);
     int writeVectorToFileul(std::vector<unsigned long>& v, unsigned long vSize, std::string name, MPI_Comm comm);
-//    template <class T>
-//    int writeVectorToFile(std::vector<T>& v, unsigned long vSize, std::string name, MPI_Comm comm);
     int change_aggregation(saena_matrix* A, std::vector<index_t>& aggregate, std::vector<index_t>& splitNew);
 };
 
