@@ -66,12 +66,15 @@ solver.destroy();
 print functions:
 
 print matrix A of type saena::matrix:
+
 A.print(cpu_rank); // print matrix entries on processor with rank "cpu_rank"
 
 A.print(-1); // print matrix entries on all processors 0, 1, 2, ..., respectively.
 
 print a vector:
+
 cpu_rank can be rank of a processor or -1 to print on all processors
+
 print_vector(vector, cpu_rank, "print message", MPI communicator);
 
 --------------------------------------------------------------------------------------------------
