@@ -63,12 +63,16 @@ solver.destroy();
 
 --------------------------------------------------------------------------------------------------
 
-Some other documentation:
+Other functions:
 
-solver.solve_pcg_update(u, &opts, &B):
+solver.solve_pcg_update1(u, &opts, &B):
 
-If solver is made based on a matrix, let's call it A, and there is an updated version of A, let's call it B, and one wants to solve *Bx = rhs*, instead of *Ax = rhs*, then solve_pcg_update() can be used and B can be passed as the third argument.
+If solver is made based on a matrix, let's call it A, and there is an updated version of A, let's call it B, and one wants to solve *Bx = rhs*, instead of *Ax = rhs*, then solve_pcg_update() can be used and B can be passed as the third argument. LHS will be updated with B. For complete description check "Strategy 1" of the paper.
 
 solver.solve_pcg_update2(u, &opts, &B):
 
-Similar to solve_pcg_update(), but LHS will be updated with B. So the same multigrid hierarchy will be used but with updated finest level A.
+Similar to solve_pcg_update1(), but all coarse matrices are being updated. The previous-made prolongation and restriction matrices are being untouched. For complete description check "Strategy 2" of the paper.
+
+solver.solve_pcg_update3(u, &opts, &B):
+
+Similar to solve_pcg_update2(), but only diagonal parts of all coarse matrices are being updated. For complete description check "Strategy 3" of the paper.
