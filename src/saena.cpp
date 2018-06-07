@@ -34,8 +34,8 @@ saena::matrix::matrix(char *name, MPI_Comm comm) {
 
 
 saena::matrix::~matrix(){
-    m_pImpl->erase();
-//    delete m_pImpl;
+//    m_pImpl->erase();
+    delete m_pImpl;
 }
 
 
@@ -51,7 +51,7 @@ int saena::matrix::set(index_t i, index_t j, value_t val){
     return 0;
 }
 
-int saena::matrix::set(index_t* row, index_t* col, double* val, nnz_t nnz_local){
+int saena::matrix::set(index_t* row, index_t* col, value_t* val, nnz_t nnz_local){
 
     if (!add_dup)
         m_pImpl->set(row, col, val, nnz_local);
@@ -83,7 +83,7 @@ int saena::matrix::set(index_t i, index_t j, unsigned int size_x, unsigned int s
     return 0;
 }
 
-int saena::matrix::set(index_t i, index_t j, unsigned int* di, unsigned int* dj, double* val, nnz_t nnz_local){
+int saena::matrix::set(index_t i, index_t j, unsigned int* di, unsigned int* dj, value_t* val, nnz_t nnz_local){
     nnz_t ii;
 
     for(ii = 0; ii < nnz_local; ii++) {
@@ -102,12 +102,13 @@ int saena::matrix::set(index_t i, index_t j, unsigned int* di, unsigned int* dj,
 int saena::matrix::assemble() {
 
     if(!m_pImpl->assembled){
-        m_pImpl->repartition();
+        m_pImpl->repartition_nnz_initial();
         m_pImpl->matrix_setup();
+        if(m_pImpl->enable_shrink) m_pImpl->compute_matvec_dummy_time();
     }else{
         m_pImpl->setup_initial_data2();
-        m_pImpl->repartition2();
-        m_pImpl->matrix_setup2();
+        m_pImpl->repartition_nnz_update();
+        m_pImpl->matrix_setup_update();
     }
 
     return 0;
@@ -285,6 +286,10 @@ saena::amg::amg(){
     m_pImpl = new saena_object();
 }
 
+saena::amg::~amg(){
+    delete m_pImpl;
+}
+
 int saena::amg::set_matrix(saena::matrix* A, saena::options* opts){
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
@@ -324,6 +329,7 @@ int saena::amg::set_repartition_threshold(float thre){
     m_pImpl->set_repartition_threshold(thre);
     return 0;
 }
+
 
 int saena::amg::switch_to_dense(bool val) {
     m_pImpl->switch_to_dense = val;

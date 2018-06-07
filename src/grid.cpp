@@ -1,7 +1,8 @@
 #include <grid.h>
+#include "saena_matrix_dense.h"
 
-Grid::Grid(){
-}
+Grid::Grid(){}
+
 
 Grid::Grid(saena_matrix* A1, int maxLev, int currentLev){
     A            = A1;
@@ -9,5 +10,6 @@ Grid::Grid(saena_matrix* A1, int maxLev, int currentLev){
     currentLevel = currentLev;
     active       = A1->active;
 }
+
 
 Grid::~Grid(){}

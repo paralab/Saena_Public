@@ -6,11 +6,12 @@
 #include <set>
 #include <mpi.h>
 #include "aux_functions.h"
+#include "saena_matrix_dense.h"
 
 
 /**
  * @author Majid
- * @breif Contains the basic structure for the Saena matrix calss (saena_matrix).
+ * @breif Contains the basic structure for the Saena matrix class (saena_matrix).
  *
  * */
 
@@ -69,6 +70,7 @@ public:
 //    double norm1, normInf, rhoDA;
 
     index_t vIndexSize;
+    index_t recvSize;
     std::vector<index_t> vIndex;
     std::vector<value_t> vSend;
     std::vector<value_t> vecValues;
@@ -78,7 +80,6 @@ public:
     std::vector<nnz_t> indicesP_local;
     std::vector<nnz_t> indicesP_remote;
 
-    int recvSize;
     int numRecvProc;
     int numSendProc;
     std::vector<int> vdispls;
@@ -98,10 +99,9 @@ public:
     std::vector<nnz_t> iter_local_array2;
     std::vector<nnz_t> iter_remote_array2;
     std::vector<index_t> vElement_remote;
-    std::vector<index_t> vElementRep_local;
+//    std::vector<index_t> vElementRep_local;
     std::vector<index_t> vElementRep_remote;
     std::vector<value_t> w_buff; // for matvec3()
-//    value_t *w_buff; // for matvec3()
 
     bool add_duplicates = false;
     bool assembled = false; // use this parameter to determine which matrix.set() function to use.
@@ -114,10 +114,15 @@ public:
     bool active_old_comm = false; // this is used for prolong and post-smooth
 
     bool enable_shrink = false;
+    bool do_shrink = false;
     bool shrinked = false; // if shrinking happens for the matrix, set this to true.
+    std::vector<double> matvec_dummy_time;
     int cpu_shrink_thre1 = 1; // set 0 to shrink at every level. density >= (last_density_shrink * cpu_shrink_thre1)
     int cpu_shrink_thre2 = 1; // number of procs after shrinking = nprocs / cpu_shrink_thre2
     int cpu_shrink_thre2_next_level = -1;
+    float shrink_total_thre = 1.25;
+    float shrink_local_thre = 1.25;
+    float shrink_communic_thre = 1.5;
     index_t last_M_shrink;
     nnz_t   last_nnz_shrink;
     double  last_density_shrink;
@@ -128,7 +133,13 @@ public:
     double density = -1.0;
     float jacobi_omega = float(2.0/3);
     double eig_max_of_invdiagXA = 0; // the biggest eigenvalue of (A * invDiag(A)) to be used in chebyshev smoother
+    double highest_diag_val = 1e-10;
 //    double double_machine_prec = 1e-12; // it is hard-coded in aux_functions.h
+
+    saena_matrix_dense dense_matrix;
+    bool switch_to_dense = false;
+    bool dense_matrix_generated = false;
+    float dense_threshold = 0.9; // 0<dense_threshold<=1 decide when to also generate dense_matrix for this matrix.
 
     saena_matrix();
     saena_matrix(MPI_Comm com);
@@ -151,21 +162,34 @@ public:
 //    int set3(unsigned int* row, unsigned int* col, double* val, unsigned int nnz_local);
 
     int setup_initial_data();
-    int repartition(); // based on nnz.
+    int repartition_nnz_initial(); // based on nnz.
     int matrix_setup();
 
     // these versions are used after matrix is assembled and needs to be updated again.
     int setup_initial_data2();
-    int repartition2(); // based on nnz.
-    int matrix_setup2();
+    int repartition_nnz_update(); // based on nnz.
+    int matrix_setup_update();
 
-    int repartition3(); // based on nnz. use this for repartitioning A's after they are created.
-    int repartition4(); // based on M. use this for repartitioning A's after they are created.
+    int repartition_nnz(); // based on nnz. use this for repartitioning A's after they are created.
+    int repartition_row(); // based on M.   use this for repartitioning A's after they are created.
+
+    int repartition_nnz_update_Ac(); // based on nnz.
+
+    int set_rho();
+    int set_off_on_diagonal();
+    int find_sortings();
+    int openmp_setup();
+
+    int set_off_on_diagonal_dummy();
+//    int find_sortings_dummy();
+    int matrix_setup_dummy();
+    int matvec_dummy(std::vector<value_t>& v, std::vector<value_t>& w);
+    int compute_matvec_dummy_time();
+    int decide_shrinking(std::vector<double> &prev_time);
     int shrink_cpu();
 
-    int repartition5(); // based on nnz.
-
     int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    int matvec_sparse(std::vector<value_t>& v, std::vector<value_t>& w);
     int matvec_timing1(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
     int matvec_timing2(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
     int matvec_timing3(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
@@ -179,6 +203,8 @@ public:
     int jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp);
     int chebyshev(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp, std::vector<value_t>& temp2);
 
+    int generate_dense_matrix();
+
     int print(int ran);
 
     int set_zero();
@@ -186,6 +212,8 @@ public:
     int erase2();
     int erase_update_local(); // use this for coarsen2()
     int erase_keep_remote2(); // use this for coarsen2()
+    int erase_after_shrink();
+    int erase_after_decide_shrinking();
     int destroy();
 };
 

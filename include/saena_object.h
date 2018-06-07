@@ -1,6 +1,10 @@
 #ifndef SAENA_SAENA_OBJECT_H
 #define SAENA_SAENA_OBJECT_H
 
+#include <vector>
+#include <string>
+#include "aux_functions.h"
+
 typedef unsigned int index_t;
 typedef unsigned long nnz_t;
 typedef double value_t;
@@ -14,7 +18,7 @@ class Grid;
 class saena_object {
 public:
 
-    int max_level = 10; // fine grid is level 0.
+    int max_level = 2; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 20;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,
@@ -22,7 +26,7 @@ public:
     double row_reduction_threshold = 0.90;
     int vcycle_num = 300;
     double relative_tolerance = 1e-8;
-    std::string smoother = "chebyshev";
+    std::string smoother = "chebyshev"; // choices: "jacobi", "chebyshev"
     int preSmooth  = 3;
     int postSmooth = 3;
     std::string direct_solver = "Elemental"; // options: 1- CG, 2- Elemental (uncomment #include "El.hpp" in saena_object.cpp)
@@ -43,9 +47,10 @@ public:
 
     bool switch_repartition = false;
     int set_repartition_threshold(float thre);
-    float repartition_threshold = 1.1;
+    float repartition_threshold = 0.1;
     bool switch_to_dense = false;
-    float dense_threshold = 1.1; // 0<dense_threshold<=1 decide when to switch to the dense structure. dense_threshold should be greater than repartition_threshold, since it is more efficient on repartition based on the number of rows.
+    float dense_threshold = 0.1; // 0<dense_threshold<=1 decide when to switch to the dense structure.
+                                 // dense_threshold should be greater than repartition_threshold, since it is more efficient on repartition based on the number of rows.
 
     bool verbose = false;
     bool verbose_setup = true;
@@ -85,10 +90,11 @@ public:
     int repartition_u2_prepare(Grid *grid);
     int repartition_u2(std::vector<value_t>& u, Grid &grid);
     int repartition_back_u2(std::vector<value_t>& u, Grid &grid);
-//    int shrink_cpu_A(saena_matrix* Ac, std::vector<unsigned long>& P_splitNew);
+    int shrink_cpu_A(saena_matrix* Ac, std::vector<index_t>& P_splitNew);
     int shrink_u_rhs(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
     int unshrink_u(Grid* grid, std::vector<value_t>& u);
     bool active(int l);
+    int find_eig(saena_matrix& A);
     int find_eig_Elemental(saena_matrix& A);
     int local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEntry> &C);
 
@@ -96,6 +102,8 @@ public:
     int writeMatrixToFileP(prolong_matrix* P, std::string name);
     int writeMatrixToFileR(restrict_matrix* R, std::string name);
     int writeVectorToFileul(std::vector<unsigned long>& v, unsigned long vSize, std::string name, MPI_Comm comm);
+//    template <class T>
+//    int writeVectorToFile(std::vector<T>& v, unsigned long vSize, std::string name, MPI_Comm comm);
     int change_aggregation(saena_matrix* A, std::vector<index_t>& aggregate, std::vector<index_t>& splitNew);
 };
 
