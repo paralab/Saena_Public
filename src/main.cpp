@@ -38,6 +38,10 @@ int main(int argc, char* argv[]){
 
     // *************************** read the vector and set rhs ****************************
 
+    // define the size of v as the local number of rows on each process
+    std::vector <double> rhs(num_local_row);
+
+/*
     MPI_Status status;
     MPI_File fh;
     MPI_Offset offset;
@@ -50,9 +54,6 @@ int main(int argc, char* argv[]){
         return -1;
     }
 
-    // define the size of v as the local number of rows on each process
-    std::vector <double> rhs(num_local_row);
-
     // vector should have the following format: first line shows the value in row 0, second line shows the value in row 1
     offset = A.get_internal_matrix()->split[rank] * 8; // value(double=8)
     MPI_File_read_at(fh, offset, &(*(rhs.begin())), num_local_row, MPI_DOUBLE, &status);
@@ -61,6 +62,9 @@ int main(int argc, char* argv[]){
 //    MPI_Get_count(&status, MPI_UNSIGNED_LONG, &count);
     //printf("process %d read %d lines of triples\n", rank, count);
     MPI_File_close(&fh);
+*/
+
+    generate_rhs_old(rhs);
 
     // *************************** set u0 ****************************
 
