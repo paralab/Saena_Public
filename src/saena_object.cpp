@@ -3188,7 +3188,7 @@ int saena_object::solve(std::vector<value_t>& u){
         printf("\nonly using the direct solver! \n");
 
     if(rank==0){
-        printf("Vcycle #: \tresidual\n");
+        printf("Vcycle #: \tabsolute residual\n");
         printf("-----------------------------\n");
     }
 
@@ -3298,6 +3298,11 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
 //    for(i = 0; i < r.size(); i++)
 //        printf("rho[%lu] = %f,\t r[%lu] = %f \n", i, rho[i], i, r[i]);
 
+    if(rank==0){
+        printf("Vcycle #: absolute residual \trelative residual\n");
+        printf("--------------------------------------------------------\n");
+    }
+
     std::vector<value_t> h(grids[0].A->M);
     std::vector<value_t> p(grids[0].A->M);
     p = rho;
@@ -3345,7 +3350,7 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
         i--;
 
     if(rank==0){
-        std::cout << "******************************************************" << std::endl;
+        std::cout << "\n******************************************************" << std::endl;
         printf("\nfinal:\nstopped at iteration    = %d \nfinal absolute residual = %e"
                        "\nrelative residual       = %e \n\n", i+1, sqrt(current_dot), sqrt(current_dot/initial_dot));
         std::cout << "******************************************************" << std::endl;
