@@ -1,5 +1,4 @@
 #include <grid.h>
-//#include "saena_matrix_dense.h"
 
 Grid::Grid(){}
 

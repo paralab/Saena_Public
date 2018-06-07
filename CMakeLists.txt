@@ -39,6 +39,7 @@ include_directories(${MPI_CXX_INCLUDE_PATH})
 set(SOURCE_FILES
         include/saena.hpp
         include/saena_matrix.h
+        include/saena_matrix_dense.h
         include/saena_object.h
         include/strength_matrix.h
         include/prolong_matrix.h
@@ -48,6 +49,7 @@ set(SOURCE_FILES
 
         src/main.cpp
         src/saena_matrix.cpp
+        src/saena_matrix_dense.cpp
         src/saena_object.cpp
         src/strength_matrix.cpp
         src/prolong_matrix.cpp
@@ -85,7 +87,7 @@ if(MPI_LINK_FLAGS)
             LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
 
-#target_link_libraries(Saena ${MPI_LIBRARIES} El lapack blas)
+target_link_libraries(Saena ${MPI_LIBRARIES} El lapack blas)
 #target_link_libraries(Saena ${MPI_LIBRARIES} lapack blas)
-target_link_libraries(Saena ${MPI_LIBRARIES} El)
+#target_link_libraries(Saena ${MPI_LIBRARIES} El)
 #target_link_libraries(Saena ${MPI_LIBRARIES})

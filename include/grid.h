@@ -3,10 +3,21 @@
 
 #include "prolong_matrix.h"
 #include "restrict_matrix.h"
-#include "saena_matrix.h"
 #include "saena_matrix_dense.h"
+#include "saena_matrix.h"
 
+#include <vector>
 #include <mpi.h>
+
+//class prolong_matrix;
+//class restrict_matrix;
+//class saena_matrix;
+//class saena_matrix_dense;
+//class saena_object;
+
+typedef unsigned int index_t;
+typedef unsigned long nnz_t;
+typedef double value_t;
 
 
 class Grid{

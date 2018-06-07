@@ -12,6 +12,7 @@
                               std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<value_t>())) \
                     initializer(omp_priv = omp_orig)
 
+
 saena_matrix::saena_matrix(){}
 
 
