@@ -3187,15 +3187,19 @@ int saena_object::solve(std::vector<value_t>& u){
     if(max_level == 0)
         printf("\nonly using the direct solver! \n");
 
+    if(rank==0){
+        printf("Vcycle #: \tresidual\n");
+        printf("-----------------------------\n");
+    }
+
     int i;
     for(i=0; i<vcycle_num; i++){
-        if(rank==0) printf("Vcycle %u \n", i);
         vcycle(&grids[0], u, grids[0].rhs);
-//        MPI_Barrier(comm); printf("rank %d -------------now################### \n", rank); MPI_Barrier(comm);
         grids[0].A->residual(u, grids[0].rhs, r);
         dotProduct(r, r, &current_dot, comm);
 
-        if(rank==0) printf("vcycle iteration = %d, residual = %f \n\n", i, sqrt(current_dot));
+        if(rank==0) printf("Vcycle %d: \t%.10f \n", i, sqrt(current_dot));
+//        if(rank==0) printf("vcycle iteration = %d, residual = %f \n\n", i, sqrt(current_dot));
         if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
             break;
     }

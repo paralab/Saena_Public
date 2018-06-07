@@ -92,8 +92,9 @@ int main(int argc, char* argv[]){
 
     // *************************** AMG - Solve ****************************
 
-    solver.solve(u, &opts);
-    
+//    solver.solve(u, &opts);
+    solver.solve_pcg(u, &opts);
+
     // *************************** Destroy ****************************
 
     A.destroy();
