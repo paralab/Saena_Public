@@ -17,12 +17,12 @@ int main(int argc, char* argv[]){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    if(argc != 3)
+    if(argc != 2)
     {
         if(rank == 0)
         {
-            cout << "Usage: ./Saena <MatrixA> <rhs_vec>" << endl;
-            cout << "Matrix file should be in COO format having column-major order." << endl;
+            cout << "Usage: ./Saena <MatrixA>" << endl;
+            cout << "Matrix file should be in COO format with column-major order." << endl;
         }
         MPI_Finalize();
         return -1;
