@@ -1,4 +1,5 @@
 #include "saena_matrix.h"
+#include "saena_matrix_dense.h"
 #include "strength_matrix.h"
 #include "prolong_matrix.h"
 #include "restrict_matrix.h"
