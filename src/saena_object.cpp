@@ -1,11 +1,11 @@
+#include "saena_object.h"
 #include "saena_matrix.h"
-#include "saena_matrix_dense.h"
+//#include "saena_matrix_dense.h"
 #include "strength_matrix.h"
 #include "prolong_matrix.h"
 #include "restrict_matrix.h"
-#include "aux_functions.h"
 #include "grid.h"
-#include "saena_object.h"
+#include "aux_functions.h"
 #include "ietl_saena.h"
 #include <parUtils.h>
 #include "El.hpp"
@@ -5198,7 +5198,7 @@ int saena_object::local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEn
 int saena_object::find_eig(saena_matrix& A){
 
     find_eig_Elemental(A);
-    find_eig_ietl(A);
+//    find_eig_ietl(A);
 
     return 0;
 }

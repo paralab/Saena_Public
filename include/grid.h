@@ -1,11 +1,13 @@
 #ifndef SAENA_GRID_H
 #define SAENA_GRID_H
 
-#include <mpi.h>
+#include "prolong_matrix.h"
+#include "restrict_matrix.h"
 #include "saena_matrix.h"
 #include "saena_matrix_dense.h"
-#include "restrict_matrix.h"
-#include "prolong_matrix.h"
+
+#include <mpi.h>
+
 
 class Grid{
 public:

@@ -1,12 +1,14 @@
 #ifndef SAENA_SAENA_MATRIX_H
 #define SAENA_SAENA_MATRIX_H
 
+
+#include "aux_functions.h"
+#include "saena_matrix_dense.h"
+
 #include <iostream>
 #include <vector>
 #include <set>
 #include <mpi.h>
-#include "aux_functions.h"
-#include "saena_matrix_dense.h"
 
 
 /**

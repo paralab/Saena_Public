@@ -1,11 +1,12 @@
-#include <fstream>
-#include <algorithm>
-#include <sys/stat.h>
-#include <cstring>
-#include "mpi.h"
-#include <omp.h>
 #include "saena_matrix.h"
 #include "parUtils.h"
+
+#include <fstream>
+#include <cstring>
+#include <algorithm>
+#include <sys/stat.h>
+#include <omp.h>
+#include "mpi.h"
 
 #pragma omp declare reduction(vec_double_plus : std::vector<value_t> : \
                               std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<value_t>())) \

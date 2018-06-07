@@ -1,6 +1,8 @@
 #ifndef IETL_SAENA_H
 #define IETL_SAENA_H
 
+#include "saena_matrix.h"
+
 #include <boost/numeric/ublas/symmetric.hpp>
 #include <boost/numeric/ublas/io.hpp>
 #include <ietl/interface/ublas.h>
@@ -10,7 +12,6 @@
 #include <boost/limits.hpp>
 #include <cmath>
 #include <limits>
-#include "saena_matrix.h"
 
 typedef saena_matrix Matrix;
 typedef boost::numeric::ublas::vector<value_t> Vector;

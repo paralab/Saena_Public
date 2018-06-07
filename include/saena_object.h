@@ -1,9 +1,10 @@
 #ifndef SAENA_SAENA_OBJECT_H
 #define SAENA_SAENA_OBJECT_H
 
+#include "aux_functions.h"
+
 #include <vector>
 #include <string>
-#include "aux_functions.h"
 
 typedef unsigned int index_t;
 typedef unsigned long nnz_t;
