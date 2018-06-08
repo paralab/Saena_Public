@@ -1,6 +1,6 @@
 # Saena
 
-Installation instructions to use Saena as a stand-alone solver:
+## Installation instructions to use Saena as a stand-alone solver
 
 1- The CMakeLists.txt is written to use Saena inside Nektar++. To use it as a stand-alone solver remove CMakeLists.txt. rename CMakeLists_standalone.txt to CMakeLists.txt.
 
@@ -18,15 +18,21 @@ In the above example, Elemental will be installed inside a directory called "ele
 
 --------------------------------------------------------------------------------------------------
 
-Example: There is an example showing how to use Saena in src/main.cpp. Most functions are explained there.
+## Example
+
+There is an example showing how to use Saena in src/main.cpp. Most functions are explained there.
 
 --------------------------------------------------------------------------------------------------
+
+## Nektar++
 
 To use Saena inside Nektar++ clone this repositoy inside Nektar++/library/MultiRegions/
 
 --------------------------------------------------------------------------------------------------
 
-To use Saena inside a library the following commands can be used:
+## Use Saena in another library
+
+The following commands can be used to use Saena in a library:
 
 #include "saena.hpp"
 
@@ -72,7 +78,7 @@ solver.destroy();
 
 --------------------------------------------------------------------------------------------------
 
-print functions:
+## Print Functions
 
 print matrix A of type saena::matrix:
 
@@ -88,7 +94,7 @@ print_vector(vector, cpu_rank, "print message", MPI communicator);
 
 --------------------------------------------------------------------------------------------------
 
-Other functions:
+## Some Other Functions
 
 solver.solve_pcg_update1(u, &opts, &B):
 
