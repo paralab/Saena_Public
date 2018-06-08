@@ -2966,7 +2966,8 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
             // scale back the solution u
             // -------------------------
-            scale_vector_back(u, grid->A->inv_sq_diag);
+//            scale_vector_back(u, grid->A->inv_sq_diag);
+            scale_vector(u, grid->A->inv_sq_diag);
 
             t2 = omp_get_wtime();
             func_name = "vcycle: level " + std::to_string(grid->currentLevel) + ": solve coarsest";
@@ -3147,7 +3148,8 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
         // scale back the solution u
         // -------------------------
-        scale_vector_back(u, grid->A->inv_sq_diag);
+//        scale_vector_back(u, grid->A->inv_sq_diag);
+        scale_vector(u, grid->A->inv_sq_diag);
 
     } // end of if(active)
 
