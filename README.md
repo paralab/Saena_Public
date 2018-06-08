@@ -20,12 +20,13 @@ In the above example, Elemental will be installed inside a directory called "ele
 
 There is an example showing how to use Saena in src/main.cpp. Most functions are explained there.
 
-Run this command in the build folder to run example:
+Run this command in the build folder to run the example:
 
 ./Saena ../data/81s4x8o1mu1.bin
 
 Pass any matrix (A) in binary format as the argument to solve the system: Ax = rhs.
-rhs is generated randomly in this example. It is exaplained how to pass rhs in the example.
+The matrix should be in COO format with column-major order (the same format as the Florida Matrix Collection).
+rhs is generated randomly in this example. It is exaplained how to also pass rhs in the example.
 
 ## Nektar++
 
