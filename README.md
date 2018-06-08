@@ -8,7 +8,7 @@ Installation instructions to use Saena as a stand-alone solver:
 
 3- cmake ..
 
-Note: #Elemental is an external library inside Saena and will be installed inside system folders. To avoid that, the following argument can be passed to the cmake command to specify the installation path:
+Note: Elemental is an external library inside Saena and will be installed inside system folders. To avoid that, the following argument can be passed to the cmake command to specify the installation path:
 
 cmake -D CMAKE_INSTALL_PREFIX="./elemental_install" ..
 
@@ -22,7 +22,7 @@ Example: There is an example showing how to use Saena in src/main.cpp. Most func
 
 --------------------------------------------------------------------------------------------------
 
-To use Saena inside #Nektar++ clone this repositoy inside Nektar++/library/MultiRegions/
+To use Saena inside Nektar++ clone this repositoy inside Nektar++/library/MultiRegions/
 
 --------------------------------------------------------------------------------------------------
 
