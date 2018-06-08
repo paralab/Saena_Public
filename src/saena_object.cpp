@@ -7,7 +7,7 @@
 #include "aux_functions.h"
 #include "ietl_saena.h"
 #include <parUtils.h>
-#include "El.hpp"
+//#include "El.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -5214,7 +5214,7 @@ int saena_object::find_eig(saena_matrix& A){
 
 
 int saena_object::find_eig_Elemental(saena_matrix& A) {
-
+/*
     int argc = 0;
     char** argv = {NULL};
 //    El::Environment env( argc, argv );
@@ -5281,7 +5281,7 @@ int saena_object::find_eig_Elemental(saena_matrix& A) {
 //    if(rank==0) printf("\nthe biggest eigenvalue of D^{-1}*A is %f (Elemental) \n", A.eig_max_of_invdiagXA);
 
     El::Finalize();
-
+*/
     return 0;
 }
 

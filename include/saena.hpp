@@ -55,7 +55,7 @@ namespace saena {
     private:
         int vcycle_num            = 200;
         double relative_tolerance = 1e-10;
-        std::string smoother      = "chebyshev";
+        std::string smoother      = "jacobi";
         int preSmooth             = 3;
         int postSmooth            = 3;
 

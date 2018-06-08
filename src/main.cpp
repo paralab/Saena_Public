@@ -54,13 +54,10 @@ int main(int argc, char* argv[]){
         return -1;
     }
 
-    // vector should have the following format: first line shows the value in row 0, second line shows the value in row 1
-    offset = A.get_internal_matrix()->split[rank] * 8; // value(double=8)
+    // vector should have the following format:
+    // first line shows the value in row 0, second line shows the value in row 1
+    offset = A.get_internal_matrix()->split[rank] * sizeof(double);
     MPI_File_read_at(fh, offset, &(*(rhs.begin())), num_local_row, MPI_DOUBLE, &status);
-
-//    int count;
-//    MPI_Get_count(&status, MPI_UNSIGNED_LONG, &count);
-    //printf("process %d read %d lines of triples\n", rank, count);
     MPI_File_close(&fh);
 */
 
@@ -73,15 +70,15 @@ int main(int argc, char* argv[]){
     // *************************** AMG - Setup ****************************
     // There are 3 ways to set options:
     
-    // 1- set them one by one
-//    int vcycle_num            = 10;
+    // 1- set them manually
+//    int vcycle_num            = 300;
 //    double relative_tolerance = 1e-8;
 //    std::string smoother      = "jacobi";
 //    int preSmooth             = 2;
 //    int postSmooth            = 2;
 //    saena::options opts(vcycle_num, relative_tolerance, smoother, preSmooth, postSmooth);
 
-    // 2- read the options from file
+    // 2- read the options from a file
 //    saena::options opts((char*)"options001.xml");
 
     // 3- use the default options
