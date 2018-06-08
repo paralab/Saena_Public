@@ -24,8 +24,6 @@ There is an example showing how to use Saena in src/main.cpp. Most functions are
 
 To use Saena inside Nektar++ clone this repositoy inside Nektar++/library/MultiRegions/
 
---------------------------------------------------------------------------------------------------
-
 ## Use Saena in another library
 
 The following commands can be used to use Saena in a library:
@@ -72,8 +70,6 @@ A.destroy();
 
 solver.destroy();
 
---------------------------------------------------------------------------------------------------
-
 ## Print Functions
 
 print matrix A of type saena::matrix:
@@ -87,8 +83,6 @@ print a vector:
 cpu_rank can be rank of a processor or -1 to print on all processors
 
 print_vector(vector, cpu_rank, "print message", MPI communicator);
-
---------------------------------------------------------------------------------------------------
 
 ## Some Other Functions
 
