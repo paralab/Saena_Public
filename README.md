@@ -2,7 +2,7 @@
 
 ## Installation instructions to use Saena as a stand-alone solver
 
-1- The CMakeLists.txt is written to use Saena inside Nektar++. To use it as a stand-alone solver remove CMakeLists.txt. rename CMakeLists_standalone.txt to CMakeLists.txt.
+1- The CMakeLists.txt is written in a way to use Saena inside Nektar++. To use it as a stand-alone solver remove CMakeLists.txt. rename CMakeLists_standalone.txt to CMakeLists.txt.
 
 2- mkdir build and cd into build
 
