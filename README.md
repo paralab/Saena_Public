@@ -1,17 +1,20 @@
-# Saena_Public
-Basic Installation Instructions:
+# Saena
 
-1- mkdir build and cd into build
+Installation instructions to use Saena as a stand-alone solver:
 
-2- cmake ..
+1- The CMakeLists.txt is written to use Saena inside Nektar++. To use it as a stand-alone solver remove CMakeLists.txt. rename CMakeLists_standalone.txt to CMakeLists.txt.
 
-Note: Elemental is an external library inside Saena and will be installed inside system folders. To avoid that, the following argument can be passed to the cmake command to specify the installation path:
+2- mkdir build and cd into build
+
+3- cmake ..
+
+Note: #Elemental is an external library inside Saena and will be installed inside system folders. To avoid that, the following argument can be passed to the cmake command to specify the installation path:
 
 cmake -D CMAKE_INSTALL_PREFIX="./elemental_install" ..
 
 In the above example, Elemental will be installed inside a directory called "elemental_install" inside the build directory.
 
-3- make
+4- make
 
 --------------------------------------------------------------------------------------------------
 
@@ -19,7 +22,7 @@ Example: There is an example showing how to use Saena in src/main.cpp. Most func
 
 --------------------------------------------------------------------------------------------------
 
-To use Saena inside Nektar++ clone this repositoy inside Nektar++/library/MultiRegions/
+To use Saena inside #Nektar++ clone this repositoy inside Nektar++/library/MultiRegions/
 
 --------------------------------------------------------------------------------------------------
 
