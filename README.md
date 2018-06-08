@@ -16,13 +16,9 @@ In the above example, Elemental will be installed inside a directory called "ele
 
 4- make
 
---------------------------------------------------------------------------------------------------
-
 ## Example
 
 There is an example showing how to use Saena in src/main.cpp. Most functions are explained there.
-
---------------------------------------------------------------------------------------------------
 
 ## Nektar++
 
