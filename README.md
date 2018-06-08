@@ -20,6 +20,13 @@ In the above example, Elemental will be installed inside a directory called "ele
 
 There is an example showing how to use Saena in src/main.cpp. Most functions are explained there.
 
+Run this command in the build folder to run example:
+
+./Saena ../data/81s4x8o1mu1.bin
+
+Pass any matrix (A) in binary format as the argument to solve the system: Ax = rhs.
+rhs is generated randomly in this example. It is exaplained how to pass rhs in the example.
+
 ## Nektar++
 
 To use Saena inside Nektar++ clone this repositoy inside Nektar++/library/MultiRegions/
@@ -62,7 +69,7 @@ solver.set_rhs(rhs); // rhs should be std::vector double
   
 // solver.solve(u, &opts); // AMG as a solver
 
-solver.solve_pcg(u, &opts); // AMG as a preconditioner
+solver.solve_pcg(u, &opts); // AMG as a preconditioner. The solver is preconditioned conjugate gradient (pcg).
 
 // *************************** Destroy ****************************
 
