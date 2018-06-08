@@ -1,11 +1,9 @@
 # Saena_Public
-Instructions:
+Basic Installation Instructions:
 
-1- extract external.tar.gz. to the same directory. There will be a folder called external, which includes three external libraries.
+1- mkdir build and cd into build
 
-2- mkdir build and cd into build
-
-3- cmake ..
+2- cmake ..
 
 Note: Elemental is an external library inside Saena and will be installed inside system folders. To avoid that, the following argument can be passed to the cmake command to specify the installation path:
 
@@ -13,11 +11,15 @@ cmake -D CMAKE_INSTALL_PREFIX="./elemental_install" ..
 
 In the above example, Elemental will be installed inside a directory called "elemental_install" inside the build directory.
 
-4- make
+3- make
 
 --------------------------------------------------------------------------------------------------
 
 Example: There is an example showing how to use Saena in src/main.cpp. Most functions are explained there.
+
+--------------------------------------------------------------------------------------------------
+
+To use Saena inside Nektar++ clone this repositoy inside Nektar++/library/MultiRegions/
 
 --------------------------------------------------------------------------------------------------
 
