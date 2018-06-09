@@ -3038,9 +3038,9 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
 //        print_vector(res, 0, grid->A->comm);
 
-//        double dot;
-//        dotProduct(res, res, &dot, grid->A->comm);
-//        if(rank==0) std::cout << "current level = " << grid->currentLevel << ", after pre-smooth  = " << sqrt(dot) << std::endl;
+        double dot;
+        dotProduct(res, res, &dot, grid->A->comm);
+        if(rank==0) std::cout << "current level = " << grid->currentLevel << ", after pre-smooth  = " << sqrt(dot) << std::endl;
 
         // **************************************** 3. restrict ****************************************
 
@@ -3123,9 +3123,9 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
 //        print_vector(u, 0, "u after correction", grid->A->comm);
 
-//        grid->A->residual(u, rhs, res);
-//        dotProduct(res, res, &dot, grid->A->comm);
-//        if(rank==0) std::cout << "current level = " << grid->currentLevel << ", after correction  = " << sqrt(dot) << std::endl;
+        grid->A->residual(u, rhs, res);
+        dotProduct(res, res, &dot, grid->A->comm);
+        if(rank==0) std::cout << "current level = " << grid->currentLevel << ", after correction  = " << sqrt(dot) << std::endl;
 
         // **************************************** 7. post-smooth ****************************************
 
@@ -3148,9 +3148,9 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 //        if(rank==1) std::cout << "\n7. post-smooth: u, currentLevel = " << grid->currentLevel << std::endl;
 //        print_vector(u, 0, "u post-smooth", grid->A->comm);
 
-//        grid->A->residual(u, rhs, res);
-//        dotProduct(res, res, &dot, grid->A->comm);
-//        if(rank==0) std::cout << "current level = " << grid->currentLevel << ", after post-smooth = " << sqrt(dot) << std::endl;
+        grid->A->residual(u, rhs, res);
+        dotProduct(res, res, &dot, grid->A->comm);
+        if(rank==0) std::cout << "current level = " << grid->currentLevel << ", after post-smooth = " << sqrt(dot) << std::endl;
 
         // **************************************** scale the solution u ****************************************
 //        print_vector(grid->A->inv_sq_diag, -1, "grid->A->inv_sq_diag", grid->A->comm);
