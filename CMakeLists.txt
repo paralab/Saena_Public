@@ -22,11 +22,11 @@ include_directories(
     external/pugixml/include
 )
 
-#add_subdirectory(external/Elemental-0.87.7)
-#include_directories("${PROJECT_BINARY_DIR}/external/Elemental-0.87.7/include")
-#include_directories("external/Elemental-0.87.7/include")
-#include_directories("external/Elemental-0.87.7/external/suite_sparse/include")
-#include_directories(${MPI_CXX_INCLUDE_PATH})
+add_subdirectory(external/Elemental-0.87.7)
+include_directories("${PROJECT_BINARY_DIR}/external/Elemental-0.87.7/include")
+include_directories("external/Elemental-0.87.7/include")
+include_directories("external/Elemental-0.87.7/external/suite_sparse/include")
+include_directories(${MPI_CXX_INCLUDE_PATH})
 
 set(SOURCE_FILES
 	
@@ -81,8 +81,8 @@ if(MPI_LINK_FLAGS)
 endif()
 
 #target_link_libraries(SaenaTest ${MPI_LIBRARIES} El)
-target_link_libraries(SaenaTest ${MPI_LIBRARIES} lapack blas)
-#target_link_libraries(SaenaTest ${MPI_LIBRARIES} El lapack blas)
+#target_link_libraries(SaenaTest ${MPI_LIBRARIES} lapack blas)
+target_link_libraries(SaenaTest ${MPI_LIBRARIES} El lapack blas)
 
 ADD_NEKTAR_LIBRARY(Saena
     SOURCES ${SOURCE_FILES}

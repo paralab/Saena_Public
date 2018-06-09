@@ -1,0 +1,12 @@
+Please see the file debian/copyright for an explicit, machine-readable overview
+and listing of the licenses associated with files within this project.
+Informally, the vast majority of Elemental is released under the terms of the
+2-clause BSD License, but the cmake/ and external/ folders contain files
+released under the Boost 1.0, BSD 3-clause, GNU LGPL 2.1, and MIT licenses.
+
+In addition, the (optional) external dependencies: libquadmath, GNU MPFR,
+GNU MPC, and Qt 5, are licensed under the terms of the GNU LGPLv3. Lastly,
+the (required) external dependency METIS is licensed under the terms of the
+Apache License, Version 2.0. The optional external dependency ParMETIS is
+unfortunately licensed in a manner which only allows its usage for research
+purposes.
