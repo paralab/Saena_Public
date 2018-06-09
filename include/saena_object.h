@@ -19,7 +19,7 @@ class Grid;
 class saena_object {
 public:
 
-    int max_level = 2; // fine grid is level 0.
+    int max_level = 1; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 20;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,
@@ -98,8 +98,8 @@ public:
     int find_eig(saena_matrix& A);
     int find_eig_Elemental(saena_matrix& A);
     int local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEntry> &C);
-    int scale_vector(std::vector<value_t> v, std::vector<value_t> w);
-    int scale_vector_back(std::vector<value_t> v, std::vector<value_t> w);
+    int scale_vector(std::vector<value_t>& v, std::vector<value_t>& w);
+    int scale_vector_back(std::vector<value_t>& v, std::vector<value_t>& w);
 
     int writeMatrixToFileA(saena_matrix* A, std::string name);
     int writeMatrixToFileP(prolong_matrix* P, std::string name);

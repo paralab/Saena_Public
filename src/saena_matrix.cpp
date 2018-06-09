@@ -2561,7 +2561,7 @@ int saena_matrix::matrix_setup() {
         // *************************** scale ****************************
         // scale the matrix to have its diagonal entries all equal to 1.
 
-        scale();
+        scale_matrix();
 
         // *************************** print info ****************************
 
@@ -3039,7 +3039,7 @@ int saena_matrix::openmp_setup() {
 }
 
 
-int saena_matrix::scale(){
+int saena_matrix::scale_matrix(){
 
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
@@ -4794,8 +4794,7 @@ int saena_matrix::chebyshev(int iter, std::vector<value_t>& u, std::vector<value
     residual(u, rhs, res);
 #pragma omp parallel for
     for(index_t i = 0; i < u.size(); i++){
-//        d[i] = (-res[i] * inv_diag[i]) / theta;
-        d[i] = (-res[i]) / theta;
+        d[i] = (-res[i] * inv_diag[i]) / theta;
         u[i] += d[i];
 //        if(rank==0) printf("inv_diag[%lu] = %f, \tres[%lu] = %f, \td[%lu] = %f, \tu[%lu] = %f \n",
 //                           i, inv_diag[i], i, res[i], i, d[i], i, u[i]);
@@ -4810,7 +4809,7 @@ int saena_matrix::chebyshev(int iter, std::vector<value_t>& u, std::vector<value
 
 #pragma omp parallel for
         for(index_t j = 0; j < u.size(); j++){
-            d[j] = ( d1 * d[j] ) + ( d2 * (-res[j]));
+            d[j] = ( d1 * d[j] ) + ( d2 * (-res[j] * inv_diag[i]));
             u[j] += d[j];
 //        if(rank==0) printf("u[%lu] = %f \n", j, u[j]);
         }

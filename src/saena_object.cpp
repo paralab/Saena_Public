@@ -2944,6 +2944,10 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
                    rank, grid->currentLevel, grid->A->M, u.size(), rhs.size());
             MPI_Barrier(grid->A->comm);}
 
+        // **************************************** scale rhs ****************************************
+
+//        scale_vector(rhs, grid->A->inv_sq_diag);
+
         // **************************************** 0. direct-solve the coarsest level ****************************************
 
         if (grid->currentLevel == max_level) {
@@ -2964,10 +2968,12 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
                 return -1;
             }
 
-            // scale back the solution u
+            // scale the solution u
             // -------------------------
 //            scale_vector_back(u, grid->A->inv_sq_diag);
+//            print_vector(u, -1, "u before scale", grid->A->comm);
             scale_vector(u, grid->A->inv_sq_diag);
+//            print_vector(u, -1, "u after scale", grid->A->comm);
 
             t2 = omp_get_wtime();
             func_name = "vcycle: level " + std::to_string(grid->currentLevel) + ": solve coarsest";
@@ -3068,8 +3074,8 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
             if(rank==0) printf("vcycle: recurse\n");
             MPI_Barrier(grid->A->comm);}
 
+        scale_vector(res_coarse, grid->coarseGrid->A->inv_sq_diag);
         uCorrCoarse.assign(grid->Ac.M, 0);
-
         vcycle(grid->coarseGrid, uCorrCoarse, res_coarse);
 
 //        if(rank==0) std::cout << "\n4. uCorrCoarse, currentLevel = " << grid->currentLevel
@@ -3146,10 +3152,12 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 //        dotProduct(res, res, &dot, grid->A->comm);
 //        if(rank==0) std::cout << "current level = " << grid->currentLevel << ", after post-smooth = " << sqrt(dot) << std::endl;
 
-        // scale back the solution u
-        // -------------------------
+        // **************************************** scale the solution u ****************************************
+//        print_vector(grid->A->inv_sq_diag, -1, "grid->A->inv_sq_diag", grid->A->comm);
 //        scale_vector_back(u, grid->A->inv_sq_diag);
+//        print_vector(u, -1, "u before scale", grid->A->comm);
         scale_vector(u, grid->A->inv_sq_diag);
+//        print_vector(u, -1, "u after scale", grid->A->comm);
 
     } // end of if(active)
 
@@ -3163,7 +3171,6 @@ int saena_object::solve(std::vector<value_t>& u){
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
-//    unsigned long i;
 
     // ************** check u size **************
 
@@ -3228,6 +3235,10 @@ int saena_object::solve(std::vector<value_t>& u){
 
 //    print_vector(u, -1, "u", comm);
 
+    // ************** scale u **************
+
+//    scale_vector(u, grids[0].A->inv_sq_diag);
+
     // ************** repartition u back **************
 
     if(repartition)
@@ -3246,7 +3257,6 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
     bool solve_verbose = false;
-//    unsigned long i, j;
 
     // ************** check u size **************
 
@@ -3274,7 +3284,7 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
 //    if(rank==0) std::cout << "norm(rhs) = " << sqrt(temp) << std::endl;
 
     std::vector<value_t> r(grids[0].A->M);
-    grids[0].A->residual(u, grids[0].rhs, r);
+    grids[0].A->residual(u, grids[0].rhs, r); // todo: since the initial guess is zero, avoid the matvec in residual().
     double initial_dot, current_dot, previous_dot;
     dotProduct(r, r, &initial_dot, comm);
     if(rank==0) std::cout << "******************************************************" << std::endl;
@@ -3309,7 +3319,7 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
 //        printf("rho[%lu] = %f,\t r[%lu] = %f \n", i, rho[i], i, r[i]);
 
     if(rank==0){
-        printf("Vcycle #: absolute residual \trelative residual\n");
+        printf("Vcycle #: absolute residual \tconvergence factor\n");
         printf("--------------------------------------------------------\n");
     }
 
@@ -3334,6 +3344,8 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
             r[j] -= alpha * h[j];
         }
 
+//        print_vector(u, -1, "v inside solve_pcg", grids[0].A->comm);
+
         previous_dot = current_dot;
         dotProduct(r, r, &current_dot, comm);
         // this prints the "absolute residual" and the "convergence factor":
@@ -3343,7 +3355,7 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
             break;
 
         if(verbose) if(rank==0) printf("_______________________________ \n\n***** Vcycle %u *****\n", i+1);
-        rho.assign(rho.size(), 0);
+        std::fill(rho.begin(), rho.end(), 0);
         vcycle(&grids[0], rho, r);
         dotProduct(r, rho, &beta, comm);
         beta /= rho_res;
@@ -3367,6 +3379,10 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
     }
 
     if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: solve!\n");
+
+    // ************** scale u **************
+
+    scale_vector(u, grids[0].A->inv_sq_diag);
 
     // ************** repartition u back **************
 
@@ -3653,6 +3669,10 @@ int saena_object::solve_pcg_update1(std::vector<value_t>& u, saena_matrix* A_new
 
     if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: solve!\n");
 
+    // ************** scale u **************
+
+    scale_vector(u, grids[0].A->inv_sq_diag);
+
     // ************** repartition u back **************
 
     if(repartition)
@@ -3806,6 +3826,10 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
     }
 
     if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: solve!\n");
+
+    // ************** scale u **************
+
+    scale_vector(u, grids[0].A->inv_sq_diag);
 
     // ************** repartition u back **************
 
@@ -3967,6 +3991,10 @@ int saena_object::solve_pcg_update3(std::vector<value_t>& u, saena_matrix* A_new
     }
 
     if(solve_verbose) if(rank == 0) printf("verbose: solve_pcg_update: solve!\n");
+
+    // ************** scale u **************
+
+    scale_vector(u, grids[0].A->inv_sq_diag);
 
     // ************** repartition u back **************
 
@@ -5198,7 +5226,7 @@ int saena_object::local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEn
 }
 
 
-int saena_object::scale_vector(std::vector<value_t> v, std::vector<value_t> w) {
+int saena_object::scale_vector(std::vector<value_t>& v, std::vector<value_t>& w) {
 
 #pragma omp parallel for
     for(index_t i = 0; i < v.size(); i++)
@@ -5208,7 +5236,7 @@ int saena_object::scale_vector(std::vector<value_t> v, std::vector<value_t> w) {
 }
 
 
-int saena_object::scale_vector_back(std::vector<value_t> v, std::vector<value_t> w) {
+int saena_object::scale_vector_back(std::vector<value_t>& v, std::vector<value_t>& w) {
 
 #pragma omp parallel for
     for(index_t i = 0; i < v.size(); i++)
