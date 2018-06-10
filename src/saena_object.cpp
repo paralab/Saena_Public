@@ -3074,9 +3074,11 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
             if(rank==0) printf("vcycle: recurse\n");
             MPI_Barrier(grid->A->comm);}
 
+        // scale rhs of the next level
         scale_vector(res_coarse, grid->coarseGrid->A->inv_sq_diag);
         uCorrCoarse.assign(grid->Ac.M, 0);
         vcycle(grid->coarseGrid, uCorrCoarse, res_coarse);
+        scale_vector(u, grid->A->inv_sq_diag);
 
 //        if(rank==0) std::cout << "\n4. uCorrCoarse, currentLevel = " << grid->currentLevel
 //                              << ", uCorrCoarse.size = " << uCorrCoarse.size() << std::endl;
@@ -3237,7 +3239,7 @@ int saena_object::solve(std::vector<value_t>& u){
 
     // ************** scale u **************
 
-//    scale_vector(u, grids[0].A->inv_sq_diag);
+    scale_vector(u, grids[0].A->inv_sq_diag);
 
     // ************** repartition u back **************
 

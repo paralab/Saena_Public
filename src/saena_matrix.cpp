@@ -4828,12 +4828,15 @@ int saena_matrix::print(int ran){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+    index_t iter = 0;
     if(ran >= 0) {
         if (rank == ran) {
             printf("\nmatrix on proc = %d \n", ran);
             printf("nnz = %lu \n", nnz_l);
-            for (auto i:entry)
-                std::cout << i << std::endl;
+            for (auto i:entry) {
+                std::cout << iter << "\t" << i << std::endl;
+                iter++;
+            }
         }
     } else{
         for(index_t proc = 0; proc < nprocs; proc++){
@@ -4841,8 +4844,10 @@ int saena_matrix::print(int ran){
             if (rank == proc) {
                 printf("\nmatrix on proc = %d \n", proc);
                 printf("nnz = %lu \n", nnz_l);
-                for (auto i:entry)
-                    std::cout << i << std::endl;
+                for (auto i:entry) {
+                    std::cout << iter << "\t" << i << std::endl;
+                    iter++;
+                }
             }
             MPI_Barrier(comm);
         }
