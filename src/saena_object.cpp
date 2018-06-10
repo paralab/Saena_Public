@@ -7,7 +7,7 @@
 #include "aux_functions.h"
 #include "ietl_saena.h"
 #include <parUtils.h>
-//#include "El.hpp"
+#include "El.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -2970,10 +2970,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
             // scale the solution u
             // -------------------------
-//            scale_vector_back(u, grid->A->inv_sq_diag);
-//            print_vector(u, -1, "u before scale", grid->A->comm);
-            scale_vector(u, grid->A->inv_sq_diag);
-//            print_vector(u, -1, "u after scale", grid->A->comm);
+//            scale_vector(u, grid->A->inv_sq_diag);
 
             t2 = omp_get_wtime();
             func_name = "vcycle: level " + std::to_string(grid->currentLevel) + ": solve coarsest";
@@ -3304,6 +3301,9 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
                            "\nrelative residual       = %e \n\n", sqrt(current_dot), sqrt(current_dot/initial_dot));
             std::cout << "******************************************************" << std::endl;
         }
+
+        // scale the solution u
+        scale_vector(u, grids[0].A->inv_sq_diag);
 
         // repartition u back
         if(repartition)
@@ -5331,7 +5331,7 @@ int saena_object::find_eig_Elemental(saena_matrix& A) {
 
 
 int saena_object::solve_coarsest_Elemental(saena_matrix *A_S, std::vector<value_t> &u, std::vector<value_t> &rhs){
-/*
+
     int argc = 0;
     char** argv = {NULL};
 //    El::Environment env( argc, argv );
@@ -5400,6 +5400,6 @@ int saena_object::solve_coarsest_Elemental(saena_matrix *A_S, std::vector<value_
         u[i-A_S->split[rank]] = temp[i];
 
     El::Finalize();
-*/
+
     return 0;
 }
