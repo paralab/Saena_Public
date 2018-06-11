@@ -7,7 +7,7 @@
 #include "aux_functions.h"
 #include "ietl_saena.h"
 #include <parUtils.h>
-#include "El.hpp"
+//#include "El.hpp"
 
 #include <cstdio>
 #include <cstdlib>
@@ -3073,9 +3073,12 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
         // scale rhs of the next level
         scale_vector(res_coarse, grid->coarseGrid->A->inv_sq_diag);
+
         uCorrCoarse.assign(grid->Ac.M, 0);
         vcycle(grid->coarseGrid, uCorrCoarse, res_coarse);
-        scale_vector(u, grid->A->inv_sq_diag);
+
+        // scale u
+        scale_vector(uCorrCoarse, grid->coarseGrid->A->inv_sq_diag);
 
 //        if(rank==0) std::cout << "\n4. uCorrCoarse, currentLevel = " << grid->currentLevel
 //                              << ", uCorrCoarse.size = " << uCorrCoarse.size() << std::endl;
@@ -3203,10 +3206,10 @@ int saena_object::solve(std::vector<value_t>& u){
     if(max_level == 0)
         printf("\nonly using the direct solver! \n");
 
-    if(rank==0){
-        printf("Vcycle #: \tabsolute residual\n");
-        printf("-----------------------------\n");
-    }
+//    if(rank==0){
+//        printf("Vcycle #: \tabsolute residual\n");
+//        printf("-----------------------------\n");
+//    }
 
     int i;
     for(i=0; i<vcycle_num; i++){
@@ -3214,7 +3217,7 @@ int saena_object::solve(std::vector<value_t>& u){
         grids[0].A->residual(u, grids[0].rhs, r);
         dotProduct(r, r, &current_dot, comm);
 
-        if(rank==0) printf("Vcycle %d: \t%.10f \n", i, sqrt(current_dot));
+//        if(rank==0) printf("Vcycle %d: \t%.10f \n", i, sqrt(current_dot));
 //        if(rank==0) printf("vcycle iteration = %d, residual = %f \n\n", i, sqrt(current_dot));
         if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
             break;
@@ -3320,10 +3323,10 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
 //    for(i = 0; i < r.size(); i++)
 //        printf("rho[%lu] = %f,\t r[%lu] = %f \n", i, rho[i], i, r[i]);
 
-    if(rank==0){
-        printf("Vcycle #: absolute residual \tconvergence factor\n");
-        printf("--------------------------------------------------------\n");
-    }
+//    if(rank==0){
+//        printf("Vcycle #: absolute residual \tconvergence factor\n");
+//        printf("--------------------------------------------------------\n");
+//    }
 
     std::vector<value_t> h(grids[0].A->M);
     std::vector<value_t> p(grids[0].A->M);
@@ -3351,7 +3354,7 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
         previous_dot = current_dot;
         dotProduct(r, r, &current_dot, comm);
         // this prints the "absolute residual" and the "convergence factor":
-        if(rank==0) printf("Vcycle %d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
+//        if(rank==0) printf("Vcycle %d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
 //        if(rank==0) printf("Vcycle %lu: aboslute residual = %.10f \n", i+1, sqrt(current_dot));
         if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
             break;
@@ -3601,6 +3604,9 @@ int saena_object::solve_pcg_update1(std::vector<value_t>& u, saena_matrix* A_new
             std::cout << "******************************************************" << std::endl;
         }
 
+        // scale the solution u
+        scale_vector(u, grids[0].A->inv_sq_diag);
+
         // repartition u back
         if(repartition)
             repartition_back_u(u);
@@ -3640,7 +3646,7 @@ int saena_object::solve_pcg_update1(std::vector<value_t>& u, saena_matrix* A_new
         previous_dot = current_dot;
         dotProduct(r, r, &current_dot, comm);
         // this prints the "absolute residual" and the "convergence factor":
-        if(rank==0) printf("Vcycle %d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
+//        if(rank==0) printf("Vcycle %d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
 //        if(rank==0) printf("Vcycle %lu: aboslute residual = %.10f \n", i+1, sqrt(current_dot));
         if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
             break;
@@ -3761,6 +3767,9 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
             std::cout << "******************************************************" << std::endl;
         }
 
+        // scale the solution u
+        scale_vector(u, grids[0].A->inv_sq_diag);
+
         // repartition u back
         if(repartition)
             repartition_back_u(u);
@@ -3803,7 +3812,7 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
 
         if(verbose) if(rank==0) printf("_______________________________ \n\n***** Vcycle %lu *****\n", i+1);
         // this prints the "absolute residual" and the "convergence factor":
-        if(rank==0) printf("Vcycle %lu: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
+//        if(rank==0) printf("Vcycle %lu: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
         rho.assign(rho.size(), 0);
         vcycle(&grids[0], rho, r);
         dotProduct(r, rho, &beta, comm);
@@ -3926,6 +3935,9 @@ int saena_object::solve_pcg_update3(std::vector<value_t>& u, saena_matrix* A_new
             std::cout << "******************************************************" << std::endl;
         }
 
+        // scale the solution u
+        scale_vector(u, grids[0].A->inv_sq_diag);
+
         // repartition u back
         if(repartition)
             repartition_back_u(u);
@@ -3968,7 +3980,7 @@ int saena_object::solve_pcg_update3(std::vector<value_t>& u, saena_matrix* A_new
 
         if(verbose || solve_verbose) if(rank==0) printf("_______________________________ \n\n***** Vcycle %lu *****\n", i+1);
         // this prints the "absolute residual" and the "convergence factor":
-        if(rank==0) printf("Vcycle %lu: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
+//        if(rank==0) printf("Vcycle %lu: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
         rho.assign(rho.size(), 0);
         vcycle(&grids[0], rho, r);
         dotProduct(r, rho, &beta, comm);
@@ -5238,16 +5250,6 @@ int saena_object::scale_vector(std::vector<value_t>& v, std::vector<value_t>& w)
 }
 
 
-int saena_object::scale_vector_back(std::vector<value_t>& v, std::vector<value_t>& w) {
-
-#pragma omp parallel for
-    for(index_t i = 0; i < v.size(); i++)
-        v[i] *= 1.0/w[i];
-
-    return 0;
-}
-
-
 int saena_object::find_eig(saena_matrix& A){
 
 //    find_eig_Elemental(A);
@@ -5331,7 +5333,7 @@ int saena_object::find_eig_Elemental(saena_matrix& A) {
 
 
 int saena_object::solve_coarsest_Elemental(saena_matrix *A_S, std::vector<value_t> &u, std::vector<value_t> &rhs){
-
+/*
     int argc = 0;
     char** argv = {NULL};
 //    El::Environment env( argc, argv );
@@ -5400,6 +5402,6 @@ int saena_object::solve_coarsest_Elemental(saena_matrix *A_S, std::vector<value_
         u[i-A_S->split[rank]] = temp[i];
 
     El::Finalize();
-
+*/
     return 0;
 }

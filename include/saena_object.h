@@ -19,21 +19,21 @@ class Grid;
 class saena_object {
 public:
 
-    int max_level = 0; // fine grid is level 0.
+    int max_level = 10; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 20;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,
     // which means the number of rows was not reduced much.
     double row_reduction_threshold = 0.90;
-    int vcycle_num = 300;
+    int vcycle_num = 500;
     double relative_tolerance = 1e-8;
     std::string smoother = "chebyshev"; // choices: "jacobi", "chebyshev"
     int preSmooth  = 3;
     int postSmooth = 3;
-    std::string direct_solver = "Elemental"; // options: 1- CG, 2- Elemental (uncomment #include "El.hpp" in saena_object.cpp)
+    std::string direct_solver = "CG"; // options: 1- CG, 2- Elemental (uncomment #include "El.hpp" in saena_object.cpp)
     std::vector<Grid> grids;
     float connStrength = 0.5; // connection strength parameter: control coarsening aggressiveness
-    int CG_max_iter = 100;
+    int CG_max_iter = 150;
     double CG_tol = 1e-10;
     bool repartition = false; // this parameter will be set to true if the partition of input matrix changed. it will be decided in set_repartition_rhs().
 //    bool shrink_cpu = true;
@@ -58,7 +58,7 @@ public:
     bool verbose_level_setup = false;
     bool verbose_coarsen = false;
     bool verbose_coarsen2 = false;
-    bool verbose_solve_coarse = true;
+    bool verbose_solve_coarse = false;
     bool verbose_vcycle = false;
 
     saena_object();
@@ -99,7 +99,6 @@ public:
     int find_eig_Elemental(saena_matrix& A);
     int local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEntry> &C);
     int scale_vector(std::vector<value_t>& v, std::vector<value_t>& w);
-    int scale_vector_back(std::vector<value_t>& v, std::vector<value_t>& w);
 
     int writeMatrixToFileA(saena_matrix* A, std::string name);
     int writeMatrixToFileP(prolong_matrix* P, std::string name);

@@ -2517,6 +2517,9 @@ int saena_matrix::matrix_setup() {
         MPI_Comm_size(comm, &nprocs);
         MPI_Comm_rank(comm, &rank);
 
+#pragma omp parallel
+        if(rank==0 && omp_get_thread_num()==0) printf("\nnumber of processes = %d, number of threads = %d\n\n", nprocs, omp_get_num_threads());
+        
         if(verbose_matrix_setup) {
             MPI_Barrier(comm);
             printf("matrix_setup: rank = %d, Mbig = %u, M = %u, nnz_g = %lu, nnz_l = %lu \n", rank, Mbig, M, nnz_g, nnz_l);
@@ -4782,7 +4785,7 @@ int saena_matrix::chebyshev(int iter, std::vector<value_t>& u, std::vector<value
 
 //    eig_max_of_invdiagXA *= 10;
 
-    double alpha = 0.25 * eig_max_of_invdiagXA;
+    double alpha = 0.25 * eig_max_of_invdiagXA; //homg: 0.25 * eig_max
     double beta = eig_max_of_invdiagXA;
     double delta = (beta - alpha)/2;
     double theta = (beta + alpha)/2;
