@@ -209,9 +209,12 @@ void setIJV(char* file_name, index_t *I, index_t *J, value_t *V, nnz_t nnz_g, nn
     if(rank==0) printf("ERROR: change datatypes for function setIJV!!!");
     if(rank==0) printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 
-    std::vector<unsigned long> data;
-    data.resize(3 * initial_nnz_l); // 3 is for i and j and val
-    unsigned long* datap = &(*(data.begin()));
+    std::vector<unsigned long> data(2*initial_nnz_l); // 3 is for i and j and val, i and j are int so both of them are like 1 long.
+    unsigned long* datap;
+    if(initial_nnz_l != 0)
+        datap = &data[0];
+    else
+        printf("Error: initial_nnz_l is 0 in setIJV().\n");
 
     // *************************** read the matrix ****************************
 
@@ -238,7 +241,7 @@ void setIJV(char* file_name, index_t *I, index_t *J, value_t *V, nnz_t nnz_g, nn
 
 
 
-int dotProduct(std::vector<value_t>& r, std::vector<value_t>& s, double* dot, MPI_Comm comm){
+int dotProduct(std::vector<value_t>& r, std::vector<value_t>& s, value_t* dot, MPI_Comm comm){
 
     double dot_l = 0;
     for(index_t i=0; i<r.size(); i++)

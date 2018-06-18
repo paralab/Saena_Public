@@ -2517,9 +2517,6 @@ int saena_matrix::matrix_setup() {
         MPI_Comm_size(comm, &nprocs);
         MPI_Comm_rank(comm, &rank);
 
-#pragma omp parallel
-        if(rank==0 && omp_get_thread_num()==0) printf("\nnumber of processes = %d, number of threads = %d\n\n", nprocs, omp_get_num_threads());
-        
         if(verbose_matrix_setup) {
             MPI_Barrier(comm);
             printf("matrix_setup: rank = %d, Mbig = %u, M = %u, nnz_g = %lu, nnz_l = %lu \n", rank, Mbig, M, nnz_g, nnz_l);
@@ -2565,6 +2562,97 @@ int saena_matrix::matrix_setup() {
         // scale the matrix to have its diagonal entries all equal to 1.
 
         scale_matrix();
+
+        // *************************** print info ****************************
+
+/*
+        nnz_t total_nnz_l_local;
+        nnz_t total_nnz_l_remote;
+        MPI_Allreduce(&nnz_l_local,  &total_nnz_l_local,  1, MPI_UNSIGNED_LONG, MPI_SUM, comm);
+        MPI_Allreduce(&nnz_l_remote, &total_nnz_l_remote, 1, MPI_UNSIGNED_LONG, MPI_SUM, comm);
+        int local_percent  = int(100*(float)total_nnz_l_local/nnz_g);
+        int remote_percent = int(100*(float)total_nnz_l_remote/nnz_g);
+        if(rank==0) printf("\nMbig = %u, nnz_g = %lu, total_nnz_l_local = %lu (%%%d), total_nnz_l_remote = %lu (%%%d) \n",
+                           Mbig, nnz_g, total_nnz_l_local, local_percent, total_nnz_l_remote, remote_percent);
+
+//        printf("rank %d: col_remote_size = %u \n", rank, col_remote_size);
+        index_t col_remote_size_min, col_remote_size_ave, col_remote_size_max;
+        MPI_Allreduce(&col_remote_size, &col_remote_size_min, 1, MPI_UNSIGNED, MPI_MIN, comm);
+        MPI_Allreduce(&col_remote_size, &col_remote_size_ave, 1, MPI_UNSIGNED, MPI_SUM, comm);
+        MPI_Allreduce(&col_remote_size, &col_remote_size_max, 1, MPI_UNSIGNED, MPI_MAX, comm);
+        if(rank==0) printf("\nremote_min = %u, remote_ave = %u, remote_max = %u \n",
+                           col_remote_size_min, (col_remote_size_ave/nprocs), col_remote_size_max);
+*/
+
+        if(verbose_matrix_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, done \n", rank);
+            MPI_Barrier(comm);
+        }
+
+    } // if(active)
+    return 0;
+}
+
+
+int saena_matrix::matrix_setup_no_scale(){
+    // before using this function the following parameters of saena_matrix should be set:
+    // "Mbig", "M", "nnz_g", "split", "entry",
+
+    // todo: here: check if there is another if(active) before calling this function.
+    if(active) {
+        int nprocs, rank;
+        MPI_Comm_size(comm, &nprocs);
+        MPI_Comm_rank(comm, &rank);
+
+#pragma omp parallel
+        if(rank==0 && omp_get_thread_num()==0) printf("\nnumber of processes = %d, number of threads = %d\n\n", nprocs, omp_get_num_threads());
+
+        if(verbose_matrix_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, Mbig = %u, M = %u, nnz_g = %lu, nnz_l = %lu \n", rank, Mbig, M, nnz_g, nnz_l);
+            MPI_Barrier(comm);}
+
+//        print_vector(entry, -1, "entry", comm);
+
+        assembled = true;
+        freeBoolean = true; // use this parameter to know if destructor for saena_matrix class should free the variables or not.
+
+        // *************************** set the inverse of diagonal of A (for smoothers) ****************************
+
+        if(verbose_matrix_setup) {
+            MPI_Barrier(comm);
+            printf("matrix_setup: rank = %d, inv_diag \n", rank);
+            MPI_Barrier(comm);
+        }
+
+        inv_diag.resize(M);
+        inverse_diag();
+
+//        print_vector(inv_diag, -1, "inv_diag", comm);
+
+        // *************************** set rho ****************************
+
+//        set_rho();
+
+        // *************************** set and exchange on-diagonal and off-diagonal elements ****************************
+
+        set_off_on_diagonal();
+
+        // *************************** find sortings ****************************
+
+        find_sortings();
+
+        // *************************** find start and end of each thread for matvec ****************************
+        // also, find nnz per row for local and remote matvec
+
+        openmp_setup();
+        w_buff.resize(num_threads*M); // allocate for w_buff for matvec3()
+
+        // *************************** scale ****************************
+        // scale the matrix to have its diagonal entries all equal to 1.
+
+//        scale_matrix();
 
         // *************************** print info ****************************
 
@@ -3056,7 +3144,7 @@ int saena_matrix::scale_matrix(){
 
     // the indices of the v on this proc that should be sent to other procs are saved in vIndex.
     // put the values of thoss indices in vSend to send to other procs.
-#pragma omp parallel for
+    #pragma omp parallel for
     for(index_t i=0;i<vIndexSize;i++)
         vSend[i] = inv_sq_diag[(vIndex[i])];
 
@@ -3079,7 +3167,7 @@ int saena_matrix::scale_matrix(){
     // then, do a reduction on w_local on all threads, based on a binary tree.
 
 //    index_t* col_p = &col_local[0] - split[rank];
-#pragma omp parallel for
+    #pragma omp parallel for
     for(nnz_t i = 0; i < nnz_l_local; i++)
         values_local[i] *= inv_sq_diag[row_local[i]] * inv_sq_diag[col_local[i] - split[rank]]; // D^{-1/2} * A * D^{-1/2}
 
@@ -3093,12 +3181,12 @@ int saena_matrix::scale_matrix(){
     // the col_index of the matrix entry does not matter. do the matvec on the first non-zero col// D^{-1/2} * A * D^{-1/2}umn (j=0).
     // the corresponding vector element is saved in vecValues[0]. and so on.
 
-#pragma omp parallel
+#   pragma omp parallel
     {
         unsigned int i, l;
         int thread_id = omp_get_thread_num();
         nnz_t iter = iter_remote_array[thread_id];
-#pragma omp for
+        #pragma omp for
         for (index_t j = 0; j < col_remote_size; ++j) {
             for (i = 0; i < nnzPerCol_remote[j]; ++i, ++iter) {
                 values_remote[iter] *= inv_sq_diag[row_remote[iter]] * vecValues[j]; // D^{-1/2} * A * D^{-1/2}
@@ -3115,12 +3203,12 @@ int saena_matrix::scale_matrix(){
 //    memcpy(&*entry.begin(), );
 
     // copy local entries
-#pragma omp parallel for
+    #pragma omp parallel for
     for(nnz_t i = 0; i < nnz_l_local; i++)
         entry[i] = cooEntry(row_local[i]+split[rank], col_local[i], values_local[i]);
 
     // copy remote entries
-#pragma omp parallel for
+    #pragma omp parallel for
     for(nnz_t i = 0; i < nnz_l_remote; i++)
         entry[nnz_l_local + i] = cooEntry(row_remote[i]+split[rank], col_remote2[i], values_remote[i]);
 
@@ -4692,18 +4780,26 @@ int saena_matrix::residual(std::vector<value_t>& u, std::vector<value_t>& rhs, s
 //    MPI_Comm_size(comm, &nprocs);
 //    MPI_Comm_rank(comm, &rank);
 
-//    std::vector<value_t> matvecTemp(M);
-    matvec(u, res);
-//    if(rank==1)
-//        for(long i=0; i<matvecTemp.size(); i++)
-//            std::cout << matvecTemp[i] << std::endl;
+    // First check if u is zero or not. If it is zero, matvec is not required.
+    bool zero_vector_local = true, zero_vector;
+//#pragma omp parallel for
+    for(index_t i = 0; i < M; i++){
+        if(u[i] != 0){
+            zero_vector_local = false;
+            break;
+        }
+    }
 
-#pragma omp parallel for
+    MPI_Allreduce(&zero_vector_local, &zero_vector, 1, MPI_CXX_BOOL, MPI_LOR, comm);
+
+    if(zero_vector)
+        std::fill(res.begin(), res.end(), 0);
+    else
+        matvec(u, res);
+
+    #pragma omp parallel for
     for(index_t i = 0; i < M; i++)
         res[i] -= rhs[i];
-//    if(rank==1)
-//        for(long i=0; i<res.size(); i++)
-//            std::cout << res[i] << std::endl;
 
     return 0;
 }
@@ -4799,7 +4895,7 @@ int saena_matrix::chebyshev(int iter, std::vector<value_t>& u, std::vector<value
     for(index_t i = 0; i < u.size(); i++){
         d[i] = (-res[i] * inv_diag[i]) / theta;
         u[i] += d[i];
-//        if(rank==0) printf("inv_diag[%lu] = %f, \tres[%lu] = %f, \td[%lu] = %f, \tu[%lu] = %f \n",
+//        if(rank==0) printf("inv_diag[%u] = %f, \tres[%u] = %f, \td[%u] = %f, \tu[%u] = %f \n",
 //                           i, inv_diag[i], i, res[i], i, d[i], i, u[i]);
     }
 
@@ -4812,9 +4908,10 @@ int saena_matrix::chebyshev(int iter, std::vector<value_t>& u, std::vector<value
 
 #pragma omp parallel for
         for(index_t j = 0; j < u.size(); j++){
-            d[j] = ( d1 * d[j] ) + ( d2 * (-res[j] * inv_diag[i]));
+            d[j] = ( d1 * d[j] ) + ( d2 * (-res[j] * inv_diag[j]));
             u[j] += d[j];
-//        if(rank==0) printf("u[%lu] = %f \n", j, u[j]);
+//            if(rank==0) printf("inv_diag[%u] = %f, \tres[%u] = %f, \td[%u] = %f, \tu[%u] = %f \n",
+//                               j, inv_diag[j], j, res[j], j, d[j], j, u[j]);
         }
     }
 
