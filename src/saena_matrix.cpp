@@ -8,9 +8,9 @@
 #include <omp.h>
 #include "mpi.h"
 
-#pragma omp declare reduction(vec_double_plus : std::vector<value_t> : \
-                              std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<value_t>())) \
-                    initializer(omp_priv = omp_orig)
+//#pragma omp declare reduction(vec_double_plus : std::vector<value_t> : \
+//                              std::transform(omp_out.begin(), omp_out.end(), omp_in.begin(), omp_out.begin(), std::plus<value_t>())) \
+//                    initializer(omp_priv = omp_orig)
 
 
 saena_matrix::saena_matrix(){}
@@ -3345,7 +3345,7 @@ int saena_matrix::matvec_sparse(std::vector<value_t>& v, std::vector<value_t>& w
 
 
 int saena_matrix::matvec_timing1(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time) {
-
+/*
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
@@ -3471,7 +3471,7 @@ int saena_matrix::matvec_timing1(std::vector<value_t>& v, std::vector<value_t>& 
 //    time[2] += time2_local;
 //    time[3] += time3_local;
 //    time[4] += time4_local;
-
+*/
     return 0;
 }
 
