@@ -2709,18 +2709,11 @@ int saena_object::solve_coarsest_CG(saena_matrix* A, std::vector<value_t>& u, st
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
-//    long i, j;
 
     if(verbose_solve_coarse && rank==0) printf("start of solve_coarsest_CG()\n");
 
-    // res = A*u - rhs
-    std::vector<value_t> res(A->M);
-    A->residual(u, rhs, res);
-
-    // make res = rhs - A*u
-    #pragma omp parallel for
-    for(index_t i=0; i<res.size(); i++)
-        res[i] = -res[i];
+    // since u is zero, res = -rhs, and the residual in this function is the negative of what I have in this library.
+    std::vector<value_t> res = rhs;
 
     double initial_dot;
     dotProduct(res, res, &initial_dot, comm);
@@ -2733,6 +2726,9 @@ int saena_object::solve_coarsest_CG(saena_matrix* A, std::vector<value_t>& u, st
 
     std::vector<value_t> dir(A->M);
     dir = res;
+
+    double dot2;
+    std::vector<value_t> res2(A->M);
 
     double factor, dot_prev;
     std::vector<value_t> matvecTemp(A->M);
@@ -2762,7 +2758,11 @@ int saena_object::solve_coarsest_CG(saena_matrix* A, std::vector<value_t>& u, st
 //        if(rank==0) std::cout << sqrt(dot)/initialNorm << std::endl;
 
         if(verbose_solve_coarse && rank==0)
-            std::cout << "sqrt(dot)/sqrt(initial_dot) = " << sqrt(dot/initial_dot) << "  \tCG_tol = " << CG_tol << std::endl;
+            std::cout << "sqrt(dot)/sqrt(initial_dot) = \t" << sqrt(dot/initial_dot) << "  \tCG_tol = " << CG_tol << std::endl;
+
+        A->residual(u, rhs, res2);
+        dotProduct(res2, res2, &dot2, comm);
+        std::cout << "norm(res) = \t\t\t" << sqrt(dot2) << std::endl;
 
         if (dot/initial_dot < CG_tol*CG_tol)
             break;

@@ -4792,14 +4792,18 @@ int saena_matrix::residual(std::vector<value_t>& u, std::vector<value_t>& rhs, s
 
     MPI_Allreduce(&zero_vector_local, &zero_vector, 1, MPI_CXX_BOOL, MPI_LOR, comm);
 
-    if(zero_vector)
-        std::fill(res.begin(), res.end(), 0);
-    else
+    if(zero_vector){
+#pragma omp parallel for
+        for(index_t i = 0; i < M; i++)
+            res[i] = -rhs[i];
+    }
+    else{
         matvec(u, res);
 
-    #pragma omp parallel for
-    for(index_t i = 0; i < M; i++)
-        res[i] -= rhs[i];
+#pragma omp parallel for
+        for(index_t i = 0; i < M; i++)
+            res[i] -= rhs[i];
+    }
 
     return 0;
 }
