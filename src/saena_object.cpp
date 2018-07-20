@@ -2914,9 +2914,9 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 //    std::vector<int> colind(nnz_loc);
 //    std::vector<double> nzval_loc(nnz_loc);
 
-    auto* rowptr = (int *) intMalloc_dist(m_loc+1);
+    auto* rowptr = (int_t *) intMalloc_dist(m_loc+1);
     auto* nzval_loc = (double *) doubleMalloc_dist(nnz_loc);
-    auto* colind = (int *) intMalloc_dist(nnz_loc);
+    auto* colind = (int_t *) intMalloc_dist(nnz_loc);
 
     for(nnz_t i = 0; i < nnz_loc; i++){
         nzval_loc[i] = entry_temp[i].val;
