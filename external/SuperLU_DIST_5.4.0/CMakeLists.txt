@@ -193,6 +193,13 @@ else()
 endif()
 
 #--------------------- ParMETIS ---------------------
+
+# added by Majid
+set(PARMETIS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../parmetis-4.0.3)
+set(PARMETIS_BUILD_DIR ${PARMETIS_ROOT}/build)
+set(TPL_PARMETIS_INCLUDE_DIRS "${PARMETIS_ROOT}/include;${PARMETIS_ROOT}/metis/include")
+set(TPL_PARMETIS_LIBRARIES "${PARMETIS_BUILD_DIR}/libparmetis/libparmetis.a;${PARMETIS_BUILD_DIR}/libmetis/libmetis.a")
+
 if (enable_parmetislib)   ## want to use parmetis
   if (NOT TPL_PARMETIS_LIBRARIES)
     message(FATAL_ERROR "TPL_PARMETIS_LIBRARIES option should be set for PARMETIS support to be enabled.")
