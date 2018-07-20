@@ -71,7 +71,7 @@ message(STATUS BLAS found: ${BLAS_LIBRARIES})
 # SuperLU
 
 set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
-set(SuperLU_DIST_LIB ${CMAKE_BINARY_DIR}/build_superlu/lib/libsuperlu_dist.a)
+set(SuperLU_DIST_LIB ${CMAKE_BINARY_DIR}/build_superlu/${CMAKE_INSTALL_LIBDIR}/libsuperlu_dist.a)
 include_directories(
         ${SuperLU_DIST_DIR}/build/include
         ${SuperLU_DIST_DIR}/SRC
@@ -127,7 +127,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
 # zfp: for compressing arrays
 
 set(ZFP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/zfp-0.5.3)
-set(ZFP_LIB ${CMAKE_CURRENT_BINARY_DIR}/build_zfp/lib/libzfp.so)
+set(ZFP_LIB ${CMAKE_CURRENT_BINARY_DIR}/build_zfp/${CMAKE_INSTALL_LIBDIR}/libzfp.so)
 include_directories(
         ${ZFP_DIR}/array
         ${ZFP_DIR}/array/zfp
