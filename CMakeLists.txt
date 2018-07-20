@@ -209,7 +209,7 @@ endif()
 # end of MPI - part 2/2
 # -----------------------------------------------------------------------
 
-target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${METIS_LIBRARY} ${PARMETIS_LIBRARY} m ${ZFP_LIB})
+target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
 
 # -----------------------------------------------------------------------
 # NEKTAR++
