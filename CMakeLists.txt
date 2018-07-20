@@ -61,9 +61,9 @@ message(STATUS BLAS found: ${BLAS_LIBRARIES})
 # -----------------------------------------------------------------------
 # LAPACK
 
-#find_package(LAPACK REQUIRED)
-#message( STATUS LAPACK found: ${LAPACK_LIBRARIES} )
-#include_directories(${LAPACK_INCLUDE_PATH})
+find_package(LAPACK REQUIRED)
+message( STATUS LAPACK found: ${LAPACK_LIBRARIES} )
+include_directories(${LAPACK_INCLUDE_PATH})
 #set(LAPACK_LIB /usr/lib/openblas-base/liblapack.a)
 
 # end of LAPACK
@@ -209,7 +209,7 @@ endif()
 # end of MPI - part 2/2
 # -----------------------------------------------------------------------
 
-target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
+target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
 
 # -----------------------------------------------------------------------
 # NEKTAR++
