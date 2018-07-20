@@ -3,6 +3,7 @@
 
 #include "saena_matrix_dense.h"
 #include "aux_functions.h"
+#include "zfparray1.h"
 
 #include <iostream>
 #include <vector>
@@ -79,6 +80,8 @@ public:
     std::vector<value_t> vecValues;
     std::vector<unsigned long> vSendULong;
     std::vector<unsigned long> vecValuesULong;
+//    zfp::array1<double> vSend_zfp;
+//    zfp::array1<double> vecValues_zfp;
 
     std::vector<nnz_t> indicesP_local;
     std::vector<nnz_t> indicesP_remote;
@@ -144,6 +147,20 @@ public:
     bool dense_matrix_generated = false;
     float dense_threshold = 0.9; // 0<dense_threshold<=1 decide when to also generate dense_matrix for this matrix.
 
+    // zfp parameters
+    zfp_field* field;  /* array meta data */
+    zfp_stream* zfp;   /* compressed stream */
+    bitstream* stream; /* bit stream to write to or read from */
+//    unsigned char *send_buffer; /* storage for compressed stream */
+//    unsigned char *recv_buffer;
+    double *send_buffer; /* storage for compressed stream */
+    double *recv_buffer;
+    unsigned rate = 64;
+    unsigned send_bufsize, recv_bufsize;
+    zfp_field* field2;  /* array meta data */
+    zfp_stream* zfp2;   /* compressed stream */
+    bitstream* stream2; /* bit stream to write to or read from */
+
     saena_matrix();
     saena_matrix(MPI_Comm com);
     /**
@@ -196,6 +213,7 @@ public:
 
     int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
     int matvec_sparse(std::vector<value_t>& v, std::vector<value_t>& w);
+    int matvec_sparse_zfp(std::vector<value_t>& v, std::vector<value_t>& w);
     int matvec_timing1(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
     int matvec_timing2(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
     int matvec_timing3(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
