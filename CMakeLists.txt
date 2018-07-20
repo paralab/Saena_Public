@@ -150,45 +150,11 @@ include_directories(
 # -----------------------------------------------------------------------
 # Metis/Parmetis
 
-if(NOT PARMETIS_INCLUDE_DIR)
-    find_path(PARMETIS_INCLUDE_DIR parmetis.h
-            HINTS ${PARMETIS_INCLUDE_DIR} ENV PARMETIS_INCLUDE_DIR ${PARMETIS_DIR} ENV PARMETIS_DIR
-            PATH_SUFFIXES include
-            DOC "Directory where the ParMETIS header files are located"
-            )
-endif()
-
-if(NOT METIS_INCLUDE_DIR)
-    find_path(METIS_INCLUDE_DIR metis.h
-            HINTS ${METIS_INCLUDE_DIR} ENV METIS_INCLUDE_DIR ${METIS_DIR} ENV METIS_DIR
-            PATH_SUFFIXES include
-            DOC "Directory where the METIS header files are located"
-            )
-endif()
-
-if(PARMETIS_LIBRARIES)
-    set(PARMETIS_LIBRARY ${PARMETIS_LIBRARIES})
-endif()
-if(NOT PARMETIS_LIBRARY)
-    find_library(PARMETIS_LIBRARY
-            NAMES parmetis parmetis${PARMETIS_LIB_SUFFIX}
-            HINTS ${PARMETIS_LIB_DIR} ENV PARMETIS_LIB_DIR ${PARMETIS_DIR} ENV PARMETIS_DIR
-            PATH_SUFFIXES lib
-            DOC "Directory where the ParMETIS library is located"
-            )
-endif()
-
-if(METIS_LIBRARIES)
-    set(METIS_LIBRARY ${METIS_LIBRARIES})
-endif()
-if(NOT METIS_LIBRARY)
-    find_library(METIS_LIBRARY
-            NAMES metis metis${PARMETIS_LIB_SUFFIX}
-            HINTS ${PARMETIS_LIB_DIR} ENV PARMETIS_LIB_DIR ${PARMETIS_DIR} ENV PARMETIS_DIR
-            PATH_SUFFIXES lib
-            DOC "Directory where the METIS library is located"
-            )
-endif()
+set(PARMETIS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
+set(METIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
+set(PARMETIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/build/install_folder/include)
+set(METIS_LIBRARY ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
+set(PARMETIS_LIBRARY ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
 
 # end of Metis/Parmetis
 # -----------------------------------------------------------------------
@@ -248,8 +214,8 @@ target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIE
 # -----------------------------------------------------------------------
 # NEKTAR++
 
-ADD_NEKTAR_LIBRARY(Saena
-    SOURCES ${SOURCE_FILES}
-    HEADERS ${HEADER_FILES}
-    SUMMARY "Nektar++ Saena fast multigrid solver library"
-    DESCRIPTION "This library provides fast multigrid solves.")
+#ADD_NEKTAR_LIBRARY(Saena
+#    SOURCES ${SOURCE_FILES}
+#    HEADERS ${HEADER_FILES}
+#    SUMMARY "Nektar++ Saena fast multigrid solver library"
+#    DESCRIPTION "This library provides fast multigrid solves.")
