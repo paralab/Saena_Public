@@ -88,11 +88,6 @@ include_directories(${LAPACK_INCLUDE_PATH})
 # -----------------------------------------------------------------------
 # SuperLU
 
-message("-----------CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
-message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
-message("-----------CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR})
-message("-----------CMAKE_BINARY_DIR: " ${CMAKE_BINARY_DIR})
-
 set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
 set(SuperLU_DIST_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_superlu/lib/libsuperlu_dist.a)
 include_directories(
@@ -144,6 +139,11 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 # -----------------------------------------------------------------------
 # zfp: for compressing arrays
+
+message("-----------CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
+message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
+message("-----------CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR})
+message("-----------CMAKE_BINARY_DIR: " ${CMAKE_BINARY_DIR})
 
 set(ZFP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/zfp-0.5.3)
 set(ZFP_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/lib/libzfp.so)
