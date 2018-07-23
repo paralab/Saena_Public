@@ -178,8 +178,8 @@ set(HEADER_FILES ${HEADER_FILES}
         )
 
 set(SOURCE_FILES ${SOURCE_FILES}
-        ${HEADER_FILES}
-        src/main.cpp
+#        ${HEADER_FILES}
+#        src/main.cpp
         src/saena_matrix.cpp
         src/saena_matrix_dense.cpp
         src/saena_object.cpp
@@ -193,24 +193,24 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 # -----------------------------------------------------------------------
 
-add_executable(Saena ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(SaenaTest ${SOURCE_FILES} ${HEADER_FILES})
 
 # -----------------------------------------------------------------------
 # MPI - part 2/2
 
 if(MPI_COMPILE_FLAGS)
-    set_target_properties(Saena PROPERTIES
+    set_target_properties(SaenaTest PROPERTIES
             COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
 endif()
 
 if(MPI_LINK_FLAGS)
-    set_target_properties(Saena PROPERTIES
+    set_target_properties(SaenaTest PROPERTIES
             LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
 
 # -----------------------------------------------------------------------
 
-target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
+target_link_libraries(SaenaTest ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
 
 # -----------------------------------------------------------------------
 # NEKTAR++
