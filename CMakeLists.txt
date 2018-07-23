@@ -155,15 +155,15 @@ include_directories(
 message("-----------ZFP_DIR/array: " ${ZFP_DIR}/array)
 
 set(HEADER_FILES ${HEADER_FILES}
-        external/zfp/array/zfparray.h
-        external/zfp/array/zfparray1.h
-        external/zfp/array/zfparray2.h
-        external/zfp/array/zfparray3.h
-        external/zfp/array/zfpcodec.h
-        external/zfp/array/zfpcodecd.h
-        external/zfp/array/zfpcodecf.h
-        external/zfp/array/zfp/cache.h
-        external/zfp/array/zfp/memory.h
+        ${ZFP_DIR}/array/zfparray.h
+        ${ZFP_DIR}/array/zfparray1.h
+        ${ZFP_DIR}/array/zfparray2.h
+        ${ZFP_DIR}/array/zfparray3.h
+        ${ZFP_DIR}/array/zfpcodec.h
+        ${ZFP_DIR}/array/zfpcodecd.h
+        ${ZFP_DIR}/array/zfpcodecf.h
+        ${ZFP_DIR}/array/zfp/cache.h
+        ${ZFP_DIR}/array/zfp/memory.h
         )
 
 # -----------------------------------------------------------------------
