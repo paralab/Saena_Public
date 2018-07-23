@@ -31,6 +31,9 @@ project(ZFP VERSION ${ZFP_VERSION})
 #------------------------------------------------------------------------------#
 include(GNUInstallDirs)
 
+# added by Majid
+set(CMAKE_INSTALL_PREFIX .)
+
 list(INSERT CMAKE_MODULE_PATH 0 "${ZFP_SOURCE_DIR}/cmake")
 if(NOT CMAKE_RUNTIME_OUTPUT_DIRECTORY)
   set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${ZFP_BINARY_DIR}/${CMAKE_INSTALL_BINDIR})

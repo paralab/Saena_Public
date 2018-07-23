@@ -99,6 +99,9 @@ else()
   set(enable_blaslib_DEFAULT ON)
 endif()
 
+# added by Majid
+set(CMAKE_INSTALL_PREFIX .)
+
 if (NOT CMAKE_INSTALL_PREFIX)
   set(CMAKE_INSTALL_PREFIX /usr/local)
 endif()

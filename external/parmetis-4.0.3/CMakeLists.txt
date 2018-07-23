@@ -1,6 +1,9 @@
 cmake_minimum_required(VERSION 2.8)
 project(ParMETIS)
 
+# added by Majid
+set(CMAKE_INSTALL_PREFIX .)
+
 set(GKLIB_PATH METIS/GKlib CACHE PATH "path to GKlib")
 set(METIS_PATH METIS CACHE PATH "path to METIS")
 

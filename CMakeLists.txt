@@ -34,14 +34,34 @@ if(OPENMP_FOUND)
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
 endif()
 
-# end of OpenMP
 # -----------------------------------------------------------------------
 # MPI - part 1/2
 
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
 
-# end of MPI - part 1/2
+# -----------------------------------------------------------------------
+# Dependencies
+
+# Metis/Parmetis
+#add_subdirectory(external/parmetis-4.0.3/metis)
+#add_subdirectory(external/parmetis-4.0.3)
+
+#message("++++ CMAKE_INSTALL_PREFIX after parmetis: " ${CMAKE_INSTALL_PREFIX})
+message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
+
+set(PARMETIS_ROOT_DIR ${CMAKE_SOURCE_DIR}/external/parmetis-4.0.3)
+set(METIS_LIBRARY ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
+set(PARMETIS_LIBRARY ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
+#set(PARMETIS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
+set(METIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/metis/build/install_folder//include)
+set(PARMETIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/build/install_folder/include)
+#set(METIS_LIBRARY ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
+#set(PARMETIS_LIBRARY ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
+
+#add_subdirectory(external/zfp-0.5.3)
+#add_subdirectory(external/SuperLU_DIST_5.4.0)
+
 # -----------------------------------------------------------------------
 # BLAS
 
@@ -57,7 +77,6 @@ message(STATUS BLAS found: ${BLAS_LIBRARIES})
 #message(STATUS BLAS_include found: ${BLAS_INCLUDE_DIR})
 #include_directories(${BLAS_INCLUDE_DIR})
 
-# end of BLAS
 # -----------------------------------------------------------------------
 # LAPACK
 
@@ -66,19 +85,16 @@ message( STATUS LAPACK found: ${LAPACK_LIBRARIES} )
 include_directories(${LAPACK_INCLUDE_PATH})
 #set(LAPACK_LIB /usr/lib/openblas-base/liblapack.a)
 
-# end of LAPACK
 # -----------------------------------------------------------------------
 # SuperLU
 
 set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
-#set(SuperLU_DIST_LIB ${CMAKE_CURRENT_BINARY_DIR}/build_superlu/lib/libsuperlu_dist.a)
-set(SuperLU_DIST_LIB ${CMAKE_CURRENT_BINARY_DIR}/build/build_superlu/lib/libsuperlu_dist.a)
+set(SuperLU_DIST_LIB ${CMAKE_BINARY_DIR}/build_superlu/lib/libsuperlu_dist.a)
 include_directories(
         ${SuperLU_DIST_DIR}/build/include
         ${SuperLU_DIST_DIR}/SRC
 )
 
-# end of SuperLU
 # -----------------------------------------------------------------------
 # IETL: eigensolver
 
@@ -88,7 +104,6 @@ set(HEADER_FILES ${HEADER_FILES}
         include/ietl_saena.h
         )
 
-# end of IETL
 # -----------------------------------------------------------------------
 # usort: to sort elements in parallel
 
@@ -113,7 +128,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
         external/usort/src/sort_profiler.cpp
         )
 
-# end of usort
 # -----------------------------------------------------------------------
 # pugixml: to read xml files for options
 
@@ -123,13 +137,11 @@ set(SOURCE_FILES ${SOURCE_FILES}
         external/pugixml/src/pugixml.cpp
         )
 
-# end of pugixml
 # -----------------------------------------------------------------------
 # zfp: for compressing arrays
 
 set(ZFP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/zfp-0.5.3)
-#set(ZFP_LIB ${CMAKE_CURRENT_BINARY_DIR}/build_zfp/lib/libzfp.so)
-set(ZFP_LIB ${CMAKE_CURRENT_BINARY_DIR}/build/build_zfp/lib/libzfp.so)
+set(ZFP_LIB ${CMAKE_CURRENT_BINARY_DIR}/build_zfp/lib/libzfp.so)
 include_directories(
         ${ZFP_DIR}/array
         ${ZFP_DIR}/array/zfp
@@ -148,17 +160,6 @@ include_directories(
 #        external/zfp/array/zfp/memory.h
 #        )
 
-# end of zfp
-# -----------------------------------------------------------------------
-# Metis/Parmetis
-
-set(PARMETIS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
-set(METIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
-set(PARMETIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/build/install_folder/include)
-set(METIS_LIBRARY ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
-set(PARMETIS_LIBRARY ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
-
-# end of Metis/Parmetis
 # -----------------------------------------------------------------------
 # Main Files
 
@@ -190,28 +191,26 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/saena.cpp
         )
 
-# end of Main Files
 # -----------------------------------------------------------------------
 
-add_executable(SaenaTest ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(Saena ${SOURCE_FILES} ${HEADER_FILES})
 
 # -----------------------------------------------------------------------
 # MPI - part 2/2
 
 if(MPI_COMPILE_FLAGS)
-    set_target_properties(SaenaTest PROPERTIES
+    set_target_properties(Saena PROPERTIES
             COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
 endif()
 
 if(MPI_LINK_FLAGS)
-    set_target_properties(SaenaTest PROPERTIES
+    set_target_properties(Saena PROPERTIES
             LINK_FLAGS "${MPI_LINK_FLAGS}")
 endif()
 
-# end of MPI - part 2/2
 # -----------------------------------------------------------------------
 
-target_link_libraries(SaenaTest ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
+target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
 
 # -----------------------------------------------------------------------
 # NEKTAR++
