@@ -64,7 +64,8 @@ namespace ietl {
 //          printf("%f\n", x_std[i]);
 
       std::vector<double> y_std(size, 0);
-      m.matvec(x_std, y_std);
+//      m.matvec(x_std, y_std);
+      m.matvec_sparse(x_std, y_std);
 
 //      printf("\ny_std:\n");
 //      for(unsigned int i = 0; i < size; i++)

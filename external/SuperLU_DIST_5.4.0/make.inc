@@ -15,11 +15,11 @@
 #
 #  The name of the libraries to be created/linked to
 #
-SuperLUroot = /home/boss/Dropbox/Projects/Saena_base/build/build_superlu
-DSUPERLULIB = $(SuperLUroot)/SRC/libsuperlu_dist.a
+SuperLUroot = /usr/local
+DSUPERLULIB = $(SuperLUroot)/SRC/libsuperlu_dist.so
 INCLUDEDIR  = $(SuperLUroot)/include
 
-LIBS 	    = $(DSUPERLULIB) /usr/lib/libopenblas.so /home/boss/softwares/parmetis-4.0.3//build/Linux-x86_64/libparmetis/libparmetis.a /home/boss/softwares/parmetis-4.0.3//build/Linux-x86_64/libmetis/libmetis.a
+LIBS 	    = $(DSUPERLULIB) /usr/lib/libopenblas.so /home/boss/Dropbox/Projects/Saena_base/external/SuperLU_DIST_5.4.0/../parmetis-4.0.3/build/libparmetis/libparmetis.a /home/boss/Dropbox/Projects/Saena_base/external/SuperLU_DIST_5.4.0/../parmetis-4.0.3/build/libmetis/libmetis.a
 LIBS 	    += 
 
 #
@@ -31,12 +31,12 @@ ARCHFLAGS    = cr
 RANLIB       = /usr/bin/ranlib
 
 CC           = /usr/bin/cc
-CFLAGS 	     = -O3 -DNDEBUG -I/home/boss/softwares/parmetis-4.0.3//metis/include -I/home/boss/softwares/parmetis-4.0.3//include -DUSE_VENDOR_BLAS -fopenmp  
+CFLAGS 	     = -O3 -DNDEBUG -I/home/boss/Dropbox/Projects/Saena_base/external/SuperLU_DIST_5.4.0/../parmetis-4.0.3/metis/include -I/home/boss/Dropbox/Projects/Saena_base/external/SuperLU_DIST_5.4.0/../parmetis-4.0.3/include -DUSE_VENDOR_BLAS -fopenmp   -fopenmp
 #CFLAGS      += -D
 # CFLAGS     +=  
-CXX          = 
-CXXFLAGS     = -O3   
-XSDK_INDEX_SIZE=
+CXX          = /usr/bin/c++
+CXXFLAGS     = -O3 -DNDEBUG -fopenmp   -fopenmp
+XSDK_INDEX_SIZE=64
 HAVE_PARMETIS=TRUE
 HAVE_COMBBLAS=
 NOOPTS       = -O0

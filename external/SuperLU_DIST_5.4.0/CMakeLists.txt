@@ -100,7 +100,12 @@ else()
 endif()
 
 # added by Majid
-set(CMAKE_INSTALL_PREFIX .)
+#include(GNUInstallDirs)
+#message("superlu: CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
+#message("superlu: CMAKE_BIN_DIR: " ${CMAKE_BIN_DIR})
+#message("superlu: CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
+#message("superlu: CMAKE_CURRENT_BIN_DIR: " ${CMAKE_CURRENT_BIN_DIR})
+#set(CMAKE_INSTALL_PREFIX ${CMAKE_SOURCE_DIR}/build/build_superlu)
 
 if (NOT CMAKE_INSTALL_PREFIX)
   set(CMAKE_INSTALL_PREFIX /usr/local)
