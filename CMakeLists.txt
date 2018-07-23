@@ -50,11 +50,11 @@ include_directories(${MPI_INCLUDE_PATH})
 #message("++++ CMAKE_INSTALL_PREFIX after parmetis: " ${CMAKE_INSTALL_PREFIX})
 message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
 
-set(PARMETIS_ROOT_DIR ${CMAKE_SOURCE_DIR}/external/parmetis-4.0.3)
+set(PARMETIS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
 set(METIS_LIBRARY ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
 set(PARMETIS_LIBRARY ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
 #set(PARMETIS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
-set(METIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/metis/build/install_folder//include)
+set(METIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
 set(PARMETIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/build/install_folder/include)
 #set(METIS_LIBRARY ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
 #set(PARMETIS_LIBRARY ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
@@ -88,8 +88,13 @@ include_directories(${LAPACK_INCLUDE_PATH})
 # -----------------------------------------------------------------------
 # SuperLU
 
+message("-----------CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
+message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
+message("-----------CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR})
+message("-----------CMAKE_BINARY_DIR: " ${CMAKE_BINARY_DIR})
+
 set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
-set(SuperLU_DIST_LIB ${CMAKE_BINARY_DIR}/build_superlu/lib/libsuperlu_dist.a)
+set(SuperLU_DIST_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_superlu/lib/libsuperlu_dist.a)
 include_directories(
         ${SuperLU_DIST_DIR}/build/include
         ${SuperLU_DIST_DIR}/SRC
@@ -179,7 +184,7 @@ set(HEADER_FILES ${HEADER_FILES}
 
 set(SOURCE_FILES ${SOURCE_FILES}
 #        ${HEADER_FILES}
-#        src/main.cpp
+        src/main.cpp
         src/saena_matrix.cpp
         src/saena_matrix_dense.cpp
         src/saena_object.cpp
