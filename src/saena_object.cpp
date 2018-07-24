@@ -2904,15 +2904,9 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     n = m;
     nnz_loc = A->nnz_l;
     ldb = m_loc;
-    printf("m = %d\n", m);
-    printf("m_loc = %d\n", m_loc);
-    printf("n = %d\n", n);
-    printf("nnz_loc = %d\n", nnz_loc);
-    printf("nnz_g = %ld\n", A->nnz_g);
-    printf("ldb = %d\n", ldb);
-//    if(verbose_solve_coarse && rank==0)
-//        printf("m = %d, m_loc = %d, n = %d, nnz_g = %ld, nnz_loc = %d, ldb = %d \n",
-//               m, m_loc, n, A->nnz_g, nnz_loc, ldb);
+    if(verbose_solve_coarse && rank==0)
+        printf("m = %d, m_loc = %d, n = %d, nnz_g = %ld, nnz_loc = %d, ldb = %d \n",
+               m, m_loc, n, A->nnz_g, nnz_loc, ldb);
 
     // CSR format (compressed row)
     // sort entries in row-major
@@ -2941,10 +2935,13 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     for(nnz_t i = 0; i < m_loc; i++)
         rowptr[i+1] = rowptr[i] + nnz_per_row[i];
 
-//    A_saena.print(-1);
+//    A.print(-1);
 //    print_vector(rowptr, -1, "rowptr", comm);
 //    print_vector(colind, -1, "colind", comm);
 //    print_vector(nzval_loc, -1, "nzval_loc", comm);
+    for(nnz_t i = 0; i < m_loc; i++){
+        if(rank==0) printf("%d \t %lld \t %lf \n", entry_temp[i].row-fst_row, colind[i], nzval_loc[i]);
+    }
 
     dCreate_CompRowLoc_Matrix_dist(&A_SLU, m, n, nnz_loc, m_loc, fst_row,
                                    &nzval_loc[0], &colind[0], &rowptr[0],
