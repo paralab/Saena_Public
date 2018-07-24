@@ -39,6 +39,7 @@ endif()
 
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
+message("******** MPI_INCLUDE_PATH: " ${MPI_INCLUDE_PATH})
 
 # -----------------------------------------------------------------------
 # Dependencies
@@ -48,14 +49,15 @@ include_directories(${MPI_INCLUDE_PATH})
 #add_subdirectory(external/parmetis-4.0.3)
 
 #message("++++ CMAKE_INSTALL_PREFIX after parmetis: " ${CMAKE_INSTALL_PREFIX})
-message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
+#message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
 
 set(PARMETIS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
 set(METIS_LIBRARY ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
 set(PARMETIS_LIBRARY ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
-#set(PARMETIS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
 set(METIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
 set(PARMETIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/build/install_folder/include)
+
+#set(PARMETIS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
 #set(METIS_LIBRARY ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
 #set(PARMETIS_LIBRARY ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
 
@@ -152,19 +154,18 @@ include_directories(
         ${ZFP_DIR}/array/zfp
         ${ZFP_DIR}/include
 )
-message("-----------ZFP_DIR/array: " ${ZFP_DIR}/array)
 
-set(HEADER_FILES ${HEADER_FILES}
-        ${ZFP_DIR}/array/zfparray.h
-        ${ZFP_DIR}/array/zfparray1.h
-        ${ZFP_DIR}/array/zfparray2.h
-        ${ZFP_DIR}/array/zfparray3.h
-        ${ZFP_DIR}/array/zfpcodec.h
-        ${ZFP_DIR}/array/zfpcodecd.h
-        ${ZFP_DIR}/array/zfpcodecf.h
-        ${ZFP_DIR}/array/zfp/cache.h
-        ${ZFP_DIR}/array/zfp/memory.h
-        )
+#set(HEADER_FILES ${HEADER_FILES}
+#        ${ZFP_DIR}/array/zfparray.h
+#        ${ZFP_DIR}/array/zfparray1.h
+#        ${ZFP_DIR}/array/zfparray2.h
+#        ${ZFP_DIR}/array/zfparray3.h
+#        ${ZFP_DIR}/array/zfpcodec.h
+#        ${ZFP_DIR}/array/zfpcodecd.h
+#        ${ZFP_DIR}/array/zfpcodecf.h
+#        ${ZFP_DIR}/array/zfp/cache.h
+#        ${ZFP_DIR}/array/zfp/memory.h
+#        )
 
 # -----------------------------------------------------------------------
 # Main Files
@@ -199,30 +200,30 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 # -----------------------------------------------------------------------
 
-add_executable(SaenaTest ${SOURCE_FILES} ${HEADER_FILES})
-
-# -----------------------------------------------------------------------
-# MPI - part 2/2
-
-if(MPI_COMPILE_FLAGS)
-    set_target_properties(SaenaTest PROPERTIES
-            COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
-endif()
-
-if(MPI_LINK_FLAGS)
-    set_target_properties(SaenaTest PROPERTIES
-            LINK_FLAGS "${MPI_LINK_FLAGS}")
-endif()
-
-# -----------------------------------------------------------------------
-
-target_link_libraries(SaenaTest ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
+#add_executable(SaenaTest ${SOURCE_FILES} ${HEADER_FILES})
 
 # -----------------------------------------------------------------------
 # NEKTAR++
 
 ADD_NEKTAR_LIBRARY(Saena
-    SOURCES ${SOURCE_FILES}
-    HEADERS ${HEADER_FILES}
-    SUMMARY "Nektar++ Saena fast multigrid solver library"
-    DESCRIPTION "This library provides fast multigrid solves.")
+        SOURCES ${SOURCE_FILES}
+        HEADERS ${HEADER_FILES}
+        SUMMARY "Nektar++ Saena fast multigrid solver library"
+        DESCRIPTION "This library provides fast multigrid solves.")
+
+# -----------------------------------------------------------------------
+# MPI - part 2/2
+
+if(MPI_COMPILE_FLAGS)
+    set_target_properties(Saena PROPERTIES
+            COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+endif()
+
+if(MPI_LINK_FLAGS)
+    set_target_properties(Saena PROPERTIES
+            LINK_FLAGS "${MPI_LINK_FLAGS}")
+endif()
+
+# -----------------------------------------------------------------------
+
+target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
