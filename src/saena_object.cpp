@@ -2940,7 +2940,7 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 //    print_vector(colind, -1, "colind", comm);
 //    print_vector(nzval_loc, -1, "nzval_loc", comm);
     for(nnz_t i = 0; i < m_loc; i++){
-        if(rank==0) printf("%d \t %lld \t %lf \n", entry_temp[i].row-fst_row, colind[i], nzval_loc[i]);
+        if(rank==0) printf("%ld %d \t %lld \t %lf \n", i, entry_temp[i].row-fst_row, colind[i], nzval_loc[i]);
     }
 
     dCreate_CompRowLoc_Matrix_dist(&A_SLU, m, n, nnz_loc, m_loc, fst_row,
@@ -3010,8 +3010,8 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     // Initialize the statistics variables.
     PStatInit(&stat);
     // Call the linear equation solver.
-    pdgssvx(&options, &A_SLU, &ScalePermstruct, b, ldb, nrhs, &grid,
-            &LUstruct, &SOLVEstruct, berr, &stat, &info);
+//    pdgssvx(&options, &A_SLU, &ScalePermstruct, b, ldb, nrhs, &grid,
+//            &LUstruct, &SOLVEstruct, berr, &stat, &info);
 
     if(rank==0) printf("SOLVE THE LINEAR SYSTEM: step 2 \n");
 
@@ -3036,14 +3036,15 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     PStatFree(&stat);
     Destroy_CompRowLoc_Matrix_dist(&A_SLU);
     ScalePermstructFree(&ScalePermstruct);
-    Destroy_LU(n, &grid, &LUstruct);
+//    Destroy_LU(n, &grid, &LUstruct);
     LUstructFree(&LUstruct);
     if ( options.SolveInitialized ) {
         dSolveFinalize(&options, &SOLVEstruct);
     }
+//    SUPERLU_FREE(berr);
+    // don't need these two.
 //    SUPERLU_FREE(b);
 //    SUPERLU_FREE(xtrue);
-    SUPERLU_FREE(berr);
 
     /* ------------------------------------------------------------
        RELEASE THE SUPERLU PROCESS GRID.
