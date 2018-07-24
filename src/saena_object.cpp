@@ -2999,15 +2999,21 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     ScalePermstructInit(m, n, &ScalePermstruct);
     LUstructInit(n, &LUstruct);
 
+    if(rank==0) printf("SOLVE THE LINEAR SYSTEM: step 1 \n");
+
     // Initialize the statistics variables.
     PStatInit(&stat);
     // Call the linear equation solver.
     pdgssvx(&options, &A_SLU, &ScalePermstruct, b, ldb, nrhs, &grid,
             &LUstruct, &SOLVEstruct, berr, &stat, &info);
 
+    if(rank==0) printf("SOLVE THE LINEAR SYSTEM: step 2 \n");
+
     // put the solution in u
     // b points to rhs. after calling pdgssvx it will contain the solution.
     u.swap(rhs);
+
+    if(rank==0) printf("SOLVE THE LINEAR SYSTEM: step 3 \n");
 
     // Check the accuracy of the solution.
 //    pdinf_norm_error(iam, ((NRformat_loc *)A_SLU.Store)->m_loc,
