@@ -2939,8 +2939,8 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 //    print_vector(rowptr, -1, "rowptr", comm);
 //    print_vector(colind, -1, "colind", comm);
 //    print_vector(nzval_loc, -1, "nzval_loc", comm);
-    for(nnz_t i = 0; i < m_loc; i++){
-        if(rank==0) printf("%ld %d \t %lld \t %lf \n", i, entry_temp[i].row-fst_row, colind[i], nzval_loc[i]);
+    for(nnz_t i = 0; i < nnz_loc; i++){
+        if(rank==0) printf("%ld \t%d \t%lld \t%lf \n", i, entry_temp[i].row-fst_row, colind[i], nzval_loc[i]);
     }
 
     dCreate_CompRowLoc_Matrix_dist(&A_SLU, m, n, nnz_loc, m_loc, fst_row,
