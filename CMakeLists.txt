@@ -39,7 +39,6 @@ endif()
 
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
-message("******** MPI_INCLUDE_PATH: " ${MPI_INCLUDE_PATH})
 
 # -----------------------------------------------------------------------
 # Dependencies
@@ -51,15 +50,21 @@ message("******** MPI_INCLUDE_PATH: " ${MPI_INCLUDE_PATH})
 #message("++++ CMAKE_INSTALL_PREFIX after parmetis: " ${CMAKE_INSTALL_PREFIX})
 #message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
 
-set(PARMETIS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
-set(METIS_LIBRARY ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
-set(PARMETIS_LIBRARY ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
-set(METIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
-set(PARMETIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/build/install_folder/include)
+message("+++++inside Saena METIS_LIB: " ${METIS_LIB})
+message("-----------CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
+message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
+message("-----------CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR})
+message("-----------CMAKE_BINARY_DIR: " ${CMAKE_BINARY_DIR})
 
-#set(PARMETIS_ROOT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
-#set(METIS_LIBRARY ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
-#set(PARMETIS_LIBRARY ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
+set(METIS_INCLUDE_DIR    ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
+set(METIS_LIBRARY        ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
+
+set(PARMETIS_ROOT_DIR    ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
+#set(METIS_INCLUDE_DIR    ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
+#set(METIS_LIBRARY        ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
+set(PARMETIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/build/install_folder/include)
+set(PARMETIS_LIBRARY     ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
+
 
 #add_subdirectory(external/zfp-0.5.3)
 #add_subdirectory(external/SuperLU_DIST_5.4.0)
@@ -70,7 +75,7 @@ set(PARMETIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/build/install_folder/include)
 find_package(BLAS REQUIRED)
 message(STATUS BLAS found: ${BLAS_LIBRARIES})
 
-# BLAS_INCLUDE_DIR does not get found by find_package(BLAS), so find it by the following command:
+# BLAS_INCLUDE_DIR is not found by find_package(BLAS), so find it by the following command:
 #find_path(BLAS_INCLUDE_DIR cblas.h
 #        /usr/include
 #        /usr/local/include
@@ -85,7 +90,6 @@ message(STATUS BLAS found: ${BLAS_LIBRARIES})
 find_package(LAPACK REQUIRED)
 message( STATUS LAPACK found: ${LAPACK_LIBRARIES} )
 include_directories(${LAPACK_INCLUDE_PATH})
-#set(LAPACK_LIB /usr/lib/openblas-base/liblapack.a)
 
 # -----------------------------------------------------------------------
 # SuperLU
@@ -141,11 +145,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 # -----------------------------------------------------------------------
 # zfp: for compressing arrays
-
-message("-----------CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
-message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
-message("-----------CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR})
-message("-----------CMAKE_BINARY_DIR: " ${CMAKE_BINARY_DIR})
 
 set(ZFP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/zfp-0.5.3)
 set(ZFP_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/lib/libzfp.so)
