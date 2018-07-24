@@ -2904,9 +2904,15 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     n = m;
     nnz_loc = A->nnz_l;
     ldb = m_loc;
-    if(verbose_solve_coarse && rank==0)
-        printf("m = %d, m_loc = %d, n = %d, nnz_g = %ld, nnz_loc = %d, ldb = %d \n",
-               m, m_loc, n, A->nnz_g, nnz_loc, ldb);
+    printf("m = %d\n", m);
+    printf("m_loc = %d\n", m_loc);
+    printf("n = %d\n", n);
+    printf("nnz_loc = %d\n", nnz_loc);
+    printf("nnz_g = %ld\n", A->nnz_g);
+    printf("ldb = %d\n", ldb);
+//    if(verbose_solve_coarse && rank==0)
+//        printf("m = %d, m_loc = %d, n = %d, nnz_g = %ld, nnz_loc = %d, ldb = %d \n",
+//               m, m_loc, n, A->nnz_g, nnz_loc, ldb);
 
     // CSR format (compressed row)
     // sort entries in row-major
