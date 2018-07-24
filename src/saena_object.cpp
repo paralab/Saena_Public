@@ -2861,6 +2861,8 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     /* ------------------------------------------------------------
        INITIALIZE THE SUPERLU PROCESS GRID.
        ------------------------------------------------------------*/
+    if(verbose_solve_coarse && rank==0) printf("INITIALIZE THE SUPERLU PROCESS GRID. \n");
+
     superlu_gridinit(comm, nprow, npcol, &grid);
 
     // Bail out if I do not belong in the grid.
@@ -2886,7 +2888,6 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     CHECK_MALLOC(iam, "Enter main()");
 #endif
 
-
     /* ------------------------------------------------------------
        PASS THE MATRIX FROM SAENA
        ------------------------------------------------------------*/
@@ -2895,6 +2896,8 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 //    dCreate_CompRowLoc_Matrix_dist(A_SLU, m, n, nnz_loc, m_loc, fst_row,
 //                                   nzval_loc, colind, rowptr,
 //                                   SLU_NR_loc, SLU_D, SLU_GE);
+
+    if(verbose_solve_coarse && rank==0) printf("PASS THE MATRIX FROM SAENA. \n");
 
     m = A->Mbig;
     m_loc = A->M;
@@ -2953,7 +2956,7 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     u = rhs;
 
     /* ------------------------------------------------------------
-       SOLVE THE LINEAR SYSTEM.
+       .
        ------------------------------------------------------------*/
 
     /* Set the default input options:
@@ -2990,6 +2993,8 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 //    m = A_SLU.nrow;
 //    n = A_SLU.ncol;
 
+    if(verbose_solve_coarse && rank==0) printf("SOLVE THE LINEAR SYSTEM. \n");
+
     // Initialize ScalePermstruct and LUstruct.
     ScalePermstructInit(m, n, &ScalePermstruct);
     LUstructInit(n, &LUstruct);
@@ -3013,6 +3018,8 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     /* ------------------------------------------------------------
        DEALLOCATE STORAGE.
        ------------------------------------------------------------*/
+
+    if(verbose_solve_coarse && rank==0) printf("DEALLOCATE STORAGE. \n");
 
     PStatFree(&stat);
     Destroy_CompRowLoc_Matrix_dist(&A_SLU);
