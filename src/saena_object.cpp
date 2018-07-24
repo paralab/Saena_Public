@@ -2812,8 +2812,8 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 //    FILE *fp;
 //    int cpp_defs();
 
-    nprow = 1;  /* Default process rows.      */
-    npcol = nprocs;  /* Default process columns.   */
+    nprow = nprocs;  /* Default process rows.      */
+    npcol = 1;  /* Default process columns.   */
     nrhs  = 1;  /* Number of right-hand side. */
 
     /* ------------------------------------------------------------
@@ -2904,6 +2904,9 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     n = m;
     nnz_loc = A->nnz_l;
     ldb = m_loc;
+    if(verbose_solve_coarse && rank==0)
+        printf("m = %d, m_loc = %d, n = %d, nnz_g = %ld, nnz_loc = %d, ldb = %d \n",
+               m, m_loc, n, A->nnz_g, nnz_loc, ldb);
 
     // CSR format (compressed row)
     // sort entries in row-major
