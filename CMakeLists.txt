@@ -56,8 +56,8 @@ message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
 message("-----------CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR})
 message("-----------CMAKE_BINARY_DIR: " ${CMAKE_BINARY_DIR})
 
-set(METIS_INCLUDE_DIR    ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
-set(METIS_LIBRARY        ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
+#set(METIS_INCLUDE_DIR    ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
+#set(METIS_LIBRARY        ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
 
 set(PARMETIS_ROOT_DIR    ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
 #set(METIS_INCLUDE_DIR    ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
@@ -225,4 +225,5 @@ endif()
 
 # -----------------------------------------------------------------------
 
-target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
+#target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
+target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIB} m ${ZFP_LIB})
