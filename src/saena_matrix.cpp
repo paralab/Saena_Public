@@ -594,8 +594,10 @@ int saena_matrix::erase(){
 //    vElementRep_local.shrink_to_fit();
     vElementRep_remote.shrink_to_fit();
 
-    free(send_buffer);
-    free(recv_buffer);
+    if(free_zfp_buff){
+        free(send_buffer);
+        free(recv_buffer);
+    }
 
     M = 0;
     Mbig = 0;

@@ -153,6 +153,7 @@ public:
     bitstream* stream; /* bit stream to write to or read from */
 //    unsigned char *send_buffer; /* storage for compressed stream */
 //    unsigned char *recv_buffer;
+    bool free_zfp_buff = false;
     double *send_buffer; /* storage for compressed stream */
     double *recv_buffer;
     unsigned rate = 64;
