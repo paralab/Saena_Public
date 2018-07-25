@@ -19,7 +19,7 @@ class Grid;
 class saena_object {
 public:
 
-    int max_level = 0; // fine grid is level 0.
+    int max_level = 10; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 20;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,
@@ -30,7 +30,7 @@ public:
     std::string smoother = "chebyshev"; // choices: "jacobi", "chebyshev"
     int preSmooth  = 3;
     int postSmooth = 3;
-    std::string direct_solver = "SuperLU"; // options: 1- CG, 2- SuperLU
+    std::string direct_solver = "CG"; // options: 1- CG, 2- SuperLU
     std::vector<Grid> grids;
     float connStrength = 0.5; // connection strength parameter: control coarsening aggressiveness
     int CG_max_iter = 150; //150
@@ -59,10 +59,10 @@ public:
     bool verbose_level_setup = false;
     bool verbose_coarsen = false;
     bool verbose_coarsen2 = false;
-    bool verbose_solve = true;
+    bool verbose_solve = false;
     bool verbose_vcycle = false;
     bool verbose_vcycle_residuals = false;
-    bool verbose_solve_coarse = true;
+    bool verbose_solve_coarse = false;
 
     saena_object();
     ~saena_object();
