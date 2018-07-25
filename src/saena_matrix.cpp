@@ -595,8 +595,8 @@ int saena_matrix::erase(){
     vElementRep_remote.shrink_to_fit();
 
     if(free_zfp_buff){
-        free(send_buffer);
-        free(recv_buffer);
+        free(zfp_send_buffer);
+        free(zfp_recv_buffer);
     }
 
     M = 0;
@@ -697,8 +697,10 @@ int saena_matrix::erase2(){
     vElement_remote.shrink_to_fit();
     w_buff.shrink_to_fit();
 
-    free(send_buffer);
-    free(recv_buffer);
+    if(free_zfp_buff){
+        free(zfp_send_buffer);
+        free(zfp_recv_buffer);
+    }
 
 //    M = 0;
 //    Mbig = 0;
@@ -2789,6 +2791,7 @@ int saena_matrix::set_off_on_diagonal(){
             recv_bufsize = rate / 2 * (unsigned)ceil(recvSize/4.0);
             send_buffer = (double*)malloc(send_bufsize);
             recv_buffer = (double*)malloc(recv_bufsize);
+            free_zfp_buff = true;
 //            printf("rank %d: vIndexSize = %d, recvSize = %d, send_bufsize = %d, recv_bufsize = %d \n",
 //               rank, vIndexSize, recvSize, send_bufsize, recv_bufsize);
         }
@@ -3231,7 +3234,7 @@ int saena_matrix::matvec_sparse_zfp(std::vector<value_t>& v, std::vector<value_t
     unsigned long size1;
     if(vIndexSize || recvSize){
         field = zfp_field_1d(&vSend[0], zfp_type_double, vIndexSize);
-        stream = stream_open(send_buffer, send_bufsize);
+        stream = stream_open(zfp_send_buffer, send_bufsize);
         zfp = zfp_stream_open(stream);
         zfp_stream_set_rate(zfp, rate, zfp_type_double, 1, 0);
 //        zfp_stream_set_bit_stream(zfp, stream);
@@ -3309,7 +3312,7 @@ int saena_matrix::matvec_sparse_zfp(std::vector<value_t>& v, std::vector<value_t
 
     if(recvSize){
         field2 = zfp_field_1d(&vecValues[0], zfp_type_double, recvSize);
-        stream2 = stream_open(recv_buffer, recv_bufsize);
+        stream2 = stream_open(zfp_recv_buffer, recv_bufsize);
         zfp2 = zfp_stream_open(stream2);
         zfp_stream_set_rate(zfp2, rate, zfp_type_double, 1, 0);
 //        zfp_stream_params(zfp2, &minbits, &maxbits, &maxprec, &minexp);

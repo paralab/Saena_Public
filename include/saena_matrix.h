@@ -154,8 +154,8 @@ public:
 //    unsigned char *send_buffer; /* storage for compressed stream */
 //    unsigned char *recv_buffer;
     bool free_zfp_buff = false;
-    double *send_buffer; /* storage for compressed stream */
-    double *recv_buffer;
+    double *zfp_send_buffer; /* storage for compressed stream */
+    double *zfp_recv_buffer;
     unsigned rate = 64;
     unsigned send_bufsize = 0, recv_bufsize = 0;
     zfp_field* field2;  /* array meta data */
