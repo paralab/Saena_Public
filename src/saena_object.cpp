@@ -2772,10 +2772,12 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     SOLVEstruct_t SOLVEstruct;
     gridinfo_t grid;
     double   *berr;
-    double   *b, *xtrue;
+//    double   *b, *xtrue;
+    double   *b;
     int      m, n, m_loc, nnz_loc;
     int      nprow, npcol;
-    int      iam, info, ldb, ldx, nrhs;
+//    int      iam, info, ldb, ldx, nrhs;
+    int      iam, info, ldb, nrhs;
 //    char     **cpp, c;
 //    FILE *fp, *fopen();
 //    FILE *fp;
