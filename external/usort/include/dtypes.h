@@ -216,6 +216,25 @@ to this user-defined datatype.
         }
     };
 
+    template <>
+    class Mpi_datatype<cooEntry_row>{
+    public:
+
+        static MPI_Datatype value()
+        {
+            static bool         first = true;
+            static MPI_Datatype datatype;
+
+            if (first)
+            {
+                first = false;
+                MPI_Type_contiguous(sizeof(cooEntry_row), MPI_BYTE, &datatype);
+                MPI_Type_commit(&datatype);
+            }
+
+            return datatype;
+        }
+    };
 
 } //end namespace
 
