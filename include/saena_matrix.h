@@ -157,7 +157,7 @@ public:
     double *zfp_send_buffer; /* storage for compressed stream */
     double *zfp_recv_buffer;
     unsigned rate = 64;
-    unsigned send_bufsize = 0, recv_bufsize = 0;
+    unsigned zfp_send_bufsize = 0, zfp_recv_bufsize = 0;
     zfp_field* field2;  /* array meta data */
     zfp_stream* zfp2;   /* compressed stream */
     bitstream* stream2; /* bit stream to write to or read from */
