@@ -62,7 +62,7 @@ public:
     bool verbose_solve = false;
     bool verbose_vcycle = false;
     bool verbose_vcycle_residuals = false;
-    bool verbose_solve_coarse = true;
+    bool verbose_solve_coarse = false;
 
     saena_object();
     ~saena_object();

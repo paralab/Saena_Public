@@ -1,19 +1,24 @@
-# execute this in the Saena source directory:
+#cd external/parmetis-4.0.3/metis; \
+#make config prefix=./install_folder ;\
+#make -j28 install ;\
+#cd ../; \
+#make config prefix=./install_folder ;\
+#make -j28 install ;\
+#cd ../../; \
 #mkdir build; cd build; \
 #mkdir build_zfp; cd build_zfp; \
 #cmake ../../external/zfp-0.5.3; \
-#make -j24; \
+#make -j28; \
 #cd ..; \
 #mkdir build_superlu; cd build_superlu; \
 #cmake ../../external/SuperLU_DIST_5.4.0 \
-#-DTPL_PARMETIS_INCLUDE_DIRS="${PARMETIS_ROOT}/include;${PARMETIS_ROOT}/metis/include" \
-#-DTPL_PARMETIS_LIBRARIES="${PARMETIS_BUILD_DIR}/libparmetis/libparmetis.a;${PARMETIS_BUILD_DIR}/libmetis/libmetis.a" \
+#-DXSDK_INDEX_SIZE=64 \
 #-Denable_blaslib=OFF \
 #-DCMAKE_INSTALL_PREFIX=. ;\
-#make -j24 install; \
+#make -j28 install; \
 #cd ..; \
 #cmake ..; \
-#make -j24
+#make -j28
 
 # GFORTRAN_LIB="/usr/lib64/libgfortran.so.3" ..
 
@@ -50,18 +55,17 @@ include_directories(${MPI_INCLUDE_PATH})
 #message("++++ CMAKE_INSTALL_PREFIX after parmetis: " ${CMAKE_INSTALL_PREFIX})
 #message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
 
-message("+++++inside Saena METIS_LIB: " ${METIS_LIB})
-message("-----------CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
-message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
-message("-----------CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR})
-message("-----------CMAKE_BINARY_DIR: " ${CMAKE_BINARY_DIR})
+#message("+++++inside Saena METIS_LIB: " ${METIS_LIB})
+#message("-----------CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
+#message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
+#message("-----------CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR})
+#message("-----------CMAKE_BINARY_DIR: " ${CMAKE_BINARY_DIR})
 
-set(PARMETIS_ROOT_DIR    ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
-#set(METIS_INCLUDE_DIR    ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
-#set(METIS_LIBRARY        ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
-set(PARMETIS_INCLUDE_DIR ${PARMETIS_ROOT_DIR}/build/install_folder/include)
-set(PARMETIS_LIBRARY     ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
-
+set(PARMETIS_ROOT_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
+set(METIS_INCLUDE_DIR      ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
+set(METIS_LIBRARY_SAENA    ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
+set(PARMETIS_INCLUDE_DIR   ${PARMETIS_ROOT_DIR}/build/install_folder/include)
+set(PARMETIS_LIBRARY_SAENA ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
 
 #add_subdirectory(external/zfp-0.5.3)
 #add_subdirectory(external/SuperLU_DIST_5.4.0)
@@ -72,7 +76,7 @@ set(PARMETIS_LIBRARY     ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmet
 find_package(BLAS REQUIRED)
 message(STATUS BLAS found: ${BLAS_LIBRARIES})
 
-# BLAS_INCLUDE_DIR is not found by find_package(BLAS), so find it by the following command:
+# BLAS_INCLUDE_DIR does not get found by find_package(BLAS), so find it by the following command:
 #find_path(BLAS_INCLUDE_DIR cblas.h
 #        /usr/include
 #        /usr/local/include
@@ -87,11 +91,18 @@ message(STATUS BLAS found: ${BLAS_LIBRARIES})
 find_package(LAPACK REQUIRED)
 message( STATUS LAPACK found: ${LAPACK_LIBRARIES} )
 include_directories(${LAPACK_INCLUDE_PATH})
+#set(LAPACK_LIB /usr/lib/openblas-base/liblapack.a)
 
 # -----------------------------------------------------------------------
 # SuperLU
 
+#message("-----------CMAKE_CURRENT_SOURCE_DIR: " ${CMAKE_CURRENT_SOURCE_DIR})
+#message("-----------CMAKE_SOURCE_DIR: " ${CMAKE_SOURCE_DIR})
+#message("-----------CMAKE_CURRENT_BINARY_DIR: " ${CMAKE_CURRENT_BINARY_DIR})
+#message("-----------CMAKE_BINARY_DIR: " ${CMAKE_BINARY_DIR})
+
 set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
+#set(SuperLU_DIST_LIB ${CMAKE_BINARY_DIR}/build_superlu/lib/libsuperlu_dist.a)
 set(SuperLU_DIST_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_superlu/lib/libsuperlu_dist.a)
 include_directories(
         ${SuperLU_DIST_DIR}/build/include
@@ -144,6 +155,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
 # zfp: for compressing arrays
 
 set(ZFP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/zfp-0.5.3)
+#set(ZFP_LIB ${CMAKE_CURRENT_BINARY_DIR}/build_zfp/lib/libzfp.so)
 set(ZFP_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/lib/libzfp.so)
 include_directories(
         ${ZFP_DIR}/array
@@ -152,15 +164,15 @@ include_directories(
 )
 
 #set(HEADER_FILES ${HEADER_FILES}
-#        ${ZFP_DIR}/array/zfparray.h
-#        ${ZFP_DIR}/array/zfparray1.h
-#        ${ZFP_DIR}/array/zfparray2.h
-#        ${ZFP_DIR}/array/zfparray3.h
-#        ${ZFP_DIR}/array/zfpcodec.h
-#        ${ZFP_DIR}/array/zfpcodecd.h
-#        ${ZFP_DIR}/array/zfpcodecf.h
-#        ${ZFP_DIR}/array/zfp/cache.h
-#        ${ZFP_DIR}/array/zfp/memory.h
+#        external/zfp/array/zfparray.h
+#        external/zfp/array/zfparray1.h
+#        external/zfp/array/zfparray2.h
+#        external/zfp/array/zfparray3.h
+#        external/zfp/array/zfpcodec.h
+#        external/zfp/array/zfpcodecd.h
+#        external/zfp/array/zfpcodecf.h
+#        external/zfp/array/zfp/cache.h
+#        external/zfp/array/zfp/memory.h
 #        )
 
 # -----------------------------------------------------------------------
@@ -181,7 +193,7 @@ set(HEADER_FILES ${HEADER_FILES}
         )
 
 set(SOURCE_FILES ${SOURCE_FILES}
-#        ${HEADER_FILES}
+        ${HEADER_FILES}
         src/main.cpp
         src/saena_matrix.cpp
         src/saena_matrix_dense.cpp
@@ -196,7 +208,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 # -----------------------------------------------------------------------
 
-#add_executable(SaenaTest ${SOURCE_FILES} ${HEADER_FILES})
+#add_executable(Saena ${SOURCE_FILES} ${HEADER_FILES})
 
 # -----------------------------------------------------------------------
 # NEKTAR++
@@ -222,5 +234,5 @@ endif()
 
 # -----------------------------------------------------------------------
 
-#target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB})
-target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIB} m ${ZFP_LIB})
+target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
+
