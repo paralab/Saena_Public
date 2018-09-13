@@ -1,8 +1,10 @@
 #ifndef SAENA_RESTRICT_MATRIX_H
 #define SAENA_RESTRICT_MATRIX_H
 
-#include <vector>
+#include "aux_functions.h"
 
+#include <vector>
+#include <mpi.h>
 
 class prolong_matrix;
 
@@ -25,11 +27,11 @@ public:
     nnz_t nnz_l_local  = 0;
     nnz_t nnz_l_remote = 0;
 
-    std::vector<cooEntry> entry;
+    std::vector<cooEntry> entry; // local row indices (not global)
     std::vector<cooEntry> entry_local;
     std::vector<cooEntry> entry_remote;
-    std::vector<index_t> row_local;
-    std::vector<index_t> row_remote;
+    std::vector<index_t> row_local;  // needed for finding sorting
+    std::vector<index_t> row_remote; // needed for finding sorting
     std::vector<index_t> col_remote; // index starting from 0, instead of the original column index
 
     std::vector<index_t> split;
@@ -77,6 +79,8 @@ public:
     int transposeP(prolong_matrix* P);
     int openmp_setup();
     int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    int print_entry(int ran);
+    int print_info(int ran);
 };
 
 #endif //SAENA_RESTRICT_MATRIX_H

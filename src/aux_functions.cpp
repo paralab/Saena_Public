@@ -8,7 +8,7 @@
 
 class saena_matrix;
 
-
+// todo: replace strength_matrix with two other arguments: S->M and S->nnzPerRow
 int randomVector(std::vector<unsigned long>& V, long size, strength_matrix* S, MPI_Comm comm) {
 
     int rank;
@@ -86,12 +86,14 @@ int randomVector2(std::vector<double>& V){
     return 0;
 }
 
+// todo: replace strength_matrix with two other arguments: S->M and S->nnzPerRow
 int randomVector3(std::vector<unsigned long>& V, long size, strength_matrix* S, MPI_Comm comm) {
     // This function DOES NOT generate a random vector. It computes the maximum degree of all the nodes.
     // (degree of node i = number of nonzeros on row i)
-    // Then assign to a higher degree, a lower weight ( weghit(node i) = max_degree - degree(node i) )
+    // Then assign to a higher degree, a lower weight ( weight(node i) = max_degree - degree(node i) )
     // This method is similar to Yavneh's paper, in which nodes with lower degrees become coarse nodes first,
     // then nodes with higher degrees.
+    // Yavneh's paper: Non-Galerkin Multigrid Based on Sparsified Smoothed Aggregation - pages: A51-A52
 
     int rank;
     MPI_Comm_rank(comm, &rank);
@@ -125,13 +127,12 @@ int randomVector3(std::vector<unsigned long>& V, long size, strength_matrix* S, 
     std::vector<double> rand(S->M);
     for (i = 0; i < V.size(); i++){
         V[i] = max_degree - S->nnzPerRow[i];
-//        if(rank==0) cout << i << "\tnnzPerRow = " << S->nnzPerRow[i] << "\t weight = " << V[i] << endl;
+//        if(rank==1) std::cout << i << "\tnnzPerRow = " << S->nnzPerRow[i] << "\t weight = " << V[i] << std::endl;
     }
 //        rand[i] = dist(rng);
 
     // to have one node with the highest weight possible, so that node will be a root and
     // consequently P and R won't be zero matrices. the median index is being chosen here.
-    // todo: fix this later. doing this as follows will affect the aggregation in a bad way.
 //    if (V.size() >= 2)
 //        V[ floor(V.size()/2) ] = size + 1;
 //    else if(V.size() == 1)
@@ -204,6 +205,7 @@ std::ostream & operator<<(std::ostream & stream, const cooEntry_row & item) {
     return stream;
 }
 
+
 void setIJV(char* file_name, index_t *I, index_t *J, value_t *V, nnz_t nnz_g, nnz_t initial_nnz_l, MPI_Comm comm){
 
     int rank, nprocs;
@@ -243,7 +245,6 @@ void setIJV(char* file_name, index_t *I, index_t *J, value_t *V, nnz_t nnz_g, nn
         V[i] = reinterpret_cast<double&>(data[3*i+2]);
     }
 }
-
 
 
 int dotProduct(std::vector<value_t>& r, std::vector<value_t>& s, value_t* dot, MPI_Comm comm){
@@ -375,6 +376,7 @@ int generate_rhs(std::vector<value_t>& rhs, index_t mx, index_t my, index_t mz, 
 
     return 0;
 }
+
 
 int generate_rhs_old(std::vector<value_t>& rhs){
 

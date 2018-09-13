@@ -1,6 +1,8 @@
 #ifndef SAENA_STRENGTH_MATRIX_H
 #define SAENA_STRENGTH_MATRIX_H
 
+#include "aux_functions.h"
+
 #include <vector>
 #include "mpi.h"
 
@@ -13,12 +15,10 @@ class strength_matrix {
 
 public:
 
-//    MPI_Comm comm = MPI_COMM_WORLD;
     index_t M    = 0;
     index_t Mbig = 0;
     nnz_t nnz_l  = 0;
-//    long nnz_g;
-//    double average_sparsity;
+    nnz_t nnz_g  = 0;
 
     nnz_t nnz_l_local  = 0;
     nnz_t nnz_l_remote = 0;
@@ -36,12 +36,12 @@ public:
     std::vector<index_t> row_local;
     std::vector<index_t> row_remote;
     std::vector<index_t> col_local;
-    std::vector<index_t> col_remote; // index starting from 0, instead of the original column index
-    std::vector<index_t> col_remote2; //original col index
+    std::vector<index_t> col_remote;  // index starting from 0, instead of the original column index
+    std::vector<index_t> col_remote2; // original col index
     std::vector<nnz_t> nnzPerRow;
     std::vector<nnz_t> nnzPerRow_local;
 //    std::vector<unsigned int> nnzPerRow_remote;
-    std::vector<nnz_t> nnz_col_remote;
+    std::vector<nnz_t> nnzPerCol_remote;
     std::vector<index_t> vElement_remote;
     std::vector<index_t> vElementRep_local;
     std::vector<index_t> vElementRep_remote;
@@ -60,12 +60,25 @@ public:
 
     MPI_Comm comm;
 
-//    strength_matrix(){}
-    int strength_matrix_set(std::vector<index_t>& row, std::vector<index_t>& col, std::vector<value_t >& values,
-                            index_t M, index_t Mbig, nnz_t nnzl, std::vector<index_t>& split, MPI_Comm com);
+    std::vector<cooEntry> entry;
+    std::vector<cooEntry> entryT; // transpose entries
+//    std::vector<index_t> Si, Sj;
+//    std::vector<value_t> Sval, STval;
+
+    int set_parameters(index_t M, index_t Mbig, std::vector<index_t> &split, MPI_Comm com);
+    int setup_matrix(float connStrength);
     ~strength_matrix();
     int erase();
-    void print(int rank);
+    int erase_update(); // only erase the parameters needed to update the matrix
+
+    // this function is inefficient, since first the entry vector should be created based on local and remote entries.
+    void print_entry(int rank);
+    // try to use the following print functions
+    void print_diagonal_block(int rank);
+    void print_off_diagonal(int rank);
+    int print_info(int ran);
+    int save_to_disk();
+
 };
 
 #endif //SAENA_STRENGTH_MATRIX_H
