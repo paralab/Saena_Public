@@ -2365,18 +2365,18 @@ int saena_matrix::shrink_cpu_minor(){
     MPI_Comm_rank(comm, &rank);
     bool verbose_shrink = false;
 
-    MPI_Barrier(comm);
-    if(rank==0) printf("\n****************************\n");
-    if(rank==0) printf("********MINOR SHRINK********\n");
-    if(rank==0) printf("****************************\n\n");
-    MPI_Barrier(comm);
+//    MPI_Barrier(comm);
+//    if(rank==0) printf("\n****************************\n");
+//    if(rank==0) printf("********MINOR SHRINK********\n");
+//    if(rank==0) printf("****************************\n\n");
+//    MPI_Barrier(comm);
 
     shrinked_minor = true;
 
     active_minor = false;
     if(split[rank+1] - split[rank] != 0){
         active_minor = true;
-        printf("active: rank = %d \n", rank);
+//        printf("active: rank = %d \n", rank);
     }
     active = active_minor;
 
@@ -2680,7 +2680,7 @@ int saena_matrix::set_off_on_diagonal(){
             MPI_Barrier(comm);
         }
 
-        print_entry(-1);
+//        print_entry(-1);
 
         col_remote_size = 0;
         nnz_l_local = 0;

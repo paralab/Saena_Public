@@ -24,7 +24,7 @@ int find_eig_ietl(Matrix& A){
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
-    bool verbose_eig = true;
+    bool verbose_eig = false;
 
     if(verbose_eig) {
         MPI_Barrier(comm);
@@ -118,7 +118,7 @@ int find_eig_ietl(Matrix& A){
         MPI_Barrier(comm);
     }
 
-    if(rank==0) printf("the biggest eigenvalue of A is %f (IETL) \n", eigen.back());
+//    if(rank==0) printf("the biggest eigenvalue of A is %f (IETL) \n", eigen.back());
     A.eig_max_of_invdiagXA = eigen.back();
 
 //    A.eig_max_of_invdiagXA = eigen.back() * A.highest_diag_val;
