@@ -2266,7 +2266,7 @@ int saena_object::coarsen(Grid *grid){
 //    free(R_block_nnz_scan);
 
     if(verbose_coarsen){
-        MPI_Barrier(comm); printf("coarsen: step 4: rank = %d\n", rank); MPI_Barrier(comm);}
+        MPI_Barrier(comm); printf("coarsen: step 4-1: rank = %d\n", rank); MPI_Barrier(comm);}
 
     // todo: check this: since entries of RA_temp with these row indices only exist on this processor,
     // todo: duplicates happen only on this processor, so sorting should be done locally.
@@ -2304,6 +2304,9 @@ int saena_object::coarsen(Grid *grid){
     RA.entry.shrink_to_fit();
 
 //    print_vector(RA.entry, -1, "RA.entry", comm);
+
+    if(verbose_coarsen){
+        MPI_Barrier(comm); printf("coarsen: step 4-2: rank = %d\n", rank); MPI_Barrier(comm);}
 
     // ************************************* RAP_temp - P local *************************************
     // Some local and remote elements of RAP_temp are computed here.
@@ -2350,6 +2353,9 @@ int saena_object::coarsen(Grid *grid){
 //        std::cout << "RABlockStart: " << std::endl;
 //        for(i=0; i<nprocs+1; i++)
 //            std::cout << R_block_nnz_scan[i] << std::endl;}
+
+    if(verbose_coarsen){
+        MPI_Barrier(comm); printf("coarsen: step 4-3: rank = %d\n", rank); MPI_Barrier(comm);}
 
     // todo: combine indicesP_Prolong and indicesP_ProlongRecv together.
     // find row-wise ordering for A and save it in indicesP
