@@ -2280,6 +2280,9 @@ int saena_object::coarsen(Grid *grid){
     prolong_matrix RA(comm);
     RA.entry.resize(RA_temp.entry.size());
 
+    if(verbose_coarsen){
+        MPI_Barrier(comm); printf("coarsen: step 4-2: rank = %d\n", rank); MPI_Barrier(comm);}
+
     // remove duplicates.
     unsigned long entry_size = 0;
     for(nnz_t i=0; i<RA_temp.entry.size(); i++){
@@ -2306,7 +2309,7 @@ int saena_object::coarsen(Grid *grid){
 //    print_vector(RA.entry, -1, "RA.entry", comm);
 
     if(verbose_coarsen){
-        MPI_Barrier(comm); printf("coarsen: step 4-2: rank = %d\n", rank); MPI_Barrier(comm);}
+        MPI_Barrier(comm); printf("coarsen: step 4-3: rank = %d\n", rank); MPI_Barrier(comm);}
 
     // ************************************* RAP_temp - P local *************************************
     // Some local and remote elements of RAP_temp are computed here.
@@ -2316,7 +2319,6 @@ int saena_object::coarsen(Grid *grid){
     index_t P_max_M;
     MPI_Allreduce(&P->M, &P_max_M, 1, MPI_UNSIGNED, MPI_MAX, comm);
 //    MPI_Barrier(comm); printf("rank=%d, PMaxNnz=%d \n", rank, PMaxNnz); MPI_Barrier(comm);
-    // todo: is this way better than using the previous Allreduce? reduce on processor 0, then broadcast to other processors.
 
     unsigned int* PnnzPerRow = (unsigned int*)malloc(sizeof(unsigned int)*P_max_M);
     std::fill(&PnnzPerRow[0], &PnnzPerRow[P->M], 0);
@@ -2355,7 +2357,7 @@ int saena_object::coarsen(Grid *grid){
 //            std::cout << R_block_nnz_scan[i] << std::endl;}
 
     if(verbose_coarsen){
-        MPI_Barrier(comm); printf("coarsen: step 4-3: rank = %d\n", rank); MPI_Barrier(comm);}
+        MPI_Barrier(comm); printf("coarsen: step 4-4: rank = %d\n", rank); MPI_Barrier(comm);}
 
     // todo: combine indicesP_Prolong and indicesP_ProlongRecv together.
     // find row-wise ordering for A and save it in indicesP
@@ -2464,7 +2466,7 @@ int saena_object::coarsen(Grid *grid){
     } //for i
 
     if(verbose_coarsen){
-        MPI_Barrier(comm); printf("coarsen: step 6: rank = %d\n", rank); MPI_Barrier(comm);}
+        MPI_Barrier(comm); printf("coarsen: step 6-1: rank = %d\n", rank); MPI_Barrier(comm);}
 
 //    free(indicesP_ProlongRecv);
     free(PnnzPerRow);
@@ -2478,6 +2480,9 @@ int saena_object::coarsen(Grid *grid){
 //    if(rank==2)
 //        for(j=0; j<RAP_temp.entry.size(); j++)
 //            std::cout << RAP_temp.entry[j].row << "\t" << RAP_temp.entry[j].col << "\t" << RAP_temp.entry[j].val << std::endl;
+
+    if(verbose_coarsen){
+        MPI_Barrier(comm); printf("coarsen: step 6-2: rank = %d\n", rank); MPI_Barrier(comm);}
 
     Ac->entry.resize(RAP_temp.entry.size());
 
