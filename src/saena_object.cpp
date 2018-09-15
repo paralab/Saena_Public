@@ -2272,10 +2272,8 @@ int saena_object::coarsen(Grid *grid){
     // todo: duplicates happen only on this processor, so sorting should be done locally.
     std::sort(RA_temp.entry.begin(), RA_temp.entry.end());
 
-//    MPI_Barrier(A->comm);
-//    if(rank==1)
-//        for(j=0; j<RA_temp.entry.size(); j++)
-//            std::cout << RA_temp.entry[j].row + P->splitNew[rank] << "\t" << RA_temp.entry[j].col << "\t" << RA_temp.entry[j].val << std::endl;
+    printf("RA_temp.entry.size = %lu \n", RA_temp.entry.size());
+//    print_vector(RA_temp.entry, -1, "RA_temp.entry", comm);
 
     prolong_matrix RA(comm);
     RA.entry.resize(RA_temp.entry.size());
@@ -2477,9 +2475,7 @@ int saena_object::coarsen(Grid *grid){
 
     std::sort(RAP_temp.entry.begin(), RAP_temp.entry.end());
 
-//    if(rank==2)
-//        for(j=0; j<RAP_temp.entry.size(); j++)
-//            std::cout << RAP_temp.entry[j].row << "\t" << RAP_temp.entry[j].col << "\t" << RAP_temp.entry[j].val << std::endl;
+//    print_vector(RAP_temp.entry, -1, "RAP_temp.entry", comm);
 
     if(verbose_coarsen){
         MPI_Barrier(comm); printf("coarsen: step 6-2: rank = %d\n", rank); MPI_Barrier(comm);}
