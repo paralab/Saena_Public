@@ -176,6 +176,18 @@ include_directories(
 #        )
 
 # -----------------------------------------------------------------------
+# dollar (profiler)
+
+set(DOLLAR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/dollar")
+include_directories(
+        ${DOLLAR_DIR}
+)
+
+#add_definitions($=)
+#set(DOLLAR_DISABLE "-D$=")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${DOLLAR_DISABLE}")
+
+# -----------------------------------------------------------------------
 # Main Files
 
 include_directories(include)
