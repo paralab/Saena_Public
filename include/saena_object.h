@@ -56,9 +56,11 @@ public:
     bool verbose = false;
     bool verbose_setup = true;
     bool verbose_setup_steps = false;
-    bool verbose_level_setup = true;
-    bool verbose_coarsen = true;
+    bool verbose_level_setup = false;
+    bool verbose_coarsen = false;
     bool verbose_coarsen2 = false;
+    bool verbose_matmat = false;
+    bool verbose_matmat_recursive = false;
     bool verbose_solve = false;
     bool verbose_vcycle = false;
     bool verbose_vcycle_residuals = false;
@@ -72,7 +74,10 @@ public:
     int setup(saena_matrix* A);
     int level_setup(Grid* grid);
     int coarsen(Grid *grid);
-    // this function is similar to the coarsen(), but does R*A*P for only local (diagonal) blocks.
+    int coarsen_old(Grid *grid);
+    int fast_mm(std::vector<cooEntry> &A, std::vector<cooEntry> &B, std::vector<cooEntry> &C,
+                index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+                index_t B_row_offset, index_t B_col_size, index_t B_col_offset, MPI_Comm comm);
     int coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff);
 //    int coarsen2(saena_matrix* A, prolong_matrix* P, restrict_matrix* R, saena_matrix* Ac);
     int find_aggregation(saena_matrix* A, std::vector<unsigned long>& aggregate, std::vector<index_t>& splitNew);
@@ -119,6 +124,8 @@ public:
 //    int find_eig_Elemental(saena_matrix& A);
     int local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEntry> &C);
     int scale_vector(std::vector<value_t>& v, std::vector<value_t>& w);
+    int transpose_locally(std::vector<cooEntry> &A, nnz_t size);
+    int transpose_locally(std::vector<cooEntry> &A, nnz_t size, std::vector<cooEntry> &B);
 
     int writeMatrixToFileA(saena_matrix* A, std::string name);
     int writeMatrixToFileP(prolong_matrix* P, std::string name);

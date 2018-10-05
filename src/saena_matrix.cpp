@@ -1,5 +1,6 @@
 #include "saena_matrix.h"
 #include "parUtils.h"
+#include "dollar.hpp"
 
 #include <fstream>
 #include <cstring>
@@ -1861,11 +1862,18 @@ int saena_matrix::repartition_row(){
 
     if(repartition_verbose && rank==0) printf("repartition4 - step 2!\n");
 
+    std::vector<index_t> split_extra;
     split_old = split;
     split[0] = 0;
-    for(index_t i=1; i<nprocs; i++)
+    split_extra.emplace_back(0);
+    for(index_t i=1; i<nprocs; i++){
         split[i] = split[i-1] + splitOffset[i];
+        if(split_old[i+1] - split_old[i] == 0){
+            split_extra.emplace_back();
+        }
+    }
     split[nprocs] = Mbig;
+    split_extra.emplace_back(Mbig);
 
     splitOffset.clear();
     splitOffset.shrink_to_fit();
@@ -1924,7 +1932,7 @@ int saena_matrix::repartition_row(){
 //        M_old = M;
         M = split[rank+1] - split[rank];
 
-//    print_vector(split, 0, "split", comm);
+//        print_vector(split, 0, "split", comm);
 
         root_cpu = 0;
         for(int proc = 0; proc < nprocs; proc++){
@@ -2365,11 +2373,11 @@ int saena_matrix::shrink_cpu_minor(){
     MPI_Comm_rank(comm, &rank);
     bool verbose_shrink = false;
 
-//    MPI_Barrier(comm);
-//    if(rank==0) printf("\n****************************\n");
-//    if(rank==0) printf("********MINOR SHRINK********\n");
-//    if(rank==0) printf("****************************\n\n");
-//    MPI_Barrier(comm);
+    MPI_Barrier(comm);
+    if(rank==0) printf("\n****************************\n");
+    if(rank==0) printf("********MINOR SHRINK********\n");
+    if(rank==0) printf("****************************\n\n");
+    MPI_Barrier(comm);
 
     shrinked_minor = true;
 
@@ -2434,8 +2442,10 @@ int saena_matrix::matrix_setup() {
         if(verbose_matrix_setup) {
             MPI_Barrier(comm);
             printf("matrix_setup: rank = %d, Mbig = %u, M = %u, nnz_g = %lu, nnz_l = %lu \n", rank, Mbig, M, nnz_g, nnz_l);
-            MPI_Barrier(comm);}
+            MPI_Barrier(comm);
+        }
 
+//        printf("matrix_setup: rank = %d, Mbig = %u, M = %u, nnz_g = %lu, nnz_l = %lu \n", rank, Mbig, M, nnz_g, nnz_l);
 //        print_vector(entry, -1, "entry", comm);
 
         assembled = true;
@@ -2477,6 +2487,7 @@ int saena_matrix::matrix_setup() {
         // scale the matrix to have its diagonal entries all equal to 1.
 
         scale_matrix();
+//        print_vector(entry, 0, "entry", comm);
 
         // *************************** print_entry info ****************************
 
@@ -3018,7 +3029,7 @@ int saena_matrix::openmp_setup() {
             const int thread_id = omp_get_thread_num();
             iter_local_array2[thread_id] = iter_local_array[thread_id]; // the default value
 
-#pragma omp for
+            #pragma omp for
             for(index_t i = 0; i < M; i++)
                 nnzPerRow_local2[i] = nnzPerRow_local[i];
 
@@ -3063,7 +3074,9 @@ int saena_matrix::scale_matrix(){
 
 //    MPI_Barrier(comm); if(rank==1) printf("start of saena_matrix::scale()\n"); MPI_Barrier(comm);
 
-    inv_diag.assign(M, 1);
+//    print_vector(inv_diag, -1, "inv_diag", comm);
+//    inv_diag.assign(, 0);
+    std::fill(inv_diag.begin(), inv_diag.end(), 1);
 
     MPI_Request* requests;
     MPI_Status* statuses;
@@ -3485,7 +3498,7 @@ int saena_matrix::matvec_timing1(std::vector<value_t>& v, std::vector<value_t>& 
     // ----------
     double t1_start = omp_get_wtime();
 
-    w.assign(w.size(), 0);
+    std::fill(w.begin(), w.end(), 0);
     value_t* v_p = &v[0] - split[rank];
     #pragma omp parallel reduction(vec_double_plus:w)
     {
@@ -4458,7 +4471,7 @@ int saena_matrix::compute_matvec_dummy_time(){
         v_dummy.swap(w_dummy);
     }
 
-    matvec_dummy_time.assign(matvec_dummy_time.size(),0);
+    std::fill(matvec_dummy_time.begin(), matvec_dummy_time.end(), 0);
     for (int i = 0; i < matvec_iter; i++) {
         matvec_dummy(v_dummy, w_dummy);
         v_dummy.swap(w_dummy);
@@ -5118,7 +5131,7 @@ int saena_matrix::print_info(int ran) {
         for(index_t proc = 0; proc < nprocs; proc++){
             MPI_Barrier(comm);
             if (rank == proc) {
-                printf("matrix A on rank %d: M = %u, \tnnz_l = %lu \n", proc, M, nnz_l);
+                printf("matrix A on rank %d: M    = %u, \tnnz_l = %lu \n", proc, M, nnz_l);
             }
             MPI_Barrier(comm);
         }
