@@ -273,7 +273,7 @@ int saena_object::find_aggregation(saena_matrix* A, std::vector<unsigned long>& 
         new_size_local = aggArray.size();
         MPI_Allreduce(&new_size_local, &new_size, 1, MPI_UNSIGNED, MPI_SUM, comm);
         division = (double)A->Mbig / new_size;
-        if(rank==0) printf("connStrength = %.2f, current size = %u, new size = %u, division = %.2f\n",
+        if(rank==0) printf("\nconnStrength = %.2f \ncurrent size = %u \nnew size     = %u \ndivision     = %.2f\n",
                            connStrength_temp, A->Mbig, new_size, division);
 
         if( division > 8 ){
@@ -2039,7 +2039,7 @@ int saena_object::fast_mm(std::vector<cooEntry> &A, std::vector<cooEntry> &B, st
 
     index_t size_min = std::min(std::min(A_row_size, A_col_size), B_col_size);
 
-    index_t r_dense = 200, c_dense = 200; //todo: fix this.
+    index_t r_dense = 100, c_dense = 100; //todo: fix this.
     if( (A_row_size < r_dense && A_col_size < c_dense) || size_min < 30 ){ //todo: fix this.
 
         if(rank==0 && verbose_matmat) printf("fast_mm: case 1: start \n");
@@ -2067,7 +2067,6 @@ int saena_object::fast_mm(std::vector<cooEntry> &A, std::vector<cooEntry> &B, st
 
         if(rank==0 && verbose_matmat) printf("fast_mm: case 1: step 1 \n");
 
-        // todo: check if indices here are local or global.
         for(nnz_t j = 0; j < B.size(); j++){
             for(nnz_t i = AnnzPerColScan[B[j].row - B_row_offset]; i < AnnzPerColScan[B[j].row - B_row_offset + 1]; i++) {
 //                if(rank==1 && A[i].row == 2 && B[j].col == 0) std::cout << "A: " << A[i] << "\tB: " << B[j] << "\tC_index: " << A[i].row + A_row_size * B[j].col << std::endl;
@@ -2111,10 +2110,10 @@ int saena_object::fast_mm(std::vector<cooEntry> &A, std::vector<cooEntry> &B, st
 
         if(rank==0 && verbose_matmat) printf("fast_mm: case 2: start \n");
 
-        // Split A in half by the middle row.
+        // Split A in half by the middle col.
         std::vector<cooEntry> A1, A2;
         for(nnz_t i = 0; i < A.size(); i++){
-            if(A[i].col-A_col_offset < A_col_size/2){ // todo: is row a global index?
+            if(A[i].col-A_col_offset < A_col_size/2){
                 A1.emplace_back(A[i]);
             }else{
                 A2.emplace_back(A[i]);
@@ -2129,7 +2128,7 @@ int saena_object::fast_mm(std::vector<cooEntry> &A, std::vector<cooEntry> &B, st
         // Split B in half by the middle row.
         std::vector<cooEntry> B1, B2;
         for(nnz_t i = 0; i < B.size(); i++){
-            if(B[i].row-B_row_offset < A_col_size/2) { // todo: is row a global index?
+            if(B[i].row-B_row_offset < A_col_size/2) {
                 B1.emplace_back(B[i]);
             }else{
                 B2.emplace_back(B[i]);
@@ -2230,7 +2229,7 @@ int saena_object::fast_mm(std::vector<cooEntry> &A, std::vector<cooEntry> &B, st
         // Split A in half by the middle row.
         std::vector<cooEntry> A1, A2;
         for(nnz_t i = 0; i < A.size(); i++){
-            if(A[i].row-A_row_offset < A_row_size/2){ // todo: is row a global index?
+            if(A[i].row-A_row_offset < A_row_size/2){
                 A1.emplace_back(A[i]);
             }else{
                 A2.emplace_back(A[i]);
@@ -2242,7 +2241,7 @@ int saena_object::fast_mm(std::vector<cooEntry> &A, std::vector<cooEntry> &B, st
         // Split B in half by the middle column.
         std::vector<cooEntry> B1, B2;
         for(nnz_t i = 0; i < B.size(); i++){
-            if(B[i].col-B_col_offset < B_col_size/2){ // todo: col is a global index. fix this.
+            if(B[i].col-B_col_offset < B_col_size/2){
                 B1.emplace_back(B[i]);
             }else{
                 B2.emplace_back(B[i]);
@@ -2336,6 +2335,56 @@ int saena_object::coarsen(Grid *grid) {$
                R->nnz_l);
         MPI_Barrier(comm);
     }
+
+
+
+
+
+    Ac->Mbig = P->Nbig;
+    Ac->M = P->splitNew[rank+1] - P->splitNew[rank];
+    Ac->M_old = Ac->M;
+    Ac->comm = A->comm;
+    Ac->comm_old = A->comm;
+    Ac->last_M_shrink = A->last_M_shrink;
+    Ac->last_density_shrink = A->last_density_shrink;
+//    Ac->last_nnz_shrink = A->last_nnz_shrink;
+//    Ac->enable_shrink = A->enable_shrink;
+//    Ac->enable_shrink = A->enable_shrink_next_level;
+    Ac->active_old_comm = true;
+    Ac->density = float(Ac->nnz_g) / (Ac->Mbig * Ac->Mbig);
+    Ac->switch_to_dense = switch_to_dense;
+    Ac->dense_threshold = dense_threshold;
+
+    Ac->cpu_shrink_thre1 = A->cpu_shrink_thre1; //todo: is this required?
+    if(A->cpu_shrink_thre2_next_level != -1) // this is -1 by default.
+        Ac->cpu_shrink_thre2 = A->cpu_shrink_thre2_next_level;
+
+    //return these to default, since they have been used in the above part.
+    A->cpu_shrink_thre2_next_level = -1;
+    A->enable_shrink_next_level = false;
+    Ac->split = P->splitNew;
+    // ********** minor shrinking **********
+    for(index_t i = 0; i < Ac->split.size()-1; i++){
+        if(Ac->split[i+1] - Ac->split[i] == 0){
+//            printf("rank %d: shrink minor in coarsen: i = %d, split[i] = %d, split[i+1] = %d\n", rank, i, Ac->split[i], Ac->split[i+1]);
+            Ac->shrink_cpu_minor();
+            break;
+        }
+    }
+
+//    int nprocs_updated;
+//    MPI_Comm_size(Ac->comm, &nprocs_updated);
+
+
+
+
+
+
+
+
+
+
+
 
     // local transpose of R is being used to compute A*P. So R is transposed locally here.
     std::vector<cooEntry> R_tranpose(R->entry.size());
@@ -2450,12 +2499,14 @@ int saena_object::coarsen(Grid *grid) {$
     RAP_temp.clear();
     RAP_temp.shrink_to_fit();
 
-//    MPI_Barrier(comm); printf("RAP_no_dup.size = %lu \n", RAP_no_dup.size()); MPI_Barrier(comm);
+//    MPI_Barrier(comm); printf("rank %d: RAP_no_dup.size = %lu \n", rank, RAP_no_dup.size()); MPI_Barrier(comm);
 //    print_vector(RAP_no_dup, -1, "RAP_no_dup", comm);
+//    print_vector(P->splitNew, 0, "P->splitNew", comm);
 
     std::vector<cooEntry_row> RAP_sorted_row;
-    par::sampleSort(RAP_no_dup, RAP_sorted_row, comm);
+    par::sampleSort(RAP_no_dup, RAP_sorted_row, P->splitNew, comm);
 //    print_vector(RAP_sorted_row, -1, "RAP_sorted_row", A->comm);
+//    MPI_Barrier(comm); printf("rank %d: RAP_sorted_row.size = %lu \n", rank, RAP_sorted_row.size()); MPI_Barrier(comm);
 
     RAP_no_dup.clear();
     RAP_no_dup.shrink_to_fit();
@@ -2468,24 +2519,97 @@ int saena_object::coarsen(Grid *grid) {$
     RAP_sorted_row.shrink_to_fit();
 
     // remove duplicates.
+    double val_temp;
     for(nnz_t i=0; i<RAP_sorted.size(); i++){
-        Ac->entry.emplace_back(RAP_sorted[i]);
+        val_temp = RAP_sorted[i].val;
         while(i<RAP_sorted.size()-1 && RAP_sorted[i] == RAP_sorted[i+1]){ // values of entries with the same row and col should be added.
-            Ac->entry.back().val += RAP_sorted[i+1].val;
+            val_temp += RAP_sorted[i+1].val;
             i++;
         }
-        // todo: pruning. don't hard code tol.
-//        if( abs(Ac->entry.back().val) < 1e-6)
-//            Ac->entry.pop_back();
+        Ac->entry.emplace_back( cooEntry(RAP_sorted[i].row, RAP_sorted[i].col, val_temp) );
     }
 
-    std::sort(Ac->entry.begin(), Ac->entry.end());
 //    print_vector(Ac->entry, -1, "Ac->entry", A->comm);
-//    if(rank==0) printf("rank %d: entry_size = %lu \n", rank, entry_size);
+    if(verbose_coarsen){
+        MPI_Barrier(comm); printf("coarsen: step 4: rank = %d\n", rank); MPI_Barrier(comm);}
+
+/*
+    double val_temp;
+    double norm_frob_sq = 0;
+
+    // remove duplicates.
+    // compute Frobenius norm squared (norm_frob_sq).
+    std::vector<cooEntry> Ac_orig;
+    for(nnz_t i=0; i<RAP_sorted.size(); i++){
+        val_temp = RAP_sorted[i].val;
+        while(i<RAP_sorted.size()-1 && RAP_sorted[i] == RAP_sorted[i+1]){ // values of entries with the same row and col should be added.
+            val_temp += RAP_sorted[i+1].val;
+            i++;
+        }
+
+//        if( fabs(val_temp) > sparse_epsilon / 2 / P->Nbig)
+        if(val_temp * val_temp > sparse_epsilon * sparse_epsilon / 4 / P->Nbig / P->Nbig){
+            Ac_orig.emplace_back( cooEntry(RAP_sorted[i].row, RAP_sorted[i].col, val_temp) );
+            norm_frob_sq += val_temp * val_temp;
+        }
+    }
+
+    if(rank==0) printf("Ac_orig.size() = %lu\n", Ac_orig.size());
+//    std::sort(Ac_orig.begin(), Ac_orig.end());
+//    print_vector(Ac_orig, -1, "Ac_orig", A->comm);
 
     RAP_sorted.clear();
     RAP_sorted.shrink_to_fit();
 
+    // *******************************************************
+    // sparsification
+    // *******************************************************
+
+    //Type of random number distribution
+    std::uniform_real_distribution<double> dist(0.0,1.0); //(min, max)
+
+    //Mersenne Twister: Good quality random number generator
+    std::mt19937 rng;
+
+    //Initialize with non-deterministic seeds
+    rng.seed(std::random_device{}());
+
+    // s = 28nln(sqrt(2)*n) / epsilon^2
+    nnz_t sample_size = nnz_t( 28 * P->Nbig * log(sqrt(2) * P->Nbig) * norm_frob_sq / sparse_epsilon / sparse_epsilon );
+    if(rank==0) printf("sample_size = %lu\n", sample_size);
+
+    std::vector<cooEntry> Ac_orig_sparse(sample_size);
+    double norm_temp = 0;
+    for(nnz_t i = 0; i < Ac_orig.size(); i++){
+        norm_temp += Ac_orig[i].val * Ac_orig[i].val;
+
+        for(nnz_t j = 0; j < sample_size; j++){
+            if(dist(rng) < Ac_orig[i].val * Ac_orig[i].val / norm_temp){
+//                printf("dist(rng) = %f \n", dist(rng));
+                Ac_orig_sparse[j] = cooEntry(Ac_orig[i].row, Ac_orig[i].col, Ac_orig[i].val / norm_frob_sq);
+            }
+        }
+    }
+
+    if(rank==0) printf("Ac_orig_sparse.size() = %lu\n", Ac_orig_sparse.size());
+//    print_vector(Ac_orig_sparse, -1, "Ac_orig_sparse", A->comm);
+    std::sort(Ac_orig_sparse.begin(), Ac_orig_sparse.end());
+
+    // remove duplicates and change the values based on Algorithm 1 of Drineas' paper.
+    double sxpij; // s * p_{ij}
+    for(nnz_t i=0; i<Ac_orig_sparse.size(); i++){
+        val_temp = Ac_orig_sparse[i].val;
+        sxpij = sample_size * val_temp / norm_frob_sq;
+        while(i<Ac_orig_sparse.size()-1 && Ac_orig_sparse[i] == Ac_orig_sparse[i+1]){ // values of entries with the same row and col should be added.
+            val_temp += Ac_orig_sparse[i+1].val;
+            i++;
+        }
+        Ac->entry.emplace_back( cooEntry(Ac_orig_sparse[i].row, Ac_orig_sparse[i].col, val_temp / sxpij) );
+    }
+
+    if(rank==0) printf("Ac->entry.size() = %lu\n", Ac->entry.size());
+//    print_vector(Ac->entry, -1, "Ac->entry", A->comm);
+*/
     // *******************************************************
     // use this part to print data to be used in Julia, to check the solution.
     // *******************************************************
@@ -2544,29 +2668,6 @@ int saena_object::coarsen(Grid *grid) {$
 
     Ac->nnz_l = Ac->entry.size();
     MPI_Allreduce(&Ac->nnz_l, &Ac->nnz_g, 1, MPI_UNSIGNED_LONG, MPI_SUM, comm);
-    Ac->Mbig = P->Nbig;
-    Ac->M = P->splitNew[rank+1] - P->splitNew[rank];
-    Ac->M_old = Ac->M;
-    Ac->split = P->splitNew;
-    Ac->last_M_shrink = A->last_M_shrink;
-    Ac->last_density_shrink = A->last_density_shrink;
-//    Ac->last_nnz_shrink = A->last_nnz_shrink;
-//    Ac->enable_shrink = A->enable_shrink;
-//    Ac->enable_shrink = A->enable_shrink_next_level;
-    Ac->comm = A->comm;
-    Ac->comm_old = A->comm;
-    Ac->active_old_comm = true;
-    Ac->density = float(Ac->nnz_g) / (Ac->Mbig * Ac->Mbig);
-    Ac->switch_to_dense = switch_to_dense;
-    Ac->dense_threshold = dense_threshold;
-
-    Ac->cpu_shrink_thre1 = A->cpu_shrink_thre1; //todo: is this required?
-    if(A->cpu_shrink_thre2_next_level != -1) // this is -1 by default.
-        Ac->cpu_shrink_thre2 = A->cpu_shrink_thre2_next_level;
-
-    //return these to default, since they have been used in the above part.
-    A->cpu_shrink_thre2_next_level = -1;
-    A->enable_shrink_next_level = false;
 
     if(verbose_coarsen){
         MPI_Barrier(comm); printf("coarsen: step 8: rank = %d\n", rank); MPI_Barrier(comm);}
@@ -7138,3 +7239,16 @@ int saena_object::transpose_locally(std::vector<cooEntry> &A, nnz_t size, std::v
 
     return 0;
 }
+
+
+int saena_object::sparsify(std::vector<cooEntry>& A, MPI_Comm comm) {
+
+    int rank, nprocs;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nprocs);
+
+
+
+    return 0;
+}
+

@@ -19,7 +19,7 @@ class Grid;
 class saena_object {
 public:
 
-    int max_level = 3; // fine grid is level 0.
+    int max_level = 10; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 20;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,
@@ -40,6 +40,7 @@ public:
     bool dynamic_levels = true;
     bool adaptive_coarsening = true;
 //    bool doSparsify = false;
+    double sparse_epsilon = 3;
 
     int set_shrink_levels(std::vector<bool> sh_lev_vec);
     std::vector<bool> shrink_level_vector;
@@ -126,6 +127,7 @@ public:
     int scale_vector(std::vector<value_t>& v, std::vector<value_t>& w);
     int transpose_locally(std::vector<cooEntry> &A, nnz_t size);
     int transpose_locally(std::vector<cooEntry> &A, nnz_t size, std::vector<cooEntry> &B);
+    int sparsify(std::vector<cooEntry> & A, MPI_Comm comm);
 
     int writeMatrixToFileA(saena_matrix* A, std::string name);
     int writeMatrixToFileP(prolong_matrix* P, std::string name);
