@@ -188,6 +188,14 @@ include_directories(
 #set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${DOLLAR_DISABLE}")
 
 # -----------------------------------------------------------------------
+# trsl: for sampling
+
+set(TRSL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/trsl-0.2.2)
+include_directories(
+        ${TRSL_DIR}
+)
+
+# -----------------------------------------------------------------------
 # Main Files
 
 include_directories(include)

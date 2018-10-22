@@ -22,6 +22,11 @@
 #include <mpi.h>
 #include <superlu_defs.h>
 
+#include <trsl/is_picked_systematic.hpp>
+#include <trsl/ppfilter_iterator.hpp>
+//#include <numeric> // accumulate
+//#include <cassert>
+
 
 saena_object::saena_object(){}
 
@@ -317,7 +322,7 @@ int saena_object::find_aggregation(saena_matrix* A, std::vector<unsigned long>& 
 } // end of SaenaObject::findAggregation
 
 
-int saena_object::create_strength_matrix(saena_matrix* A, strength_matrix* S){$
+int saena_object::create_strength_matrix(saena_matrix* A, strength_matrix* S){
 
     // based on the following paper by Irad Yavneh:
     // Non-Galerkin Multigrid Based on Sparsified Smoothed Aggregation - page: A51
@@ -508,7 +513,7 @@ int saena_object::create_strength_matrix(saena_matrix* A, strength_matrix* S){$
 // Using MIS(1) from the following paper by Luke Olson:
 // EXPOSING FINE-GRAINED PARALLELISM IN ALGEBRAIC MULTIGRID METHODS
 int saena_object::aggregation_1_dist(strength_matrix *S, std::vector<unsigned long> &aggregate,
-                                     std::vector<unsigned long> &aggArray) {$
+                                     std::vector<unsigned long> &aggArray) {
 
     // todo: update the comments for 1-distance independent set.
     // For each node, first assign it to a 1-distance root. If there is not any root in distance-1, find a distance-2 root.
@@ -2030,9 +2035,9 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
 //    }
 
     // todo: fix this.
-    const index_t r_dense = 14; //default 100.
+    const index_t r_dense = 50; //default 100.
     const index_t c_dense = r_dense;
-    const index_t min_size_threshold = 4; //default 30.
+    const index_t min_size_threshold = 10; //default 30.
 
     int rank, nprocs;
     MPI_Comm_size(comm, &nprocs);
@@ -2966,29 +2971,94 @@ int saena_object::coarsen(Grid *grid) {$
     // *******************************************************
     // form Ac
     // *******************************************************
-    // version 1: without sparsification
-    // *******************************************************
 
-    // remove duplicates.
-    double val_temp;
-    for(nnz_t i = 0; i < RAP_row_sorted.size(); i++){
-        val_temp = RAP_row_sorted[i].val;
-        while(i<RAP_row_sorted.size()-1 && RAP_row_sorted[i] == RAP_row_sorted[i+1]){ // values of entries with the same row and col should be added.
-            val_temp += RAP_row_sorted[i+1].val;
-            i++;
+    if(!doSparsify){
+
+        // *******************************************************
+        // version 1: without sparsification
+        // *******************************************************
+
+        // remove duplicates.
+        cooEntry temp;
+        for(nnz_t i = 0; i < RAP_row_sorted.size(); i++){
+            temp = cooEntry(RAP_row_sorted[i].row, RAP_row_sorted[i].col, RAP_row_sorted[i].val);
+            while(i<RAP_row_sorted.size()-1 && RAP_row_sorted[i] == RAP_row_sorted[i+1]){ // values of entries with the same row and col should be added.
+                temp.val += RAP_row_sorted[i+1].val;
+                i++;
+            }
+            Ac->entry.emplace_back( temp );
         }
-        Ac->entry.emplace_back( cooEntry(RAP_row_sorted[i].row, RAP_row_sorted[i].col, val_temp) );
-    }
 
-    RAP_row_sorted.clear();
-    RAP_row_sorted.shrink_to_fit();
+        RAP_row_sorted.clear();
+        RAP_row_sorted.shrink_to_fit();
+
+    }else{
+
+        // remove duplicates.
+        // compute Frobenius norm squared (norm_frob_sq).
+        cooEntry temp;
+        double max_val = 0;
+        double norm_frob_sq = 0;
+        std::vector<cooEntry> Ac_orig;
+//        nnz_t no_sparse_size = 0;
+        for(nnz_t i=0; i<RAP_row_sorted.size(); i++){
+            temp = cooEntry(RAP_row_sorted[i].row, RAP_row_sorted[i].col, RAP_row_sorted[i].val);
+            while(i<RAP_row_sorted.size()-1 && RAP_row_sorted[i] == RAP_row_sorted[i+1]){ // values of entries with the same row and col should be added.
+                temp.val += RAP_row_sorted[i+1].val;
+                i++;
+            }
+
+//            if( fabs(val_temp) > sparse_epsilon / 2 / Ac->Mbig)
+//            if(temp.val * temp.val > sparse_epsilon * sparse_epsilon / (4 * Ac->Mbig * Ac->Mbig) ){
+                Ac_orig.emplace_back( temp );
+                norm_frob_sq += temp.val * temp.val;
+                if(temp.val > max_val){
+                    max_val = temp.val;
+                }
+//            }
+//            no_sparse_size++; //todo: just for test. delete this later!
+        }
+
+//        if(rank==0) printf("\noriginal size   = %lu\n", Ac_orig.size());
+//        if(rank==0) printf("\noriginal size without sparsification   \t= %lu\n", no_sparse_size);
+//        if(rank==0) printf("filtered Ac size before sparsification \t= %lu\n", Ac_orig.size());
+
+//        std::sort(Ac_orig.begin(), Ac_orig.end());
+//        print_vector(Ac_orig, -1, "Ac_orig", A->comm);
+
+        RAP_row_sorted.clear();
+        RAP_row_sorted.shrink_to_fit();
+
+        auto sample_size = nnz_t(0.8 * Ac_orig.size());
+//        auto sample_size = nnz_t(Ac->Mbig * Ac->Mbig * A->density);
+//        if(rank==0) printf("sample_size     = %lu \n", sample_size);
+
+        if(sparsifier == "TRSL"){
+
+            sparsify_trsl1(Ac_orig, Ac->entry, norm_frob_sq, sample_size, comm);
+
+        }else if(sparsifier == "drineas"){
+
+            sparsify_drineas(Ac_orig, Ac->entry, norm_frob_sq, sample_size, comm);
+
+        }else if(sparsifier == "majid"){
+
+            sparsify_majid(Ac_orig, Ac->entry, norm_frob_sq, sample_size, max_val, comm);
+
+        }else{
+            printf("\nerror: wrong sparsifier!");
+        }
+
+    }
 
 //    print_vector(Ac->entry, -1, "Ac->entry", A->comm);
     if(verbose_coarsen){
         MPI_Barrier(comm); printf("coarsen: step 9: rank = %d\n", rank); MPI_Barrier(comm);}
 
     // *******************************************************
-    // version 2: with sparsification
+    // version 3: with sparsification. Drineas' Method
+    // *******************************************************
+    // part 1: remove duplicates
     // *******************************************************
 /*
     nnz_t no_sparse_size = 0;
@@ -3022,7 +3092,7 @@ int saena_object::coarsen(Grid *grid) {$
     RAP_row_sorted.shrink_to_fit();
 
     // *******************************************************
-    // sparsification
+    // version 3: part 2: sparsification
     // *******************************************************
 
     //Type of random number distribution
@@ -3079,7 +3149,7 @@ int saena_object::coarsen(Grid *grid) {$
     // *******************************************************
     // use this part to print data to be used in Julia, to check the solution.
     // *******************************************************
-
+/*
 //    std::cout << "\n";
 //    for(nnz_t i = 0; i < A->entry.size(); i++){
 //        std::cout << A->entry[i].row+1 << ", ";
@@ -3127,6 +3197,7 @@ int saena_object::coarsen(Grid *grid) {$
 //    A = sparse(I, J ,V)
 //    and so on. then compare the multiplication from Julia with the following:
 //    print_vector(Ac->entry, -1, "Ac->entry", A->comm);
+*/
 
     // *******************************************************
     // setup matrix
@@ -3146,6 +3217,7 @@ int saena_object::coarsen(Grid *grid) {$
         int rank_new;
         MPI_Comm_rank(Ac->comm, &rank_new);
 //        Ac->print_info(-1);
+//        Ac->print_entry(-1);
 
         // ********** decide about shrinking **********
 
@@ -4922,7 +4994,7 @@ int SaenaObject::solveCoarsest(SaenaMatrix* A, std::vector<double>& x, std::vect
 */
 
 
-int saena_object::smooth(Grid* grid, std::string smoother, std::vector<value_t>& u, std::vector<value_t>& rhs, int iter){$
+int saena_object::smooth(Grid* grid, std::string smoother, std::vector<value_t>& u, std::vector<value_t>& rhs, int iter){
     std::vector<value_t> temp1(u.size());
     std::vector<value_t> temp2(u.size());
 
@@ -4940,7 +5012,7 @@ int saena_object::smooth(Grid* grid, std::string smoother, std::vector<value_t>&
 }
 
 
-int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs){$
+int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs){
 
     if(grid->A->active) {
         MPI_Comm comm = grid->A->comm;
@@ -5316,14 +5388,14 @@ int saena_object::solve_pcg(std::vector<value_t>& u){$
         return -1;
     }
 
-    if(verbose_solve) if(rank == 0) printf("verbose:solve_pcg: check u size!\n");
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: check u size!\n");
 
     // ************** repartition u **************
 
     if(repartition)
         repartition_u(u);
 
-    if(verbose_solve) if(rank == 0) printf("verbose:solve_pcg: repartition u!\n");
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: repartition u!\n");
 
     // ************** solve **************
 
@@ -5367,7 +5439,7 @@ int saena_object::solve_pcg(std::vector<value_t>& u){$
     std::vector<value_t> rho(grids[0].A->M, 0);
     vcycle(&grids[0], rho, r);
 
-    if(verbose_solve) if(rank == 0) printf("verbose:solve_pcg: first vcycle!\n");
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: first vcycle!\n");
 
 //    for(i = 0; i < r.size(); i++)
 //        printf("rho[%lu] = %f,\t r[%lu] = %f \n", i, rho[i], i, r[i]);
@@ -5434,7 +5506,7 @@ int saena_object::solve_pcg(std::vector<value_t>& u){$
         std::cout << "******************************************************" << std::endl;
     }
 
-    if(verbose_solve) if(rank == 0) printf("verbose:solve_pcg: solve!\n");
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: solve!\n");
 
     // ************** scale u **************
 
@@ -5447,7 +5519,7 @@ int saena_object::solve_pcg(std::vector<value_t>& u){$
     if(repartition)
         repartition_back_u(u);
 
-    if(verbose_solve) if(rank == 0) printf("verbose:solve_pcg: repartition back u!\n");
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: repartition back u!\n");
 
 //     print_vector(u, 0, "final u", comm);
 
@@ -5600,12 +5672,179 @@ int saena_object::solve_pcg_update1(std::vector<value_t>& u, saena_matrix* A_new
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+
+    // ************** update grids[0].A **************
+//    this part is specific to solve_pcg_update2(), in comparison to solve_pcg().
+//    the difference between this function and solve_pcg(): the finest level matrix (original LHS) is updated with
+//    the new one.
+
+    // first set A_new.eig_max_of_invdiagXA equal to the previous A's. Since we only need an upper bound, this is good enough.
+    A_new->eig_max_of_invdiagXA = grids[0].A->eig_max_of_invdiagXA;
+
+    grids[0].A = A_new;
+
+    // ************** check u size **************
+
+    index_t u_size_local = u.size(), u_size_total;
+    MPI_Allreduce(&u_size_local, &u_size_total, 1, MPI_UNSIGNED, MPI_SUM, grids[0].A->comm);
+    if(grids[0].A->Mbig != u_size_total){
+        if(rank==0) printf("Error: size of LHS (=%u) and the solution vector u (=%u) are not equal!\n", grids[0].A->Mbig, u_size_total);
+        MPI_Finalize();
+        return -1;
+    }
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: check u size!\n");
+
+    // ************** repartition u **************
+
+    if(repartition)
+        repartition_u(u);
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: repartition u!\n");
+
+    // ************** solve **************
+
+//    double temp;
+//    dot(rhs, rhs, &temp, comm);
+//    if(rank==0) std::cout << "norm(rhs) = " << sqrt(temp) << std::endl;
+
+    std::vector<value_t> r(grids[0].A->M);
+    grids[0].A->residual(u, grids[0].rhs, r);
+    double initial_dot, current_dot, previous_dot;
+    dotProduct(r, r, &initial_dot, comm);
+    if(rank==0) std::cout << "******************************************************" << std::endl;
+    if(rank==0) printf("\ninitial residual = %e \n\n", sqrt(initial_dot));
+
+    // if max_level==0, it means only direct solver is being used inside the previous vcycle, and that is all needed.
+    if(max_level == 0){
+        vcycle(&grids[0], u, grids[0].rhs);
+//        grids[0].A->print_entry(-1);
+        grids[0].A->residual(u, grids[0].rhs, r);
+//        print_vector(r, -1, "res", comm);
+        dotProduct(r, r, &current_dot, comm);
+//        if(rank==0) std::cout << "dot = " << current_dot << std::endl;
+
+        if(rank==0){
+            std::cout << "******************************************************" << std::endl;
+            printf("\nfinal:\nonly using the direct solver! \nfinal absolute residual = %e"
+                   "\nrelative residual       = %e \n\n", sqrt(current_dot), sqrt(current_dot/initial_dot));
+            std::cout << "******************************************************" << std::endl;
+        }
+
+        // scale the solution u
+        scale_vector(u, grids[0].A->inv_sq_diag);
+
+        // repartition u back
+        if(repartition)
+            repartition_back_u(u);
+
+        return 0;
+    }
+
+    std::vector<value_t> rho(grids[0].A->M, 0);
+    vcycle(&grids[0], rho, r);
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: first vcycle!\n");
+
+//    for(i = 0; i < r.size(); i++)
+//        printf("rho[%lu] = %f,\t r[%lu] = %f \n", i, rho[i], i, r[i]);
+
+//    if(rank==0){
+//        printf("Vcycle #: absolute residual \tconvergence factor\n");
+//        printf("--------------------------------------------------------\n");
+//    }
+
+    std::vector<value_t> h(grids[0].A->M);
+    std::vector<value_t> p(grids[0].A->M);
+    p = rho;
+
+    int i;
+    previous_dot = initial_dot;
+    current_dot  = initial_dot;
+    double rho_res, pdoth, alpha, beta;
+    for(i = 0; i < vcycle_num; i++){
+        grids[0].A->matvec(p, h);
+        dotProduct(r, rho, &rho_res, comm);
+        dotProduct(p, h, &pdoth, comm);
+        alpha = rho_res / pdoth;
+//        printf("rho_res = %e, pdoth = %e, alpha = %f \n", rho_res, pdoth, alpha);
+
+#pragma omp parallel for
+        for(index_t j = 0; j < u.size(); j++){
+//            if(rank==0) printf("before u = %.10f \tp = %.10f \talpha = %f \n", u[j], p[j], alpha);
+            u[j] -= alpha * p[j];
+            r[j] -= alpha * h[j];
+//            if(rank==0) printf("after  u = %.10f \tp = %.10f \talpha = %f \n", u[j], p[j], alpha);
+        }
+
+//        print_vector(u, -1, "v inside solve_pcg", grids[0].A->comm);
+
+        previous_dot = current_dot;
+        dotProduct(r, r, &current_dot, comm);
+        // print the "absolute residual" and the "convergence factor":
+        if(rank==0) printf("Vcycle %d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
+//        if(rank==0) printf("Vcycle %lu: aboslute residual = %.10f \n", i+1, sqrt(current_dot));
+        if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
+            break;
+
+        if(verbose) if(rank==0) printf("_______________________________ \n\n***** Vcycle %u *****\n", i+1);
+        std::fill(rho.begin(), rho.end(), 0);
+        vcycle(&grids[0], rho, r);
+        dotProduct(r, rho, &beta, comm);
+        beta /= rho_res;
+
+#pragma omp parallel for
+        for(index_t j = 0; j < u.size(); j++)
+            p[j] = rho[j] + beta * p[j];
+//        printf("beta = %e \n", beta);
+    }
+
+    // set number of iterations that took to find the solution
+    // only do the following if the end of the previous for loop was reached.
+    if(i == vcycle_num)
+        i--;
+
+    if(rank==0){
+        std::cout << "\n******************************************************" << std::endl;
+        printf("\nfinal:\nstopped at iteration    = %d \nfinal absolute residual = %e"
+               "\nrelative residual       = %e \n\n", i+1, sqrt(current_dot), sqrt(current_dot/initial_dot));
+        std::cout << "******************************************************" << std::endl;
+    }
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: solve!\n");
+
+    // ************** scale u **************
+
+    scale_vector(u, grids[0].A->inv_sq_diag);
+
+    // ************** repartition u back **************
+
+//    print_vector(u, 2, "final u before repartition_back_u", comm);
+
+    if(repartition)
+        repartition_back_u(u);
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: repartition back u!\n");
+
+//     print_vector(u, 0, "final u", comm);
+
+    return 0;
+}
+
+//int saena_object::solve_pcg_update1
+/*
+int saena_object::solve_pcg_update1(std::vector<value_t>& u, saena_matrix* A_new){
+
+    MPI_Comm comm = grids[0].A->comm;
+    int nprocs, rank;
+    MPI_Comm_size(comm, &nprocs);
+    MPI_Comm_rank(comm, &rank);
     bool solve_verbose = false;
 
     // ************** update grids[0].A **************
-// this part is specific to solve_pcg_update2(), in comparison to solve_pcg().
-// the difference between this function and solve_pcg(): the finest level matrix (original LHS) is updated with
-// the new one.
+//    this part is specific to solve_pcg_update2(), in comparison to solve_pcg().
+//    the difference between this function and solve_pcg(): the finest level matrix (original LHS) is updated with
+//    the new one.
 
     // first set A_new.eig_max_of_invdiagXA equal to the previous A's. Since we only need an upper bound, this is good enough.
     A_new->eig_max_of_invdiagXA = grids[0].A->eig_max_of_invdiagXA;
@@ -5744,8 +5983,186 @@ int saena_object::solve_pcg_update1(std::vector<value_t>& u, saena_matrix* A_new
 
     return 0;
 }
+*/
 
 
+int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new){$
+
+    MPI_Comm comm = grids[0].A->comm;
+    int nprocs, rank;
+    MPI_Comm_size(comm, &nprocs);
+    MPI_Comm_rank(comm, &rank);
+
+    // ************** update grids[i].A for all levels i **************
+
+    // first set A_new.eig_max_of_invdiagXA equal to the previous A's. Since we only need an upper bound, this is good enough.
+    // do the same for the next level matrices.
+    A_new->eig_max_of_invdiagXA = grids[0].A->eig_max_of_invdiagXA;
+
+    double eigen_temp;
+    grids[0].A = A_new;
+    for(int i = 0; i < max_level; i++){
+        if(grids[i].A->active) {
+            eigen_temp = grids[i].Ac.eig_max_of_invdiagXA;
+            grids[i].Ac.erase();
+            coarsen(&grids[i]);
+            grids[i + 1].A = &grids[i].Ac;
+            grids[i].Ac.eig_max_of_invdiagXA = eigen_temp;
+//            Grid(&grids[i].Ac, max_level, i + 1);
+        }
+    }
+
+    // ************** check u size **************
+
+    index_t u_size_local = u.size(), u_size_total;
+    MPI_Allreduce(&u_size_local, &u_size_total, 1, MPI_UNSIGNED, MPI_SUM, grids[0].A->comm);
+    if(grids[0].A->Mbig != u_size_total){
+        if(rank==0) printf("Error: size of LHS (=%u) and the solution vector u (=%u) are not equal!\n", grids[0].A->Mbig, u_size_total);
+        MPI_Finalize();
+        return -1;
+    }
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: check u size!\n");
+
+    // ************** repartition u **************
+
+    if(repartition)
+        repartition_u(u);
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: repartition u!\n");
+
+    // ************** solve **************
+
+//    double temp;
+//    dot(rhs, rhs, &temp, comm);
+//    if(rank==0) std::cout << "norm(rhs) = " << sqrt(temp) << std::endl;
+
+    std::vector<value_t> r(grids[0].A->M);
+    grids[0].A->residual(u, grids[0].rhs, r);
+    double initial_dot, current_dot, previous_dot;
+    dotProduct(r, r, &initial_dot, comm);
+    if(rank==0) std::cout << "******************************************************" << std::endl;
+    if(rank==0) printf("\ninitial residual = %e \n\n", sqrt(initial_dot));
+
+    // if max_level==0, it means only direct solver is being used inside the previous vcycle, and that is all needed.
+    if(max_level == 0){
+        vcycle(&grids[0], u, grids[0].rhs);
+//        grids[0].A->print_entry(-1);
+        grids[0].A->residual(u, grids[0].rhs, r);
+//        print_vector(r, -1, "res", comm);
+        dotProduct(r, r, &current_dot, comm);
+//        if(rank==0) std::cout << "dot = " << current_dot << std::endl;
+
+        if(rank==0){
+            std::cout << "******************************************************" << std::endl;
+            printf("\nfinal:\nonly using the direct solver! \nfinal absolute residual = %e"
+                   "\nrelative residual       = %e \n\n", sqrt(current_dot), sqrt(current_dot/initial_dot));
+            std::cout << "******************************************************" << std::endl;
+        }
+
+        // scale the solution u
+        scale_vector(u, grids[0].A->inv_sq_diag);
+
+        // repartition u back
+        if(repartition)
+            repartition_back_u(u);
+
+        return 0;
+    }
+
+    std::vector<value_t> rho(grids[0].A->M, 0);
+    vcycle(&grids[0], rho, r);
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: first vcycle!\n");
+
+//    for(i = 0; i < r.size(); i++)
+//        printf("rho[%lu] = %f,\t r[%lu] = %f \n", i, rho[i], i, r[i]);
+
+//    if(rank==0){
+//        printf("Vcycle #: absolute residual \tconvergence factor\n");
+//        printf("--------------------------------------------------------\n");
+//    }
+
+    std::vector<value_t> h(grids[0].A->M);
+    std::vector<value_t> p(grids[0].A->M);
+    p = rho;
+
+    int i;
+    previous_dot = initial_dot;
+    current_dot  = initial_dot;
+    double rho_res, pdoth, alpha, beta;
+    for(i = 0; i < vcycle_num; i++){
+        grids[0].A->matvec(p, h);
+        dotProduct(r, rho, &rho_res, comm);
+        dotProduct(p, h, &pdoth, comm);
+        alpha = rho_res / pdoth;
+//        printf("rho_res = %e, pdoth = %e, alpha = %f \n", rho_res, pdoth, alpha);
+
+#pragma omp parallel for
+        for(index_t j = 0; j < u.size(); j++){
+//            if(rank==0) printf("before u = %.10f \tp = %.10f \talpha = %f \n", u[j], p[j], alpha);
+            u[j] -= alpha * p[j];
+            r[j] -= alpha * h[j];
+//            if(rank==0) printf("after  u = %.10f \tp = %.10f \talpha = %f \n", u[j], p[j], alpha);
+        }
+
+//        print_vector(u, -1, "v inside solve_pcg", grids[0].A->comm);
+
+        previous_dot = current_dot;
+        dotProduct(r, r, &current_dot, comm);
+        // print the "absolute residual" and the "convergence factor":
+        if(rank==0) printf("Vcycle %d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
+//        if(rank==0) printf("Vcycle %lu: aboslute residual = %.10f \n", i+1, sqrt(current_dot));
+        if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
+            break;
+
+        if(verbose) if(rank==0) printf("_______________________________ \n\n***** Vcycle %u *****\n", i+1);
+        std::fill(rho.begin(), rho.end(), 0);
+        vcycle(&grids[0], rho, r);
+        dotProduct(r, rho, &beta, comm);
+        beta /= rho_res;
+
+#pragma omp parallel for
+        for(index_t j = 0; j < u.size(); j++)
+            p[j] = rho[j] + beta * p[j];
+//        printf("beta = %e \n", beta);
+    }
+
+    // set number of iterations that took to find the solution
+    // only do the following if the end of the previous for loop was reached.
+    if(i == vcycle_num)
+        i--;
+
+    if(rank==0){
+        std::cout << "\n******************************************************" << std::endl;
+        printf("\nfinal:\nstopped at iteration    = %d \nfinal absolute residual = %e"
+               "\nrelative residual       = %e \n\n", i+1, sqrt(current_dot), sqrt(current_dot/initial_dot));
+        std::cout << "******************************************************" << std::endl;
+    }
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: solve!\n");
+
+    // ************** scale u **************
+
+    scale_vector(u, grids[0].A->inv_sq_diag);
+
+    // ************** repartition u back **************
+
+//    print_vector(u, 2, "final u before repartition_back_u", comm);
+
+    if(repartition)
+        repartition_back_u(u);
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: repartition back u!\n");
+
+//     print_vector(u, 0, "final u", comm);
+
+    return 0;
+}
+
+
+//int saena_object::solve_pcg_update2
+/*
 int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new){
 
     MPI_Comm comm = grids[0].A->comm;
@@ -5905,8 +6322,192 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
 
     return 0;
 }
+*/
 
 
+int saena_object::solve_pcg_update3(std::vector<value_t>& u, saena_matrix* A_new){$
+
+    MPI_Comm comm = grids[0].A->comm;
+    int nprocs, rank;
+    MPI_Comm_size(comm, &nprocs);
+    MPI_Comm_rank(comm, &rank);
+
+    // ************** update grids[i].A for all levels i **************
+
+    // first set A_new.eig_max_of_invdiagXA equal to the previous A's. Since we only need an upper bound, this is good enough.
+    // do the same for the next level matrices.
+    A_new->eig_max_of_invdiagXA = grids[0].A->eig_max_of_invdiagXA;
+
+    std::vector<cooEntry> A_diff;
+    local_diff(*grids[0].A, *A_new, A_diff);
+//    print_vector(A_diff, -1, "A_diff", grids[0].A->comm);
+//    print_vector(grids[0].A->split, 0, "split", grids[0].A->comm);
+
+    grids[0].A = A_new;
+    for(int i = 0; i < max_level; i++){
+        if(grids[i].A->active) {
+//            if(rank==0) printf("_____________________________________\nlevel = %lu \n", i);
+//            grids[i].Ac.print_entry(-1);
+            coarsen_update_Ac(&grids[i], A_diff);
+//            grids[i].Ac.print_entry(-1);
+//            print_vector(A_diff, -1, "A_diff", grids[i].Ac.comm);
+//            print_vector(grids[i+1].A->split, 0, "split", grids[i+1].A->comm);
+        }
+    }
+
+//    saena_matrix* B = grids[0].Ac->get_internal_matrix();
+
+    // ************** check u size **************
+
+    index_t u_size_local = u.size(), u_size_total;
+    MPI_Allreduce(&u_size_local, &u_size_total, 1, MPI_UNSIGNED, MPI_SUM, grids[0].A->comm);
+    if(grids[0].A->Mbig != u_size_total){
+        if(rank==0) printf("Error: size of LHS (=%u) and the solution vector u (=%u) are not equal!\n", grids[0].A->Mbig, u_size_total);
+        MPI_Finalize();
+        return -1;
+    }
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: check u size!\n");
+
+    // ************** repartition u **************
+
+    if(repartition)
+        repartition_u(u);
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: repartition u!\n");
+
+    // ************** solve **************
+
+//    double temp;
+//    dot(rhs, rhs, &temp, comm);
+//    if(rank==0) std::cout << "norm(rhs) = " << sqrt(temp) << std::endl;
+
+    std::vector<value_t> r(grids[0].A->M);
+    grids[0].A->residual(u, grids[0].rhs, r);
+    double initial_dot, current_dot, previous_dot;
+    dotProduct(r, r, &initial_dot, comm);
+    if(rank==0) std::cout << "******************************************************" << std::endl;
+    if(rank==0) printf("\ninitial residual = %e \n\n", sqrt(initial_dot));
+
+    // if max_level==0, it means only direct solver is being used inside the previous vcycle, and that is all needed.
+    if(max_level == 0){
+        vcycle(&grids[0], u, grids[0].rhs);
+//        grids[0].A->print_entry(-1);
+        grids[0].A->residual(u, grids[0].rhs, r);
+//        print_vector(r, -1, "res", comm);
+        dotProduct(r, r, &current_dot, comm);
+//        if(rank==0) std::cout << "dot = " << current_dot << std::endl;
+
+        if(rank==0){
+            std::cout << "******************************************************" << std::endl;
+            printf("\nfinal:\nonly using the direct solver! \nfinal absolute residual = %e"
+                   "\nrelative residual       = %e \n\n", sqrt(current_dot), sqrt(current_dot/initial_dot));
+            std::cout << "******************************************************" << std::endl;
+        }
+
+        // scale the solution u
+        scale_vector(u, grids[0].A->inv_sq_diag);
+
+        // repartition u back
+        if(repartition)
+            repartition_back_u(u);
+
+        return 0;
+    }
+
+    std::vector<value_t> rho(grids[0].A->M, 0);
+    vcycle(&grids[0], rho, r);
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: first vcycle!\n");
+
+//    for(i = 0; i < r.size(); i++)
+//        printf("rho[%lu] = %f,\t r[%lu] = %f \n", i, rho[i], i, r[i]);
+
+//    if(rank==0){
+//        printf("Vcycle #: absolute residual \tconvergence factor\n");
+//        printf("--------------------------------------------------------\n");
+//    }
+
+    std::vector<value_t> h(grids[0].A->M);
+    std::vector<value_t> p(grids[0].A->M);
+    p = rho;
+
+    int i;
+    previous_dot = initial_dot;
+    current_dot  = initial_dot;
+    double rho_res, pdoth, alpha, beta;
+    for(i = 0; i < vcycle_num; i++){
+        grids[0].A->matvec(p, h);
+        dotProduct(r, rho, &rho_res, comm);
+        dotProduct(p, h, &pdoth, comm);
+        alpha = rho_res / pdoth;
+//        printf("rho_res = %e, pdoth = %e, alpha = %f \n", rho_res, pdoth, alpha);
+
+#pragma omp parallel for
+        for(index_t j = 0; j < u.size(); j++){
+//            if(rank==0) printf("before u = %.10f \tp = %.10f \talpha = %f \n", u[j], p[j], alpha);
+            u[j] -= alpha * p[j];
+            r[j] -= alpha * h[j];
+//            if(rank==0) printf("after  u = %.10f \tp = %.10f \talpha = %f \n", u[j], p[j], alpha);
+        }
+
+//        print_vector(u, -1, "v inside solve_pcg", grids[0].A->comm);
+
+        previous_dot = current_dot;
+        dotProduct(r, r, &current_dot, comm);
+        // print the "absolute residual" and the "convergence factor":
+        if(rank==0) printf("Vcycle %d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
+//        if(rank==0) printf("Vcycle %lu: aboslute residual = %.10f \n", i+1, sqrt(current_dot));
+        if( current_dot/initial_dot < relative_tolerance * relative_tolerance )
+            break;
+
+        if(verbose) if(rank==0) printf("_______________________________ \n\n***** Vcycle %u *****\n", i+1);
+        std::fill(rho.begin(), rho.end(), 0);
+        vcycle(&grids[0], rho, r);
+        dotProduct(r, rho, &beta, comm);
+        beta /= rho_res;
+
+#pragma omp parallel for
+        for(index_t j = 0; j < u.size(); j++)
+            p[j] = rho[j] + beta * p[j];
+//        printf("beta = %e \n", beta);
+    }
+
+    // set number of iterations that took to find the solution
+    // only do the following if the end of the previous for loop was reached.
+    if(i == vcycle_num)
+        i--;
+
+    if(rank==0){
+        std::cout << "\n******************************************************" << std::endl;
+        printf("\nfinal:\nstopped at iteration    = %d \nfinal absolute residual = %e"
+               "\nrelative residual       = %e \n\n", i+1, sqrt(current_dot), sqrt(current_dot/initial_dot));
+        std::cout << "******************************************************" << std::endl;
+    }
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: solve!\n");
+
+    // ************** scale u **************
+
+    scale_vector(u, grids[0].A->inv_sq_diag);
+
+    // ************** repartition u back **************
+
+//    print_vector(u, 2, "final u before repartition_back_u", comm);
+
+    if(repartition)
+        repartition_back_u(u);
+
+    if(verbose_solve) if(rank == 0) printf("solve_pcg: repartition back u!\n");
+
+//     print_vector(u, 0, "final u", comm);
+
+    return 0;
+}
+
+
+//int saena_object::solve_pcg_update3
+/*
 int saena_object::solve_pcg_update3(std::vector<value_t>& u, saena_matrix* A_new){
 
     MPI_Comm comm = grids[0].A->comm;
@@ -6073,6 +6674,7 @@ int saena_object::solve_pcg_update3(std::vector<value_t>& u, saena_matrix* A_new
 
     return 0;
 }
+*/
 
 
 int saena_object::set_repartition_rhs(std::vector<value_t>& rhs0){
@@ -7686,14 +8288,321 @@ int saena_object::transpose_locally(std::vector<cooEntry> &A, nnz_t size, std::v
 }
 
 
-int saena_object::sparsify(std::vector<cooEntry>& A, MPI_Comm comm) {
+typedef std::vector<cooEntry>::iterator population_iterator;
+
+typedef trsl::is_picked_systematic<cooEntry> is_picked;
+
+typedef trsl::persistent_filter_iterator
+        <is_picked, population_iterator> sample_iterator;
+
+typedef trsl::ppfilter_iterator<
+        is_picked, std::vector<cooEntry>::const_iterator
+> sample_iterator2;
+
+int saena_object::sparsify_trsl1(std::vector<cooEntry>& A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, MPI_Comm comm) { $
 
     int rank, nprocs;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nprocs);
 
+    if(rank==0) std::cout << "\n" << __func__ << ":" << std::endl;
 
+    nnz_t population_size = A.size();
+//    nnz_t sample_size = nnz_t(2 * population_size);
+    printf("\npopulation_size = %lu, sample_size = %lu \n", population_size, sample_size);
+
+//    std::vector<cooEntry> const& const_pop = A;
+
+    {
+        //----------------------------//
+        // Sample from the population //
+        //----------------------------//
+
+        auto populationIteratorBegin = A.begin(), // type is population_iterator
+             populationIteratorEnd   = A.end();
+
+        is_picked predicate(sample_size, norm_frob_sq, &cooEntry::get_val_sq);
+//        is_picked predicate(sample_size, norm_frob_sq, std::ptr_fun(spars_prob));
+
+        sample_iterator sampleIteratorBegin(predicate,
+                                            populationIteratorBegin,
+                                            populationIteratorEnd);
+        sample_iterator sampleIteratorEnd(predicate,
+                                          populationIteratorEnd,
+                                          populationIteratorEnd);
+
+//        std::cout << "\nSample of " << sample_size << " elements:" << std::endl;
+//        std::copy(sampleIteratorBegin,
+//                  sampleIteratorEnd,
+//                  std::ostream_iterator<cooEntry>(std::cout, "\n"));
+//        std::cout << std::endl;
+
+//        std::cout << "sample vector" << std::endl;
+        std::vector<cooEntry> A_spars_dup;
+        for (sample_iterator
+                     sb = sampleIteratorBegin,
+                     si = sb,
+                     se = sampleIteratorEnd;
+             si != se; ++si){
+
+//            std::cout << std::distance(sb, se) << "\t" << *si << std::endl;
+            A_spars_dup.emplace_back(*si);
+        }
+
+        std::sort(A_spars_dup.begin(), A_spars_dup.end());
+//        print_vector(A_spars_dup, -1, "A_spars_dup", comm);
+
+        // remove duplicates
+        for(nnz_t i=0; i<A_spars_dup.size(); i++){
+            A_spars.emplace_back( A_spars_dup[i] );
+            while(i<A_spars_dup.size()-1 && A_spars_dup[i] == A_spars_dup[i+1]){ // values of entries with the same row and col should be added.
+                A_spars.back().val += A_spars_dup[i+1].val;
+                i++;
+            }
+        }
+
+    }
 
     return 0;
 }
 
+
+int saena_object::sparsify_trsl2(std::vector<cooEntry>& A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, MPI_Comm comm) {
+
+    // function is not complete!
+
+    int rank, nprocs;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nprocs);
+
+    if(rank==0) std::cout << "\n" << __func__ << ":" << std::endl;
+
+    nnz_t population_size = A.size();
+//    nnz_t sample_size = nnz_t(0.95 * population_size);
+//    nnz_t sample_size = 9;
+//    printf("population_size = %lu, sample_size = %lu\n", population_size, sample_size);
+
+//    for(nnz_t i = 0; i < A.size(); i++){
+//        A[i].val = A[i].val * A[i]. val / norm_frob_sq;
+//    }
+
+    std::vector<cooEntry> const& const_pop = A;
+    std::vector<cooEntry> sample;
+    // Create the systematic sampling functor.
+    is_picked predicate(sample_size, norm_frob_sq, &cooEntry::get_val_sq);
+//    is_picked predicate(sample_size, 1.0, &cooEntry::get_val);
+
+//    std::cout << "sample vector" << std::endl;
+    for (sample_iterator2
+                 sb = sample_iterator2(predicate, const_pop.begin(), const_pop.end()),
+                 si = sb,
+                 se = sample_iterator2(predicate, const_pop.end(),   const_pop.end());
+         si != se; ++si){
+
+//        std::cout << std::distance(sb, se) << "\t" << *si << std::endl;
+        A_spars.emplace_back(*si);
+    }
+
+    return 0;
+}
+
+
+int saena_object::sparsify_drineas(std::vector<cooEntry> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, MPI_Comm comm){
+
+    int rank, nprocs;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nprocs);
+
+    if(rank==0) std::cout << "\n" << __func__ << ":" << std::endl;
+
+    // s = 28nln(sqrt(2)*n) / epsilon^2
+//    nnz_t sample_size = nnz_t( (double)28 * Ac->Mbig * log(sqrt(2) * Ac->Mbig) * norm_frob_sq / (sparse_epsilon * sparse_epsilon) );
+    if(rank==0) printf("sample size \t\t\t\t= %lu\n", sample_size);
+//    if(rank==0) printf("norm_frob_sq = %f, \tsparse_epsilon = %f, \tAc->Mbig = %u \n", norm_frob_sq, sparse_epsilon, Ac->Mbig);
+
+    std::uniform_real_distribution<double> dist(0.0,1.0); //(min, max). Type of random number distribution
+    std::mt19937 rng; //Mersenne Twister: Good quality random number generator
+    rng.seed(std::random_device{}()); //Initialize with non-deterministic seeds
+
+    std::vector<cooEntry> Ac_sample(sample_size);
+    double norm_temp = 0, criteria;
+    for(nnz_t i = 0; i < A.size(); i++){
+        norm_temp += A[i].val * A[i].val;
+
+        criteria = (A[i].val * A[i].val) / norm_temp;
+        for(nnz_t j = 0; j < sample_size; j++){
+            if(dist(rng) < criteria){
+//                std::cout << "dist(rng) = " << dist(rng) << "\tcriteria = " << criteria << "\tAc_sample[j] = " << Ac_sample[j] << std::endl;
+//                Ac_sample[j] = cooEntry(A[i].row, A[i].col, A[i].val);
+                Ac_sample[j] = A[i];
+            }
+        }
+    }
+
+//    if(rank==0) printf("Ac_sample.size() = %lu\n", Ac_sample.size());
+//    print_vector(Ac_sample, -1, "Ac_sample", A->comm);
+    std::sort(Ac_sample.begin(), Ac_sample.end());
+
+    // remove duplicates and change the values based on Algorithm 1 of Drineas' paper.
+    cooEntry temp;
+    double factor = norm_frob_sq / sample_size;
+    for(nnz_t i=0; i<Ac_sample.size(); i++){
+        temp = Ac_sample[i];
+        while(i<Ac_sample.size()-1 && Ac_sample[i] == Ac_sample[i+1]){ // values of entries with the same row and col should be added.
+            temp.val += Ac_sample[i+1].val;
+            i++;
+        }
+//        Ac->entry.emplace_back( cooEntry(Ac_sample[i].row, Ac_sample[i].col, factor / val_temp) );
+        A_spars.emplace_back( temp );
+    }
+
+    if(rank==0) printf("Ac size after sparsification \t\t= %lu\n", A_spars.size());
+
+    Ac_sample.clear();
+    Ac_sample.shrink_to_fit();
+
+    return 0;
+}
+
+
+int saena_object::sparsify_majid(std::vector<cooEntry>& A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, double max_val, MPI_Comm comm){
+
+    int rank, nprocs;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nprocs);
+
+    if(rank==0) std::cout << "\n" << __func__ << ":" << std::endl;
+//    print_vector(A, -1, "A", comm);
+
+    std::uniform_real_distribution<double> dist(0.0,1.0); //(min, max). Type of random number distribution
+    std::mt19937 rng; //Mersenne Twister: Good quality random number generator
+    rng.seed(std::random_device{}()); //Initialize with non-deterministic seeds
+
+    std::vector<bool> chosen(A.size(), false);
+    double max_prob_inv = norm_frob_sq / max_val / max_val;
+    double prob, rand, rand_factor = 1;
+    index_t A_passes = 1;
+    nnz_t iter = 0, i = 0;
+    while(i < sample_size){
+
+        if( !chosen[iter] && A[iter].row >= A[iter].col ){
+
+            prob = max_prob_inv * ( A[iter].val * ( A[iter].val / norm_frob_sq ));
+            rand = dist(rng) * rand_factor;
+//            if(rank==0 && !chosen[iter]) printf("prob = %.8f, \trand = %.8f, \tA.row = %u, \tA.col = %u \n",
+//                                            prob, rand, A[iter].row, A[iter].col);
+            if( rand < prob ){
+                if(A[iter].row == A[iter].col){
+                    A_spars.emplace_back(A[iter]);
+                    i++;
+                }else{ // A[iter].row > A[iter].col
+                    A_spars.emplace_back(A[iter]);
+                    A_spars.emplace_back(A[iter].col, A[iter].row, A[iter].val);
+                    i += 2;
+                }
+                chosen[iter] = true;
+            }
+
+        }
+
+        iter++;
+        if(iter >= A.size()){
+            iter -= A.size();
+            A_passes++;
+            rand_factor /= 10;
+//            if(rank==0) printf("\nA_pass %u: \n", A_passes);
+        }
+
+    }
+
+    std::sort(A_spars.begin(), A_spars.end());
+
+//    print_vector(A_spars, -1, "A_spars", comm);
+    if(rank==0) printf("original size   = %lu\n", A.size());
+//    if(rank==0) printf("sample size     = %lu\n", sample_size);
+    if(rank==0) printf("sparsified size = %lu\n", A_spars.size());
+    if(rank==0) printf("A_passes        = %u\n", A_passes);
+
+    return 0;
+}
+
+
+int saena_object::sparsify_majid_with_dup(std::vector<cooEntry>& A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, double max_val, MPI_Comm comm){
+
+    int rank, nprocs;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nprocs);
+
+    if(rank==0) std::cout << "\n" << __func__ << ":" << std::endl;
+//    if(rank==0) printf("Ac size before sparsification = %lu\n", A.size());
+
+    std::uniform_real_distribution<double> dist(0.0,1.0); //(min, max). Type of random number distribution
+    std::mt19937 rng; //Mersenne Twister: Good quality random number generator
+    rng.seed(std::random_device{}()); //Initialize with non-deterministic seeds
+
+    double max_prob_inv = norm_frob_sq / max_val / max_val;
+    index_t A_passes = 1;
+    nnz_t iter = 0, i = 0;
+    std::vector<cooEntry> A_spars_dup;
+    while(i < sample_size){
+        if( dist(rng) < max_prob_inv * ( A[iter].val * ( A[iter].val / norm_frob_sq )) ){
+            A_spars_dup.emplace_back(A[iter]);
+            i++;
+        }
+
+        iter++;
+        if(iter >= A.size()){
+            iter -= A.size();
+            A_passes++;
+        }
+    }
+
+//    if(rank==0) printf("A_spars_dup.size() = %lu\n", A_spars_dup.size());
+//    print_vector(A_spars_dup, -1, "A_spars_dup", comm);
+    std::sort(A_spars_dup.begin(), A_spars_dup.end());
+
+    // remove duplicates and change the values based on Algorithm 1 of Drineas' paper.
+    cooEntry temp;
+    double factor = norm_frob_sq / sample_size;
+    for(nnz_t i=0; i<A_spars_dup.size(); i++){
+        temp = A_spars_dup[i];
+        while(i<A_spars_dup.size()-1 && A_spars_dup[i] == A_spars_dup[i+1]){ // values of entries with the same row and col should be added.
+            temp.val += A_spars_dup[i+1].val;
+            i++;
+        }
+//        Ac->entry.emplace_back( cooEntry(A_spars_dup[i].row, A_spars_dup[i].col, factor / val_temp) );
+        A_spars.emplace_back( temp );
+    }
+
+//    print_vector(A_spars, -1, "A_spars", comm);
+    if(rank==0) printf("sparsified size = %lu\n", A_spars.size());
+    if(rank==0) printf("A_passes = %u\n", A_passes);
+
+    A_spars_dup.clear();
+    A_spars_dup.shrink_to_fit();
+
+    return 0;
+}
+
+
+double saena_object::spars_prob(cooEntry a){
+
+    if(a.row == a.col){
+        return 10000000;
+    } else{
+        return a.val * a.val;
+    }
+
+}
+
+/*
+double saena_object::spars_prob(cooEntry a, double norm_frob_sq){
+
+    if(a.row == a.col){
+        return norm_frob_sq;
+    } else{
+        return a.val * a.val;
+    }
+
+}
+ */
