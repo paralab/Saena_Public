@@ -210,20 +210,32 @@ set(HEADER_FILES ${HEADER_FILES}
         include/restrict_matrix.h
         include/aux_functions.h
         include/grid.h
+#        include/petsc_functions.h
         )
 
 set(SOURCE_FILES ${SOURCE_FILES}
         ${HEADER_FILES}
         src/main.cpp
+        src/saena.cpp
         src/saena_matrix.cpp
         src/saena_matrix_dense.cpp
-        src/saena_object.cpp
         src/strength_matrix.cpp
         src/prolong_matrix.cpp
         src/restrict_matrix.cpp
         src/aux_functions.cpp
         src/grid.cpp
-        src/saena.cpp
+
+        src/saena_object.cpp
+        src/saena_object_setup1.cpp
+        src/saena_object_setup2.cpp
+        src/saena_object_solve.cpp
+        src/saena_object_lazy.cpp
+        src/saena_object_repart_shrink.cpp
+        src/saena_object_sparsify.cpp
+        src/saena_object_elemental.cpp
+        src/saena_object_write2file.cpp
+
+#        src/petsc_functions.cpp
         )
 
 # -----------------------------------------------------------------------
