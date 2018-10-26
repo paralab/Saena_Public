@@ -20,6 +20,7 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
                           index_t *nnzPerColScan_leftStart, index_t *nnzPerColScan_leftEnd,
                           index_t *nnzPerColScan_rightStart, index_t *nnzPerColScan_rightEnd,
                           value_t *mempool, MPI_Comm comm){$
+
     // This function has three parts:
     // 1- A is horizontal (row > col)
     // 2- A is vertical
@@ -48,7 +49,7 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    int verbose_rank = 1;
+    int verbose_rank = 0;
     if(rank==verbose_rank && verbose_matmat) printf("\nfast_mm: start \n");
 
     if(A_nnz == 0 || B_nnz == 0){
@@ -58,9 +59,9 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
 
 //    print_vector(A, -1, "A", comm);
 //    print_vector(B, -1, "B", comm);
-//    MPI_Barrier(comm); printf("rank %d: A: %ux%u, B: %ux%u \n\n", rank, A_row_size, A_col_size, A_col_size, B_col_size); MPI_Barrier(comm);
-//    MPI_Barrier(comm); printf("rank %d: A_row_size = %u, A_row_offset = %u, A_col_size = %u, A_col_offset = %u, B_row_offset = %u, B_col_size = %u, B_col_offset = %u \n\n",
-//            rank, A_row_size, A_row_offset, A_col_size, A_col_offset, B_row_offset, B_col_size, B_col_offset);
+//    MPI_Barrier(comm); printf("rank %d: A: %ux%u, B: %ux%u, Ar*Bc: %u \n\n", rank, A_row_size, A_col_size, A_col_size, B_col_size, A_row_size*B_col_size); MPI_Barrier(comm);
+//    MPI_Barrier(comm); printf("rank %d: A_row_size = %u, A_row_offset = %u, A_col_size = %u, A_col_offset = %u, B_col_size = %u, B_col_offset = %u \n\n",
+//            rank, A_row_size, A_row_offset, A_col_size, A_col_offset, B_col_size, B_col_offset);
 
 //    MPI_Barrier(comm);
     if(rank==verbose_rank){
@@ -199,6 +200,15 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
             }
         }
 
+        // if A is not being splitted at all following "half nnz method", then swtich to "half col method".
+        if(A_col_half == A_col_size){
+            A_col_half = A_col_size/2;
+            A1_nnz = 0;
+            for (nnz_t i = 0; i < A_col_half; i++) {
+                A1_nnz += nnzPerColScan_leftEnd[i] - nnzPerColScan_leftStart[i];
+            }
+        }
+
         A2_nnz = A_nnz - A1_nnz;
 
         // prepare splits of matrix B by row
@@ -224,6 +234,9 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
         }
 
         B2_nnz = B_nnz - B1_nnz;
+
+        nnzPerCol_middle.clear();
+        nnzPerCol_middle.shrink_to_fit();
 
 //        print_vector(nnzPerColScan_middle, -1, "nnzPerColScan_middle", comm);
 
@@ -418,8 +431,9 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
             for (nnz_t i = 0; i < B_col_size; i++) {
                 B1_nnz += nnzPerColScan_rightEnd[i] - nnzPerColScan_rightStart[i];
 
-//            if(rank==verbose_rank) printf("B_nnz = %lu, B_half_nnz = %lu, B1_nnz = %lu, col = %u, offset = %u \n",
-//                                          B_nnz, B_half_nnz, B1_nnz, B[nnzPerColScan_rightStart[i]].col, B_col_offset);
+//                if(rank==verbose_rank) printf("B_nnz = %lu, B_half_nnz = %lu, B1_nnz = %lu, nnz on col %u: %u \n",
+//                                              B_nnz, B_half_nnz, B1_nnz, B[nnzPerColScan_rightStart[i]].col,
+//                                              nnzPerColScan_rightEnd[i] - nnzPerColScan_rightStart[i]);
                 if (B1_nnz >= B_half_nnz) {
                     B_col_half = B[nnzPerColScan_rightStart[i]].col + 1 - B_col_offset;
 //                    if(rank==verbose_rank) printf("B_nnz = %lu, B_half_nnz = %lu, B1_nnz = %lu, B_col_half = %u, B_col_size = %u \n",
@@ -432,6 +446,16 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
                 B1_nnz += nnzPerColScan_rightEnd[i] - nnzPerColScan_rightStart[i];
             }
         }
+
+        // if B is not being splitted at all following "half nnz method", then swtich to "half col method".
+        if(B_col_half == B_col_size){
+            B_col_half = B_col_size/2;
+            B1_nnz = 0;
+            for (nnz_t i = 0; i < B_col_half; i++) {
+                B1_nnz += nnzPerColScan_rightEnd[i] - nnzPerColScan_rightStart[i];
+            }
+        }
+
         B2_nnz = B_nnz - B1_nnz;
 
         if(rank==verbose_rank && verbose_matmat) printf("fast_mm: case 3: step 1 \n");
@@ -450,13 +474,16 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
             }
         }
 
+        A2_nnz = A_nnz - A1_nnz;
+
         std::vector<index_t> nnzPerColScan_middle(A_col_size + 1);
         nnzPerColScan_middle[0] = 0;
         for(nnz_t i = 0; i < A_col_size; i++){
             nnzPerColScan_middle[i+1] = nnzPerColScan_middle[i] + nnzPerCol_middle[i];
         }
 
-        A2_nnz = A_nnz - A1_nnz;
+        nnzPerCol_middle.clear();
+        nnzPerCol_middle.shrink_to_fit();
 
         if(rank==verbose_rank && verbose_matmat) printf("fast_mm: case 3: step 2 \n");
 
@@ -646,6 +673,7 @@ int saena_object::fast_mm_row_col(cooEntry *A, cooEntry *B, std::vector<cooEntry
 
     if(A_nnz == 0 || B_nnz == 0){
         if(rank==verbose_rank && verbose_matmat) printf("\nskip: A_nnz == 0 || B_nnz == 0\n\n");
+        if(rank==verbose_rank) printf("\nskip: A_nnz == 0 || B_nnz == 0\n\n");
         return 0;
     }
 
@@ -1359,58 +1387,103 @@ int saena_object::coarsen(Grid *grid) {$
     if(verbose_coarsen){
         MPI_Barrier(comm); printf("coarsen: step 4: rank = %d\n", rank); MPI_Barrier(comm);}
 
+    // mempool to be used for dense matmat in fast_mm
     value_t *mempool = new value_t[matmat_size_thre];
-
-    int right_neighbor = (rank + 1)%nprocs;
-    int left_neighbor  = rank - 1;
-    if (left_neighbor < 0)
-        left_neighbor += nprocs;
-//    if(rank==0) printf("left_neighbor = %d, right_neighbor = %d\n", left_neighbor, right_neighbor);
-
-    int owner;
-    unsigned long send_size = R_tranpose.size();
-    unsigned long recv_size;
-    index_t mat_recv_M;
-
-    std::vector<cooEntry> mat_recv = R_tranpose;
-    std::vector<cooEntry> mat_send = R_tranpose;
-
-    R_tranpose.clear();
-    R_tranpose.shrink_to_fit();
-
-    auto *requests = new MPI_Request[4];
-    auto *statuses = new MPI_Status[4];
 
     std::vector<cooEntry> AP;
 
-    for(int k = rank; k < rank+nprocs; k++){
-        // Both local and remote loops are done here. The first iteration is the local loop. The rest are remote.
-        // Send R_tranpose to the left_neighbor processor, receive R_tranpose from the right_neighbor processor.
-        // In the next step: send R_tranpose that was received in the previous step to the left_neighbor processor,
-        // receive R_tranpose from the right_neighbor processor. And so on.
-        // --------------------------------------------------------------------
+    if(nprocs > 1){
+        int right_neighbor = (rank + 1)%nprocs;
+        int left_neighbor  = rank - 1;
+        if (left_neighbor < 0)
+            left_neighbor += nprocs;
+//    if(rank==0) printf("left_neighbor = %d, right_neighbor = %d\n", left_neighbor, right_neighbor);
 
-        // communicate size
-        MPI_Irecv(&recv_size, 1, MPI_UNSIGNED_LONG, right_neighbor, right_neighbor, comm, requests);
-        MPI_Isend(&send_size, 1, MPI_UNSIGNED_LONG, left_neighbor,  rank,           comm, requests+1);
-        MPI_Waitall(1, requests, statuses);
+        int owner;
+        unsigned long send_size = R_tranpose.size();
+        unsigned long recv_size;
+        index_t mat_recv_M;
+
+        std::vector<cooEntry> mat_recv = R_tranpose;
+        std::vector<cooEntry> mat_send = R_tranpose;
+
+        R_tranpose.clear();
+        R_tranpose.shrink_to_fit();
+
+        auto *requests = new MPI_Request[4];
+        auto *statuses = new MPI_Status[4];
+
+        for(int k = rank; k < rank+nprocs; k++){
+            // Both local and remote loops are done here. The first iteration is the local loop. The rest are remote.
+            // Send R_tranpose to the left_neighbor processor, receive R_tranpose from the right_neighbor processor.
+            // In the next step: send R_tranpose that was received in the previous step to the left_neighbor processor,
+            // receive R_tranpose from the right_neighbor processor. And so on.
+            // --------------------------------------------------------------------
+
+            // communicate size
+            MPI_Irecv(&recv_size, 1, MPI_UNSIGNED_LONG, right_neighbor, right_neighbor, comm, requests);
+            MPI_Isend(&send_size, 1, MPI_UNSIGNED_LONG, left_neighbor,  rank,           comm, requests+1);
+            MPI_Waitall(1, requests, statuses);
 //        printf("rank %d: recv_size = %lu, send_size = %lu \n", rank, recv_size, send_size);
-        mat_recv.resize(recv_size);
+            mat_recv.resize(recv_size);
 
 //        print_vector(mat_recv, -1, "mat_recv", A->comm);
 //        print_vector(mat_send, -1, "mat_send", A->comm);
 
-        // communicate data
-        MPI_Irecv(&mat_recv[0], recv_size, cooEntry::mpi_datatype(), right_neighbor, right_neighbor, comm, requests+2);
-        MPI_Isend(&mat_send[0], send_size, cooEntry::mpi_datatype(), left_neighbor,  rank,           comm, requests+3);
+            // communicate data
+            MPI_Irecv(&mat_recv[0], recv_size, cooEntry::mpi_datatype(), right_neighbor, right_neighbor, comm, requests+2);
+            MPI_Isend(&mat_send[0], send_size, cooEntry::mpi_datatype(), left_neighbor,  rank,           comm, requests+3);
 
-        owner = k%nprocs;
-        mat_recv_M = P->splitNew[owner + 1] - P->splitNew[owner];
+            owner = k%nprocs;
+            mat_recv_M = P->splitNew[owner + 1] - P->splitNew[owner];
 //        printf("rank %d: owner = %d, mat_recv_M = %d, B_col_offset = %u \n", rank, owner, mat_recv_M, P->splitNew[owner]);
 
+            nnzPerCol_right.assign(mat_recv_M, 0);
+            for(nnz_t i = 0; i < mat_send.size(); i++){
+                nnzPerCol_right[mat_send[i].col - P->splitNew[owner]]++;
+            }
+//        print_vector(nnzPerCol_right, -1, "nnzPerCol_right", comm);
+
+            nnzPerColScan_right.resize(mat_recv_M+1);
+            nnzPerColScan_right[0] = 0;
+            for(nnz_t i = 0; i < mat_recv_M; i++){
+                nnzPerColScan_right[i+1] = nnzPerColScan_right[i] + nnzPerCol_right[i];
+            }
+//        print_vector(nnzPerColScan_right, -1, "nnzPerColScan_right", comm);
+
+            fast_mm(&A->entry[0], &mat_send[0], AP, A->entry.size(), mat_send.size(),
+                    A->M, A->split[rank], A->Mbig, 0, mat_recv_M, P->splitNew[owner],
+                    &nnzPerColScan_left[0],  &nnzPerColScan_left[1],
+                    &nnzPerColScan_right[0], &nnzPerColScan_right[1], mempool, A->comm);
+
+//        print_vector(AP, -1, "AP", A->comm);
+
+            MPI_Waitall(3, requests+1, statuses+1);
+
+            mat_recv.swap(mat_send);
+            send_size = recv_size;
+//        print_vector(mat_send, -1, "mat_send", A->comm);
+//        print_vector(mat_recv, -1, "mat_recv", A->comm);
+//        prev_owner = owner;
+//        printf("rank %d: recv_size = %lu, send_size = %lu \n", rank, recv_size, send_size);
+        }
+
+        mat_send.clear();
+        mat_send.shrink_to_fit();
+        mat_recv.clear();
+        mat_recv.shrink_to_fit();
+
+        delete [] requests;
+        delete [] statuses;
+
+    } else { // nprocs == 1 -> serial
+
+        index_t mat_recv_M = P->splitNew[rank + 1] - P->splitNew[rank];
+
+
         nnzPerCol_right.assign(mat_recv_M, 0);
-        for(nnz_t i = 0; i < mat_send.size(); i++){
-            nnzPerCol_right[mat_send[i].col - P->splitNew[owner]]++;
+        for(nnz_t i = 0; i < R_tranpose.size(); i++){
+            nnzPerCol_right[R_tranpose[i].col - P->splitNew[rank]]++;
         }
 //        print_vector(nnzPerCol_right, -1, "nnzPerCol_right", comm);
 
@@ -1419,35 +1492,19 @@ int saena_object::coarsen(Grid *grid) {$
         for(nnz_t i = 0; i < mat_recv_M; i++){
             nnzPerColScan_right[i+1] = nnzPerColScan_right[i] + nnzPerCol_right[i];
         }
-//        print_vector(nnzPerColScan_right, -1, "nnzPerColScan_right", comm);
 
-        fast_mm(&A->entry[0], &mat_send[0], AP, A->entry.size(), mat_send.size(),
-                A->M, A->split[rank], A->Mbig, 0, mat_recv_M, P->splitNew[owner],
+        fast_mm(&A->entry[0], &R_tranpose[0], AP, A->entry.size(), R_tranpose.size(),
+                A->M, A->split[rank], A->Mbig, 0, mat_recv_M, P->splitNew[rank],
                 &nnzPerColScan_left[0],  &nnzPerColScan_left[1],
                 &nnzPerColScan_right[0], &nnzPerColScan_right[1], mempool, A->comm);
 
-//        print_vector(AP, -1, "AP", A->comm);
-
-        MPI_Waitall(3, requests+1, statuses+1);
-
-        mat_recv.swap(mat_send);
-        send_size = recv_size;
-//        print_vector(mat_send, -1, "mat_send", A->comm);
-//        print_vector(mat_recv, -1, "mat_recv", A->comm);
-//        prev_owner = owner;
-//        printf("rank %d: recv_size = %lu, send_size = %lu \n", rank, recv_size, send_size);
+        R_tranpose.clear();
+        R_tranpose.shrink_to_fit();
     }
-
-    delete [] requests;
-    delete [] statuses;
 
     std::sort(AP.begin(), AP.end());
 //    print_vector(AP, -1, "AP", A->comm);
 
-    mat_send.clear();
-    mat_send.shrink_to_fit();
-    mat_recv.clear();
-    mat_recv.shrink_to_fit();
 //    nnzPerCol_right.clear();
 //    nnzPerColScan_left.clear();
 //    nnzPerColScan_right.clear();
@@ -1470,6 +1527,7 @@ int saena_object::coarsen(Grid *grid) {$
     for(nnz_t i = 0; i < P_tranpose.size(); i++){
         P_tranpose[i].col += P->split[rank];
     }
+
 //    print_vector(P->entry, -1, "P->entry", comm);
 //    print_vector(P_tranpose, -1, "P_tranpose", comm);
 
@@ -1524,6 +1582,7 @@ int saena_object::coarsen(Grid *grid) {$
     nnzPerColScan_left.shrink_to_fit();
     nnzPerColScan_right.clear();
     nnzPerColScan_right.shrink_to_fit();
+    delete[] mempool;
 
 //    print_vector(RAP_temp, -1, "RAP_temp", A->comm);
     if(verbose_coarsen){
@@ -1814,7 +1873,7 @@ int saena_object::coarsen_old(Grid *grid){$
 
     if(verbose_coarsen){
         MPI_Barrier(comm);
-        if(rank==0) printf("start of coarsen nprocs: %d \n", nprocs);
+        if(rank==0) printf("\nstart of coarsen nprocs: %d \n", nprocs);
         MPI_Barrier(comm);
         printf("rank %d: A.Mbig = %u, A.M = %u, A.nnz_g = %lu, A.nnz_l = %lu \n", rank, A->Mbig, A->M, A->nnz_g, A->nnz_l);
         MPI_Barrier(comm);
@@ -1845,8 +1904,11 @@ int saena_object::coarsen_old(Grid *grid){$
     std::vector<unsigned int> AnnzPerRow = A->nnzPerRow_local;
 //    for(nnz_t i=0; i<A->nnz_l; i++)
 //        AnnzPerRow[A->row_remote[i]]++;
-    for(nnz_t i=0; i<A->M; i++)
-        AnnzPerRow[i] += A->nnzPerRow_remote[i];
+
+    if(nprocs > 1) {
+        for (nnz_t i = 0; i < A->M; i++)
+            AnnzPerRow[i] += A->nnzPerRow_remote[i];
+    }
 
 //    print_vector(AnnzPerRow, -1, "AnnzPerRow", comm);
 
