@@ -25,7 +25,8 @@ int saena_object::writeMatrixToFileA(saena_matrix* A, std::string name){
     MPI_Comm_rank(comm, &rank);
 
     std::ofstream outFileTxt;
-    std::string outFileNameTxt = "/home/boss/Dropbox/Projects/Saena_base/build/writeMatrix/";
+//    std::string outFileNameTxt = "/home/boss/Dropbox/Projects/Saena_base/build/writeMatrix/";
+    std::string outFileNameTxt = "/home/boss/writeMatrix/";
     outFileNameTxt += name;
     outFileNameTxt += "-r";
     outFileNameTxt += std::to_string(rank);
@@ -35,11 +36,11 @@ int saena_object::writeMatrixToFileA(saena_matrix* A, std::string name){
 //    if(rank==0)
 //        outFileTxt << A->Mbig << "\t" << A->Mbig << "\t" << A->nnz_g << std::endl;
 
-    for (long i = 0; i < A->nnz_l; i++) {
-        if(A->entry[i].row == A->entry[i].col)
-            continue;
+    for (nnz_t i = 0; i < A->nnz_l; i++) {
+//        if(A->entry[i].row == A->entry[i].col)
+//            continue;
 
-//        std::cout       << A->entry[i].row + 1 << "\t" << A->entry[i].col + 1 << "\t" << A->entry[i].val << std::endl;
+//        if(rank==0) std::cout  << A->entry[i].row + 1 << "\t" << A->entry[i].col + 1 << "\t" << A->entry[i].val << std::endl;
         outFileTxt << A->entry[i].row + 1 << "\t" << A->entry[i].col + 1 << "\t" << A->entry[i].val << std::endl;
     }
 

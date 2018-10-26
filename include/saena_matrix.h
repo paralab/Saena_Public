@@ -238,6 +238,7 @@ public:
 
     int print_entry(int ran);
     int print_info(int ran);
+    int writeMatrixToFile();
 
     int set_zero();
     int erase();
