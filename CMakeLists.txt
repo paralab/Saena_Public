@@ -217,13 +217,18 @@ set(SOURCE_FILES ${SOURCE_FILES}
         ${HEADER_FILES}
         src/main.cpp
         src/saena.cpp
-        src/saena_matrix.cpp
         src/saena_matrix_dense.cpp
         src/strength_matrix.cpp
         src/prolong_matrix.cpp
         src/restrict_matrix.cpp
         src/aux_functions.cpp
         src/grid.cpp
+
+        src/saena_matrix.cpp
+        src/saena_matrix_repart.cpp
+        src/saena_matrix_setup.cpp
+        src/saena_matrix_matvec.cpp
+        src/saena_matrix_shrink.cpp
 
         src/saena_object.cpp
         src/saena_object_setup1.cpp
@@ -237,7 +242,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 #        src/petsc_functions.cpp
         )
-
 # -----------------------------------------------------------------------
 
 #add_executable(Saena ${SOURCE_FILES} ${HEADER_FILES})
