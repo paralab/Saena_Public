@@ -40,7 +40,8 @@ int main(int argc, char* argv[]){
     // 1- read from file: pass as an argument in the command line
     // example: ./Saena ../data/81s4x8o1mu1.bin
     char* file_name(argv[1]);
-    saena::matrix A (file_name, comm);
+    saena::matrix A (comm);
+    A.read_file(file_name);
 
     // 2- use the set functions
 //    saena::matrix A(comm); // comm: MPI_Communicator
