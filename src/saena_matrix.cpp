@@ -20,22 +20,170 @@ saena_matrix::saena_matrix(MPI_Comm com) {
 }
 
 
-saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
+int saena_matrix::read_file(const char* Aname){
+    read_file(Aname, "");
+}
+
+
+int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
     // the following variables of saena_matrix class will be set in this function:
     // Mbig", "nnz_g", "initial_nnz_l", "data"
     // "data" is only required for repartition function.
-
-    read_from_file = true;
-    comm = com;
-    comm_old = com;
 
     int rank, nprocs;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+    read_from_file = true;
+
+    std::string filename = Aname;
+    size_t extIndex = filename.find_last_of(".");
+    std::string file_extension = filename.substr(extIndex+1, 3);
+
+//    if(rank==0) std::cout << "file_extension: " << file_extension << std::endl;
+
+    std::string bin_filename = filename.substr(0, extIndex) + ".bin";
+//    if(rank==0) std::cout << "bin_filename: " << bin_filename << std::endl;
+
+    if(file_extension == "mtx"){
+
+        std::ifstream inFile_check_bin(bin_filename.c_str());
+
+        if (inFile_check_bin.is_open()){
+
+            if(rank==0) std::cout << "\nA binary file with the same name exists. Using that file instead of the mtx"
+                                     " file.\n\n";
+            inFile_check_bin.close();
+
+        } else {
+
+            // write the file in binary by proc 0.
+            if(rank==0){
+
+                std::cout << "\nFirst a binary file with name \"" << bin_filename
+                          << "\" will be created in the same directory. \n\n";
+
+                std::string outFileName = filename.substr(0, extIndex) + ".bin";
+
+                std::ifstream inFile(filename.c_str());
+
+                if (!inFile.is_open()){
+                    std::cout << "Could not open the file!" << std::endl;
+//            return -1;
+                }
+
+                // ignore comments
+                while (inFile.peek() == '%') inFile.ignore(2048, '\n');
+
+                // M and N are the size of the matrix with nnz nonzeros
+                unsigned int M, N, nnz;
+                inFile >> M >> N >> nnz;
+
+//                printf("M = %u, N = %u, nnz = %u \n", M, N, nnz);
+
+                std::ofstream outFile;
+                outFile.open(outFileName.c_str(), std::ios::out | std::ios::binary);
+
+                std::vector<cooEntry> entry_temp1;
+//                std::vector<cooEntry> entry;
+                // number of nonzeros is less than 2*nnz, considering the diagonal
+                // that's why there is a resize for entry when nnz is found.
+
+                unsigned int a, b, i = 0;
+                double c;
+
+                if(input_type.empty()){
+
+                    while(inFile >> a >> b >> c){
+                        entry_temp1.resize(nnz);
+                        // for mtx format, rows and columns start from 1, instead of 0.
+//                        std::cout << "a = " << a << ", b = " << b << ", value = " << c << std::endl;
+                        entry_temp1[i] = cooEntry(a-1, b-1, c);
+                        i++;
+//                        cout << entry_temp1[i] << endl;
+
+                    }
+
+                } else if (input_type == "triangle"){
+
+                    while(inFile >> a >> b >> c){
+                        entry_temp1.resize(2*nnz);
+                        // for mtx format, rows and columns start from 1, instead of 0.
+//                        std::cout << "a = " << a << ", b = " << b << ", value = " << c << std::endl;
+                        entry_temp1[i] = cooEntry(a-1, b-1, c);
+                        i++;
+//                        cout << entry_temp1[i] << endl;
+                        // add the lower triangle, not any diagonal entry
+                        if(a != b){
+                            entry_temp1[i] = cooEntry(b-1, a-1, c);
+                            i++;
+                            nnz++;
+                        }
+                    }
+                    entry_temp1.resize(nnz);
+
+                } else if (input_type == "pattern"){ // add 1 for value for a pattern matrix
+
+                    while(inFile >> a >> b){
+                        entry_temp1.resize(nnz);
+                        // for mtx format, rows and columns start from 1, instead of 0.
+//                        std::cout << "a = " << a << ", b = " << b << std::endl;
+                        entry_temp1[i] = cooEntry(a-1, b-1, double(1));
+                        i++;
+//                        cout << entry_temp1[i] << endl;
+
+                    }
+
+                } else if(input_type == "tripattern") {
+
+                    while(inFile >> a >> b){
+                        entry_temp1.resize(2*nnz);
+                        // for mtx format, rows and columns start from 1, instead of 0.
+//                        std::cout << "a = " << a << ", b = " << b << std::endl;
+                        entry_temp1[i] = cooEntry(a-1, b-1, double(1));
+                        i++;
+//                        std::cout << entry_temp1[i] << std::endl;
+
+                        // add the lower triangle, not any diagonal entry
+                        if(a != b){
+                            entry_temp1[i] = cooEntry(b-1, a-1, double(1));
+                            i++;
+                            nnz++;
+                        }
+                    }
+                    entry_temp1.resize(nnz);
+
+                } else {
+                    std::cerr << "the input type is not acceptable!" << std::endl;
+                    MPI_Finalize();
+                    return -1;
+                }
+
+                std::sort(entry_temp1.begin(), entry_temp1.end());
+
+                for(i = 0; i < nnz; i++){
+//                    std::cout << entry_temp1[i] << std::endl;
+                    outFile.write((char*)&entry_temp1[i].row, sizeof(index_t));
+                    outFile.write((char*)&entry_temp1[i].col, sizeof(index_t));
+                    outFile.write((char*)&entry_temp1[i].val, sizeof(value_t));
+                }
+
+                inFile.close();
+                outFile.close();
+            }
+
+        }
+
+        // wait until the binary file writing by proc 0 is done.
+        MPI_Barrier(comm);
+
+    } else {
+        if(file_extension != "bin" && rank==0) printf("The extension of file should be either mtx or bin! \n");
+    }
+
     // find number of general nonzeros of the input matrix
     struct stat st;
-    if(stat(Aname, &st)){
+    if(stat(bin_filename.c_str(), &st)){
         if(rank==0) printf("\nError: File does not exist!\n");
 //        abort();
     }
@@ -44,8 +192,9 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
 
     // find initial local nonzero
     initial_nnz_l = nnz_t(floor(1.0 * nnz_g / nprocs)); // initial local nnz
-    if (rank == nprocs - 1)
+    if (rank == nprocs - 1) {
         initial_nnz_l = nnz_g - (nprocs - 1) * initial_nnz_l;
+    }
 
     if(verbose_saena_matrix){
         MPI_Barrier(comm);
@@ -63,7 +212,7 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
     MPI_File fh;
     MPI_Offset offset;
 
-    int mpiopen = MPI_File_open(comm, Aname, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+    int mpiopen = MPI_File_open(comm, bin_filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
     if (mpiopen) {
         if (rank == 0) std::cout << "Unable to open the matrix file!" << std::endl;
         MPI_Finalize();
@@ -76,13 +225,6 @@ saena_matrix::saena_matrix(char* Aname, MPI_Comm com) {
     offset = rank * nnz_t(floor(1.0 * nnz_g / nprocs)) * (2*sizeof(index_t) + sizeof(value_t));
 
     MPI_File_read_at(fh, offset, datap, initial_nnz_l, cooEntry_row::mpi_datatype(), &status);
-
-//    double val;
-//    if(rank==0)
-//        for(long i=0; i<initial_nnz_l; i++){
-//            val = data_unsorted[3*i+2];
-//            std::cout << datap[3*i] << "\t" << datap[3*i+1] << "\t" << val << std::endl;
-//        }
 
 //    int count;
 //    MPI_Get_count(&status, MPI_UNSIGNED_LONG, &count);
@@ -921,114 +1063,23 @@ int saena_matrix::print_info(int ran) {
 
 
 int saena_matrix::writeMatrixToFile(){
-    // Create txt files with name Ac-r0.txt for processor 0, Ac-r1.txt for processor 1, etc.
-    // Then, concatenate them in terminal: cat Ac-r0.txt Ac-r1.txt > Ac.txt
-    // row and column indices of txt files should start from 1, not 0.
-    // write the files inside ${HOME}
+    // the matrix file will be written in the HOME directory.
 
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    const char* homeDir = getenv("HOME");
-
-    std::ofstream outFileTxt;
-    std::string outFileNameTxt = homeDir;
-    outFileNameTxt += "/mat-r";
-    outFileNameTxt += std::to_string(rank);
-    outFileNameTxt += ".txt";
-    outFileTxt.open(outFileNameTxt);
-
-    if(rank==0) std::cout << "\nWriting the matrix in: " << outFileNameTxt << std::endl;
-
-    // first line of the file: row_size col_size nnz
-    if(rank==0)
-        outFileTxt << Mbig << "\t" << Mbig << "\t" << nnz_g << std::endl;
-
-    for (nnz_t i = 0; i < nnz_l; i++) {
-//        if(A->entry[i].row == A->entry[i].col)
-//            continue;
-
-//        if(rank==0) std::cout  << A->entry[i].row + 1 << "\t" << A->entry[i].col + 1 << "\t" << A->entry[i].val << std::endl;
-        outFileTxt << entry[i].row + 1 << "\t" << entry[i].col + 1 << "\t" << entry[i].val << std::endl;
-    }
-
-    outFileTxt.clear();
-    outFileTxt.close();
-
-/*
-    // this is the code for writing the result of jacobi to a file.
-    char* outFileNameTxt = "jacobi_saena.bin";
-    MPI_Status status2;
-    MPI_File fh2;
-    MPI_Offset offset2;
-    MPI_File_open(comm, outFileNameTxt, MPI_MODE_CREATE| MPI_MODE_WRONLY, MPI_INFO_NULL, &fh2);
-    offset2 = A.split[rank] * 8; // value(double=8)
-    MPI_File_write_at(fh2, offset2, xp, A.M, MPI_UNSIGNED_LONG, &status2);
-    int count2;
-    MPI_Get_count(&status2, MPI_UNSIGNED_LONG, &count2);
-    //printf("process %d wrote %d lines of triples\n", rank, count2);
-    MPI_File_close(&fh2);
-*/
-
-/*
-    // failed try to write this part.
-    MPI_Status status;
-    MPI_File fh;
-    MPI_Offset offset;
-
-//    const char* fileName = "/home/abaris/Dropbox/Projects/Saena/build/Ac.txt";
-//    const char* fileName = (const char*)malloc(sizeof(const char)*49);
-//    fileName = "/home/abaris/Dropbox/Projects/Saena/build/Ac" + "1.txt";
-    std::string fileName = "/home/abaris/Acoarse/Ac";
-    fileName += std::to_string(7);
-    fileName += ".txt";
-
-    int mpierror = MPI_File_open(comm, fileName.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh);
-    if (mpierror) {
-        if (rank == 0) std::cout << "Unable to open the matrix file!" << std::endl;
-        MPI_Finalize();
-    }
-
-//    std::vector<unsigned int> nnzScan(nprocs);
-//    mpierror = MPI_Allgather(&A->nnz_l, 1, MPI_UNSIGNED, &nnzScan[1], 1, MPI_UNSIGNED, comm);
-//    if (mpierror) {
-//        if (rank == 0) std::cout << "Unable to gather!" << std::endl;
-//        MPI_Finalize();
-//    }
-
-//    nnzScan[0] = 0;
-//    for(unsigned long i=0; i<nprocs; i++){
-//        nnzScan[i+1] = nnzScan[i] + nnzScan[i+1];
-//        if(rank==1) std::cout << nnzScan[i] << std::endl;
-//    }
-//    offset = nnzScan[rank];
-//    MPI_File_write_at_all(fh, rank, &nnzScan[rank])
-//    unsigned int a = 1;
-//    double b = 3;
-//    MPI_File_write_at(fh, rank, &rank, 1, MPI_INT, &status);
-//    MPI_File_write_at_all(fh, offset, &A->entry[0], A->nnz_l, cooEntry::mpi_datatype(), &status);
-//    MPI_File_write_at_all(fh, &A->entry[0], A->nnz_l, cooEntry::mpi_datatype(), &status);
-//    if (mpierror) {
-//        if (rank == 0) std::cout << "Unable to write to the matrix file!" << std::endl;
-//        MPI_Finalize();
-//    }
-
-//    int count;
-//    MPI_Get_count(&status, MPI_UNSIGNED_LONG, &count);
-    //printf("process %d read %d lines of triples\n", rank, count);
-    MPI_File_close(&fh);
-*/
-
-    return 0;
+    if(rank==0) printf("The matrix file will be written in the HOME directory. \n");
+    writeMatrixToFile("");
 }
 
 
 int saena_matrix::writeMatrixToFile(const char *folder_name){
     // Create txt files with name Ac-r0.txt for processor 0, Ac-r1.txt for processor 1, etc.
-    // Then, concatenate them in terminal: cat Ac-r0.txt Ac-r1.txt > Ac.txt
+    // Then, concatenate them in terminal: cat Ac-r0.mtx Ac-r1.mtx > Ac.mtx
     // row and column indices of txt files should start from 1, not 0.
     // write the files inside ${HOME}/folder_name
+    // this is the default case for the sorting which is column-major.
 
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
@@ -1042,7 +1093,7 @@ int saena_matrix::writeMatrixToFile(const char *folder_name){
     outFileNameTxt += folder_name;
     outFileNameTxt += "/mat-r";
     outFileNameTxt += std::to_string(rank);
-    outFileNameTxt += ".txt";
+    outFileNameTxt += ".mtx";
     outFileTxt.open(outFileNameTxt);
 
     if(rank==0) std::cout << "\nWriting the matrix in: " << outFileNameTxt << std::endl;
@@ -1053,7 +1104,7 @@ int saena_matrix::writeMatrixToFile(const char *folder_name){
 
     // sort row-wise
 //    std::vector<cooEntry_row> entry_temp1(entry.size());
-//    std::memcpy(&*entry_temp1.begin(), &*entry.begin(), entry.size());
+//    std::memcpy(&*entry_temp1.begin(), &*entry.begin(), entry.size() * sizeof(cooEntry));
 //    std::vector<cooEntry_row> entry_temp2;
 //    par::sampleSort(entry_temp1, entry_temp2, comm);
 
@@ -1071,70 +1122,6 @@ int saena_matrix::writeMatrixToFile(const char *folder_name){
 
     outFileTxt.clear();
     outFileTxt.close();
-
-/*
-    // this is the code for writing the result of jacobi to a file.
-    char* outFileNameTxt = "jacobi_saena.bin";
-    MPI_Status status2;
-    MPI_File fh2;
-    MPI_Offset offset2;
-    MPI_File_open(comm, outFileNameTxt, MPI_MODE_CREATE| MPI_MODE_WRONLY, MPI_INFO_NULL, &fh2);
-    offset2 = A.split[rank] * 8; // value(double=8)
-    MPI_File_write_at(fh2, offset2, xp, A.M, MPI_UNSIGNED_LONG, &status2);
-    int count2;
-    MPI_Get_count(&status2, MPI_UNSIGNED_LONG, &count2);
-    //printf("process %d wrote %d lines of triples\n", rank, count2);
-    MPI_File_close(&fh2);
-*/
-
-/*
-    // failed try to write this part.
-    MPI_Status status;
-    MPI_File fh;
-    MPI_Offset offset;
-
-//    const char* fileName = "/home/abaris/Dropbox/Projects/Saena/build/Ac.txt";
-//    const char* fileName = (const char*)malloc(sizeof(const char)*49);
-//    fileName = "/home/abaris/Dropbox/Projects/Saena/build/Ac" + "1.txt";
-    std::string fileName = "/home/abaris/Acoarse/Ac";
-    fileName += std::to_string(7);
-    fileName += ".txt";
-
-    int mpierror = MPI_File_open(comm, fileName.c_str(), MPI_MODE_CREATE | MPI_MODE_WRONLY, MPI_INFO_NULL, &fh);
-    if (mpierror) {
-        if (rank == 0) std::cout << "Unable to open the matrix file!" << std::endl;
-        MPI_Finalize();
-    }
-
-//    std::vector<unsigned int> nnzScan(nprocs);
-//    mpierror = MPI_Allgather(&A->nnz_l, 1, MPI_UNSIGNED, &nnzScan[1], 1, MPI_UNSIGNED, comm);
-//    if (mpierror) {
-//        if (rank == 0) std::cout << "Unable to gather!" << std::endl;
-//        MPI_Finalize();
-//    }
-
-//    nnzScan[0] = 0;
-//    for(unsigned long i=0; i<nprocs; i++){
-//        nnzScan[i+1] = nnzScan[i] + nnzScan[i+1];
-//        if(rank==1) std::cout << nnzScan[i] << std::endl;
-//    }
-//    offset = nnzScan[rank];
-//    MPI_File_write_at_all(fh, rank, &nnzScan[rank])
-//    unsigned int a = 1;
-//    double b = 3;
-//    MPI_File_write_at(fh, rank, &rank, 1, MPI_INT, &status);
-//    MPI_File_write_at_all(fh, offset, &A->entry[0], A->nnz_l, cooEntry::mpi_datatype(), &status);
-//    MPI_File_write_at_all(fh, &A->entry[0], A->nnz_l, cooEntry::mpi_datatype(), &status);
-//    if (mpierror) {
-//        if (rank == 0) std::cout << "Unable to write to the matrix file!" << std::endl;
-//        MPI_Finalize();
-//    }
-
-//    int count;
-//    MPI_Get_count(&status, MPI_UNSIGNED_LONG, &count);
-    //printf("process %d read %d lines of triples\n", rank, count);
-    MPI_File_close(&fh);
-*/
 
     return 0;
 }
