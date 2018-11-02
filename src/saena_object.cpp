@@ -9,6 +9,7 @@
 #include "ietl_saena.h"
 #include "dollar.hpp"
 
+#include <sys/stat.h>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -18,10 +19,10 @@
 #include <mpi.h>
 
 
-saena_object::saena_object(){}
+saena_object::saena_object() = default;
 
 
-saena_object::~saena_object(){}
+saena_object::~saena_object() = default;
 
 
 int saena_object::destroy(){

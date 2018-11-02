@@ -727,7 +727,7 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
     }
 //    MPI_Barrier(comm);
 
-    index_t size_min = std::min(std::min(A_row_size, A_col_size), B_col_size);
+//    index_t size_min = std::min(std::min(A_row_size, A_col_size), B_col_size);
 
     if( A_row_size * B_col_size < matmat_size_thre ){
 
@@ -757,29 +757,16 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
 //                                   << "\tA_row_offset = " << A_row_offset
 //                                   << "\tB_col_offset = " << B_col_offset << std::endl;
 
-//                    if (rank == 1)
-//                        printf("A[i].row = %u, \tB[j].col = %u, \tC_index = %u \n", A[i].row - A_row_offset,
-//                               B[k].col - B_col_offset, C_index);
-
-//                    C_temp[C_index] = cooEntry(A[i].row, B[k].col, B[k].val * A[i].val + C_temp[C_index].val);
                     C_temp[C_index] += B[k].val * A[i].val;
 
-//                if(rank==0) printf("A[i].val = %f, B[j].val = %f, C_temp[-] = %f \n", A[i].val, B[j].val, C_temp[A[i].row * c_dense + B[j].col].val);
-//                if(rank==1 && A[i].row == 0 && B[j].col == 0) std::cout << "A: " << A[i] << "\tB: " << B[j]
-//                     << "\tC: " << C_temp[(A[i].row-A_row_offset) + A_row_size * (B[j].col-B_col_offset)]
-//                     << "\tA*B: " << B[j].val * A[i].val << std::endl;
+//                    if(rank==1 && A[i].row == 0 && B[j].col == 0) std::cout << "A: " << A[i] << "\tB: " << B[j]
+//                         << "\tC: " << C_temp[(A[i].row-A_row_offset) + A_row_size * (B[j].col-B_col_offset)]
+//                         << "\tA*B: " << B[j].val * A[i].val << std::endl;
                 }
             }
         }
 
 //        print_vector(C_temp, -1, "C_temp", comm);
-//        if(rank==0){
-//            for(nnz_t i = 0; i < r_dense; i++) {
-//                for(nnz_t j = 0; j < c_dense; j++){
-//                    std::cout << i << "\t" << j << "\t" << C_temp[A.entry[i].row * c_dense +  B[j].row] << std::endl;
-//                }
-//            }
-//        }
 
         if(rank==verbose_rank && verbose_matmat) {printf("fast_mm: case 1: step 2 \n");}
 
@@ -798,7 +785,7 @@ int saena_object::fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nn
 
         if(rank==verbose_rank && verbose_matmat) printf("fast_mm: case 1: end \n");
 
-    } else if(A_row_size <= A_col_size) { //todo: fix this.
+    } else if(A_row_size <= A_col_size) {
 
         if(rank==verbose_rank && verbose_matmat) {printf("fast_mm: case 2: start \n");}
 
@@ -1302,12 +1289,8 @@ int saena_object::coarsen(Grid *grid) {$
 
     // local transpose of R is being used to compute A*P. So R is transposed locally here.
     std::vector<cooEntry> R_tranpose(R->entry.size());
-    transpose_locally(R->entry, R->entry.size(), R_tranpose);
+    transpose_locally(R->entry, R->entry.size(), R->splitNew[rank], R_tranpose);
 
-    // convert the indices to global
-    for(nnz_t i = 0; i < R_tranpose.size(); i++){
-        R_tranpose[i].col += R->splitNew[rank];
-    }
 //    print_vector(R->entry, -1, "R->entry", comm);
 //    print_vector(R_tranpose, -1, "R_tranpose", comm);
 
@@ -1386,11 +1369,11 @@ int saena_object::coarsen(Grid *grid) {$
             MPI_Irecv(&recv_size, 1, MPI_UNSIGNED_LONG, right_neighbor, right_neighbor, comm, requests);
             MPI_Isend(&send_size, 1, MPI_UNSIGNED_LONG, left_neighbor,  rank,           comm, requests+1);
             MPI_Waitall(1, requests, statuses);
-//        printf("rank %d: recv_size = %lu, send_size = %lu \n", rank, recv_size, send_size);
+//          printf("rank %d: recv_size = %lu, send_size = %lu \n", rank, recv_size, send_size);
             mat_recv.resize(recv_size);
 
-//        print_vector(mat_recv, -1, "mat_recv", A->comm);
-//        print_vector(mat_send, -1, "mat_send", A->comm);
+//          print_vector(mat_recv, -1, "mat_recv", A->comm);
+//          print_vector(mat_send, -1, "mat_send", A->comm);
 
             // communicate data
             MPI_Irecv(&mat_recv[0], recv_size, cooEntry::mpi_datatype(), right_neighbor, right_neighbor, comm, requests+2);
@@ -1398,36 +1381,36 @@ int saena_object::coarsen(Grid *grid) {$
 
             owner = k%nprocs;
             mat_recv_M = P->splitNew[owner + 1] - P->splitNew[owner];
-//        printf("rank %d: owner = %d, mat_recv_M = %d, B_col_offset = %u \n", rank, owner, mat_recv_M, P->splitNew[owner]);
+//          printf("rank %d: owner = %d, mat_recv_M = %d, B_col_offset = %u \n", rank, owner, mat_recv_M, P->splitNew[owner]);
 
             nnzPerCol_right.assign(mat_recv_M, 0);
             for(nnz_t i = 0; i < mat_send.size(); i++){
                 nnzPerCol_right[mat_send[i].col - P->splitNew[owner]]++;
             }
-//        print_vector(nnzPerCol_right, -1, "nnzPerCol_right", comm);
+//          print_vector(nnzPerCol_right, -1, "nnzPerCol_right", comm);
 
             nnzPerColScan_right.resize(mat_recv_M+1);
             nnzPerColScan_right[0] = 0;
             for(nnz_t i = 0; i < mat_recv_M; i++){
                 nnzPerColScan_right[i+1] = nnzPerColScan_right[i] + nnzPerCol_right[i];
             }
-//        print_vector(nnzPerColScan_right, -1, "nnzPerColScan_right", comm);
+//          print_vector(nnzPerColScan_right, -1, "nnzPerColScan_right", comm);
 
             fast_mm(&A->entry[0], &mat_send[0], AP, A->entry.size(), mat_send.size(),
                     A->M, A->split[rank], A->Mbig, 0, mat_recv_M, P->splitNew[owner],
                     &nnzPerColScan_left[0],  &nnzPerColScan_left[1],
                     &nnzPerColScan_right[0], &nnzPerColScan_right[1], mempool, A->comm);
 
-//        print_vector(AP, -1, "AP", A->comm);
+//          print_vector(AP, -1, "AP", A->comm);
 
             MPI_Waitall(3, requests+1, statuses+1);
 
             mat_recv.swap(mat_send);
             send_size = recv_size;
-//        print_vector(mat_send, -1, "mat_send", A->comm);
-//        print_vector(mat_recv, -1, "mat_recv", A->comm);
-//        prev_owner = owner;
-//        printf("rank %d: recv_size = %lu, send_size = %lu \n", rank, recv_size, send_size);
+//          print_vector(mat_send, -1, "mat_send", A->comm);
+//          print_vector(mat_recv, -1, "mat_recv", A->comm);
+//          prev_owner = owner;
+//          printf("rank %d: recv_size = %lu, send_size = %lu \n", rank, recv_size, send_size);
         }
 
         mat_send.clear();
@@ -2422,11 +2405,7 @@ int saena_object::coarsen_old(Grid *grid){$
 
 int saena_object::transpose_locally(std::vector<cooEntry> &A, nnz_t size){
 
-    for(nnz_t i = 0; i < size; i++){
-        A[i] = cooEntry(A[i].col, A[i].row, A[i].val);
-    }
-
-    std::sort(A.begin(), A.end());
+    transpose_locally(A, size, 0, A);
 
     return 0;
 }
@@ -2434,11 +2413,20 @@ int saena_object::transpose_locally(std::vector<cooEntry> &A, nnz_t size){
 
 int saena_object::transpose_locally(std::vector<cooEntry> &A, nnz_t size, std::vector<cooEntry> &B){
 
+    transpose_locally(A, size, 0, B);
+
+    return 0;
+}
+
+
+int saena_object::transpose_locally(std::vector<cooEntry> &A, nnz_t size, index_t row_offset, std::vector<cooEntry> &B){
+
     for(nnz_t i = 0; i < size; i++){
-        B[i] = cooEntry(A[i].col, A[i].row, A[i].val);
+        B[i] = cooEntry(A[i].col, A[i].row+row_offset, A[i].val);
     }
 
     std::sort(B.begin(), B.end());
 
     return 0;
 }
+
