@@ -31,6 +31,9 @@ option(enable_combblaslib   "Build the CombBLAS library" OFF)
 option(TPL_COMBBLAS_LIBRARIES "List of absolute paths to CombBLAS link libraries [].")
 option(TPL_COMBBLAS_INCLUDE_DIRS "List of absolute paths to CombBLAS include directories [].")
 
+# Majid:
+set(CMAKE_POSITION_INDEPENDENT_CODE ON)
+
 if (NOT enable_combblaslib)
   SET(XSDK_ENABLE_CXX OFF)
 endif()
