@@ -330,7 +330,7 @@ int saena_object::solve_pcg_update1(std::vector<value_t>& u, saena_matrix* A_new
 */
 
 
-int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new){$
+int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new){
 
     MPI_Comm comm = grids[0].A->comm;
     int nprocs, rank;
@@ -669,7 +669,7 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
 */
 
 
-int saena_object::solve_pcg_update3(std::vector<value_t>& u, saena_matrix* A_new){$
+int saena_object::solve_pcg_update3(std::vector<value_t>& u, saena_matrix* A_new){
 
     MPI_Comm comm = grids[0].A->comm;
     int nprocs, rank;
