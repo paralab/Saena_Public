@@ -22,7 +22,17 @@ typedef unsigned long nnz_t;
 typedef double value_t;
 
 class saena_matrix {
-// A matrix of this class has column-major order: ordered first column-wise, then row-wise.
+
+// A matrix of this class has column-major order.
+
+    // Steps of creating a matrix of this class:
+//    parameter	        type	                    reason
+//    -----------------------------------------------------------------------------------
+//    data_coo	        std::set<cooEntry_row>		add entries by set()
+//    data_unsorted	    std::vector<cooEntry_row>	switch from std::set to std::vector
+//    data_sorted_row   std::vector<cooEntry_row>	sort row-major
+//    data_sorted	    std::vector<cooEntry>		switch from cooEntry_row to cooEntry
+//    data		        std::vector<cooEntry>		remove duplicates
 
 private:
     std::vector<cooEntry_row> data_unsorted;
@@ -35,6 +45,7 @@ private:
     bool verbose_saena_matrix = false;
     bool verbose_repartition  = false;
     bool verbose_matrix_setup = false;
+    bool verbose_repartition_update = false;
 
 public:
     std::set<cooEntry_row> data_coo;
@@ -246,10 +257,11 @@ public:
     int set_zero();
     int erase();
     int erase2();
-    int erase_update_local(); // use this for coarsen2()
-    int erase_keep_remote2(); // use this for coarsen2()
+    int erase_update_local(); // use this for coarsen_update_Ac()
+    int erase_keep_remote2(); // use this for coarsen_update_Ac()
     int erase_after_shrink();
     int erase_after_decide_shrinking();
+    int erase_lazy_update();
     int destroy();
 };
 

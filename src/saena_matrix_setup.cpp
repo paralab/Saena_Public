@@ -18,7 +18,6 @@ int saena_matrix::assemble() {
         matrix_setup();
         if(enable_shrink) compute_matvec_dummy_time();
     }else{
-        setup_initial_data2();
         repartition_nnz_update();
         matrix_setup_update();
     }
@@ -45,23 +44,23 @@ int saena_matrix::setup_initial_data(){
     nnz_t iter = 0;
     index_t Mbig_local = 0;
 
+    // read this: https://stackoverflow.com/questions/5034211/c-copy-set-to-vector
     data_unsorted.resize(data_coo.size());
-    for(it=data_coo.begin(); it!=data_coo.end(); ++it){
+    for(it = data_coo.begin(); it != data_coo.end(); ++it){
         data_unsorted[iter] = *it;
         ++iter;
 
         temp = *it;
-        if(temp.row > Mbig_local)
-            Mbig_local = temp.row;
+        if(temp.col > Mbig_local)
+            Mbig_local = temp.col;
     }
 
     // Mbig is the size of the matrix, which is the maximum of rows and columns.
-    // up to here Mbig_local is the maximum of rows.
-    // data[3*iter+1] is the maximum of columns, since it is sorted based on columns.
+    // Up to here Mbig_local is the maximum of cols.
+    // last element's row is the maximum of rows, since data_coo is sorted row-major.
 
-    iter--;
-    if(data_unsorted[iter].col > Mbig_local)
-        Mbig_local = data_unsorted[iter].col;
+    if(data_unsorted.back().row > Mbig_local)
+        Mbig_local = data_unsorted[iter].row;
 
     MPI_Allreduce(&Mbig_local, &Mbig, 1, MPI_UNSIGNED, MPI_MAX, comm);
     Mbig++; // since indices start from 0, not 1.
@@ -84,8 +83,7 @@ int saena_matrix::setup_initial_data2(){
     // parameters being set in this function:
     // Mbig, initial_nnz_l, nnz_g, data
 
-    int nprocs, rank;
-    MPI_Comm_size(comm, &nprocs);
+    int rank;
     MPI_Comm_rank(comm, &rank);
 
 //    std::cout << rank << " : " << __func__ << initial_nnz_l << std::endl;
@@ -94,7 +92,7 @@ int saena_matrix::setup_initial_data2(){
     nnz_t iter = 0;
 
     data_unsorted.resize(data_coo.size());
-    for(it=data_coo.begin(); it!=data_coo.end(); ++it){
+    for(it = data_coo.begin(); it != data_coo.end(); ++it){
         data_unsorted[iter] = *it;
         ++iter;
     }
@@ -104,7 +102,11 @@ int saena_matrix::setup_initial_data2(){
     initial_nnz_l = data.size();
     nnz_t nnz_g_temp = nnz_g;
     MPI_Allreduce(&initial_nnz_l, &nnz_g, 1, MPI_UNSIGNED_LONG, MPI_SUM, comm);
-    if(rank == 0 && (nnz_g_temp != nnz_g) ) printf("error: number of global nonzeros is changed during the matrix update!\n");
+    if((nnz_g_temp != nnz_g) && rank == 0){
+        printf("error: number of global nonzeros is changed during the matrix update!\n");
+        MPI_Finalize();
+        return -1;
+    }
 
     return 0;
 }
@@ -145,15 +147,17 @@ int saena_matrix::remove_duplicates() {
     data_unsorted.clear();
     data_unsorted.shrink_to_fit();
 
+    if(data_sorted_row.empty()) {
+        printf("error: data has no element on process %d! \n", rank);
+        MPI_Finalize();
+        return -1;}
+
+    // switch from cooEntry_row to cooEntry.
     std::vector<cooEntry> data_sorted(data_sorted_row.size());
     memcpy(&data_sorted[0], &data_sorted_row[0], data_sorted_row.size() * sizeof(cooEntry));
 
 //    printf("rank = %d \t\t\t after  sort: data_sorted size = %lu\n", rank, data_sorted.size());
-
-//    par::sampleSort(data_unsorted, comm);
-
-    // todo: "data" vector can completely be avoided. function repartition should be changed to use a vector of cooEntry
-    // todo: (which is "data_sorted" here), instead of "data" (which is a vector of unsigned long of size 3*nnz).
+//    print_vector(data_sorted, -1, "data_sorted", comm);
 
     // size of data may be smaller because of duplicates. In that case its size will be reduced after finding the exact size.
     data.resize(data_sorted.size());
@@ -180,11 +184,6 @@ int saena_matrix::remove_duplicates() {
 
     data.resize(data_size);
     data.shrink_to_fit();
-
-    if(data.empty()) {
-        printf("error: data has no element on process %d! \n", rank);
-        MPI_Finalize();
-        return -1;}
 
     // receive first element of your left neighbor and check if it is equal to your last element.
     cooEntry first_element_neighbor;

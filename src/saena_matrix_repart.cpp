@@ -5,9 +5,7 @@
 #include <fstream>
 #include <cstring>
 #include <algorithm>
-//#include <sys/stat.h>
 #include <omp.h>
-//#include <printf.h>
 #include "mpi.h"
 
 
@@ -45,15 +43,14 @@ int saena_matrix::repartition_nnz_initial(){
     // definition of buckets: bucket[i] = [ firstSplit[i] , firstSplit[i+1] ). Number of buckets = n_buckets
     int n_buckets = 0;
 
-    if (Mbig > nprocs*nprocs){
+    if (Mbig > nprocs*nprocs) {
         if (nprocs < 1000)
             n_buckets = nprocs*nprocs;
         else
             n_buckets = 1000*nprocs;
-    }
-    else if(nprocs <= Mbig){
+    } else if(nprocs <= Mbig) {
         n_buckets = Mbig;
-    } else{ // nprocs > Mbig
+    } else { // nprocs > Mbig
         // it may be better to set nprocs=Mbig and work only with the first Mbig processors.
         if(rank == 0)
             std::cout << "number of tasks cannot be greater than the number of rows of the matrix." << std::endl;
@@ -98,19 +95,21 @@ int saena_matrix::repartition_nnz_initial(){
 //    print_vector(data, -1, "data", comm);
 
     index_t least_bucket, last_bucket;
-    least_bucket = lower_bound2(&firstSplit[0], &firstSplit[n_buckets], data[0].row);
-    last_bucket  = lower_bound2(&firstSplit[0], &firstSplit[n_buckets], data.back().row);
+    least_bucket = (index_t) lower_bound2(&firstSplit[0], &firstSplit[n_buckets], data[0].row);
+    last_bucket  = (index_t) lower_bound2(&firstSplit[0], &firstSplit[n_buckets], data.back().row);
     last_bucket++;
 
 //    if (rank==0) std::cout << "least_bucket:" << least_bucket << ", last_bucket = " << last_bucket << std::endl;
 
     // H_l is the histogram of (local) nnz of buckets
     std::vector<index_t> H_l(n_buckets, 0);
+    H_l[least_bucket]++; // add the first element to local histogram (H_l) here.
 
-    for(nnz_t i=0; i<initial_nnz_l; i++){
-//        H_l[lower_bound2(&firstSplit[0], &firstSplit[n_buckets], data[i].row)]++;
-        least_bucket += lower_bound2(&firstSplit[least_bucket], &firstSplit[last_bucket], data[i].row);
-//        if (rank==0) std::cout << "row = " << data[i].row << ", least_bucket = " << least_bucket << std::endl;
+    for(nnz_t i = 1; i < initial_nnz_l; i++){
+        if(data[i].row >= firstSplit[least_bucket+1]){
+            least_bucket += lower_bound2(&firstSplit[least_bucket], &firstSplit[last_bucket], data[i].row);
+//            if (rank==0) std::cout << "row = " << data[i].row << ", least_bucket = " << least_bucket << std::endl;
+        }
         H_l[least_bucket]++;
     }
 
@@ -140,7 +139,7 @@ int saena_matrix::repartition_nnz_initial(){
     index_t procNum = 0;
     split.resize(nprocs+1);
     split[0]=0;
-    for (index_t i=1; i<n_buckets; i++){
+    for (index_t i = 1; i < n_buckets; i++){
         //if (rank==0) std::cout << "(procNum+1)*nnz_g/nprocs = " << (procNum+1)*nnz_g/nprocs << std::endl;
         if (H_g_scan[i] > ((procNum+1)*nnz_g/nprocs)){
             procNum++;
@@ -170,17 +169,23 @@ int saena_matrix::repartition_nnz_initial(){
 
     if(nprocs != 1){
         index_t least_proc, last_proc;
-        least_proc = lower_bound2(&split[0], &split[nprocs], data[0].row);
-        last_proc  = lower_bound2(&split[0], &split[nprocs], data.back().row);
+        least_proc = (index_t) lower_bound2(&split[0], &split[nprocs], data[0].row);
+        last_proc  = (index_t) lower_bound2(&split[0], &split[nprocs], data.back().row);
         last_proc++;
 
 //        if (rank==1) std::cout << "\nleast_proc:" << least_proc << ", last_proc = " << last_proc << std::endl;
+//        print_vector(split, 1, "split", comm);
 
+        // todo: check if data is sorted row-major, then remove lower_bound and add if statement.
         std::vector<int> send_size_array(nprocs, 0);
-        for (nnz_t i=0; i<initial_nnz_l; i++){
-//            least_proc = lower_bound2(&split[0], &split[nprocs], data[i].row);
-            least_proc += lower_bound2(&split[least_proc], &split[last_proc], data[i].row);
-//            if (rank==1) std::cout << "least_proc:" << least_proc << std::endl;
+        // add the first element to send_size_array
+        send_size_array[least_proc]++;
+
+        for (nnz_t i = 1; i < initial_nnz_l; i++){
+            if(data[i].row >= split[least_proc+1]){
+                least_proc += lower_bound2(&split[least_proc], &split[last_proc], data[i].row);
+            }
+//            if(rank==2) printf("row = %u, %u \n", data[i].row, least_proc);
             send_size_array[least_proc]++;
         }
 
@@ -201,7 +206,7 @@ int saena_matrix::repartition_nnz_initial(){
 
         std::vector<int> recv_offset(nprocs);
         recv_offset[0] = 0;
-        for (int i=1; i<nprocs; i++)
+        for (int i = 1; i < nprocs; i++)
             recv_offset[i] = recv_size_array[i-1] + recv_offset[i-1];
 
 //        print_vector(recv_offset, 0, "recv_offset", comm);
@@ -244,17 +249,19 @@ int saena_matrix::repartition_nnz_update(){
     // the following variables of SaenaMatrix class will be set in this function:
     // "nnz_l", "M", "split", "entry"
 
-    bool repartition_verbose = false;
-
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    if(repartition_verbose && rank==0) printf("repartition - step 1!\n");
+    if(verbose_repartition_update && rank==0) printf("repartition - step 1!\n");
 
-    density = (nnz_g / double(Mbig)) / (Mbig);
+    // *************************** setup_initial_data2 ****************************
+
+    setup_initial_data2();
 
     // *************************** exchange data ****************************
+
+    density = (nnz_g / double(Mbig)) / (Mbig);
 
 //    print_vector(data, -1, "data", comm);
     std::sort(data.begin(), data.end(), row_major);
@@ -268,8 +275,13 @@ int saena_matrix::repartition_nnz_update(){
 //    if (rank==1) std::cout << "\nleast_proc:" << least_proc << ", last_proc = " << last_proc << std::endl;
 
     std::vector<int> send_size_array(nprocs, 0);
-    for (nnz_t i=0; i<initial_nnz_l; i++){
-        least_proc += lower_bound2(&split[least_proc], &split[last_proc], data[i].row);
+    // add the first element to send_size_array
+    send_size_array[least_proc]++;
+
+    for (nnz_t i = 1; i < initial_nnz_l; i++){
+        if(data[i].row >= split[least_proc+1]) {
+            least_proc += lower_bound2(&split[least_proc], &split[last_proc], data[i].row);
+        }
         send_size_array[least_proc]++;
     }
 
@@ -289,24 +301,25 @@ int saena_matrix::repartition_nnz_update(){
 
     std::vector<int> recv_offset(nprocs);
     recv_offset[0] = 0;
-    for (int i=1; i<nprocs; i++)
+    for (int i = 1; i < nprocs; i++)
         recv_offset[i] = recv_size_array[i-1] + recv_offset[i-1];
 
 //    print_vector(recv_offset, 0, "recv_offset", comm);
 
-    if(repartition_verbose && rank==0) printf("repartition - step 2!\n");
+    if(verbose_repartition_update && rank==0) printf("repartition - step 2!\n");
 
     unsigned long nnz_l_temp = recv_offset[nprocs-1] + recv_size_array[nprocs-1];
 //    printf("rank=%d \t A.nnz_l=%u \t A.nnz_g=%u \n", rank, nnz_l, nnz_g);
     if(nnz_l_temp != nnz_l) printf("error: number of local nonzeros is changed on processor %d during the matrix update!\n", rank);
 
-    if(repartition_verbose && rank==0) printf("repartition - step 3!\n");
+    if(verbose_repartition_update && rank==0) printf("repartition - step 3!\n");
 
 //    entry.clear();
     entry.resize(nnz_l_temp);
     entry.shrink_to_fit();
 
-    MPI_Alltoallv(&data[0], &send_size_array[0], &send_offset[0], cooEntry::mpi_datatype(), &entry[0], &recv_size_array[0], &recv_offset[0], cooEntry::mpi_datatype(), comm);
+    MPI_Alltoallv(&data[0],  &send_size_array[0], &send_offset[0], cooEntry::mpi_datatype(),
+                  &entry[0], &recv_size_array[0], &recv_offset[0], cooEntry::mpi_datatype(), comm);
 
     std::sort(entry.begin(), entry.end());
 
@@ -315,10 +328,9 @@ int saena_matrix::repartition_nnz_update(){
     data.shrink_to_fit();
 
 //    print_entry(0);
-
 //    MPI_Barrier(comm); printf("repartition: rank = %d, Mbig = %u, M = %u, nnz_g = %u, nnz_l = %u \n", rank, Mbig, M, nnz_g, nnz_l); MPI_Barrier(comm);
 
-    if(repartition_verbose && rank==0) printf("repartition - step 4!\n");
+    if(verbose_repartition_update && rank==0) printf("repartition - step 4!\n");
 
     return 0;
 }
