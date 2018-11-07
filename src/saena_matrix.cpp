@@ -932,8 +932,6 @@ int saena_matrix::erase_after_decide_shrinking() {
 int saena_matrix::erase_lazy_update(){
 
     entry.clear();
-    split.clear();
-    split_old.clear();
     values_local.clear();
     row_local.clear();
     values_remote.clear();
