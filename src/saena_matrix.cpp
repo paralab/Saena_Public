@@ -967,8 +967,6 @@ int saena_matrix::erase_lazy_update(){
     vElement_remote.clear();
     w_buff.clear();
 
-    freeBoolean = false;
-
     return 0;
 }
 
