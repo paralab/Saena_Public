@@ -81,7 +81,8 @@ int saena_object::update3(saena_matrix* A_new){
     return 0;
 }
 
-
+//int saena_object::solve_pcg_update1
+/*
 int saena_object::solve_pcg_update1(std::vector<value_t>& u){
 
     MPI_Comm comm = grids[0].A->comm;
@@ -236,6 +237,7 @@ int saena_object::solve_pcg_update1(std::vector<value_t>& u){
 
     return 0;
 }
+*/
 
 //int saena_object::solve_pcg_update1
 /*
@@ -391,7 +393,8 @@ int saena_object::solve_pcg_update1(std::vector<value_t>& u, saena_matrix* A_new
 }
 */
 
-
+//int saena_object::solve_pcg_update2
+/*
 int saena_object::solve_pcg_update2(std::vector<value_t>& u){
 
     MPI_Comm comm = grids[0].A->comm;
@@ -546,7 +549,7 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u){
 
     return 0;
 }
-
+*/
 
 //int saena_object::solve_pcg_update2
 /*
@@ -711,7 +714,8 @@ int saena_object::solve_pcg_update2(std::vector<value_t>& u, saena_matrix* A_new
 }
 */
 
-
+//int saena_object::solve_pcg_update3
+/*
 int saena_object::solve_pcg_update3(std::vector<value_t>& u){
 
     MPI_Comm comm = grids[0].A->comm;
@@ -866,7 +870,7 @@ int saena_object::solve_pcg_update3(std::vector<value_t>& u){
 
     return 0;
 }
-
+*/
 
 //int saena_object::solve_pcg_update3
 /*
@@ -1111,11 +1115,14 @@ int saena_object::coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff){
                P->nnz_l, P->nnz_g, R->nnz_l, R->nnz_g, R->M, R->nnz_l_local, R->nnz_l_remote);
     }
 
-    prolong_matrix RA_temp(comm); // RA_temp is being used to remove duplicates while pushing back to RA.
+    if(Ac->active)
+        Ac->scale_back_matrix();
 
     // ************************************* RA_temp - A local *************************************
     // Some local and remote elements of RA_temp are computed here using local R and local A.
     // Note: A local means whole entries of A on this process, not just the diagonal block.
+
+    prolong_matrix RA_temp(comm); // RA_temp is being used to remove duplicates while pushing back to RA.
 
     std::sort(diff.begin(), diff.end(), row_major);
 
@@ -1178,24 +1185,18 @@ int saena_object::coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff){
 //    print_vector(RA_temp.entry, -1, "RA_temp.entry: after sort", comm);
 
     prolong_matrix RA(comm);
-    RA.entry.resize(RA_temp.entry.size());
 
     // remove duplicates.
     unsigned long entry_size = 0;
     for(nnz_t i=0; i<RA_temp.entry.size(); i++){
-//        RA.entry.push_back(RA_temp.entry[i]);
-        RA.entry[entry_size] = RA_temp.entry[i];
+        RA.entry.push_back(RA_temp.entry[i]);
         while(i<RA_temp.entry.size()-1 && RA_temp.entry[i] == RA_temp.entry[i+1]){ // values of entries with the same row and col should be added.
-//            RA.entry.back().val += RA_temp.entry[i+1].val;
-            RA.entry[entry_size].val += RA_temp.entry[i+1].val;
+            RA.entry.back().val += RA_temp.entry[i+1].val;
             i++;
         }
 //        if(rank==1) std::cout << std::endl << "final: " << std::endl << RA.entry[RA.entry.size()-1].val << std::endl;
         entry_size++;
     }
-
-    RA.entry.resize(entry_size);
-    RA.entry.shrink_to_fit();
 
 //    print_vector(RA.entry, -1, "RA.entry", comm);
 
