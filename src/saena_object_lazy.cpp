@@ -20,10 +20,9 @@ int saena_object::update1(saena_matrix* A_new){
 
 
     //todo: delete this part!
-    for(nnz_t i = 0; i < A_new->nnz_l; i++){
-        std::cout << grids[0].A->entry[i] << "\t" << A_new->entry[i] << std::endl;
-    }
-
+//    for(nnz_t i = 0; i < A_new->nnz_l; i++){
+//        std::cout << grids[0].A->entry[i] << "\t" << A_new->entry[i] << std::endl;
+//    }
 //    std::vector<cooEntry> A_diff;
 //    local_diff(*grids[0].A, *A_new, A_diff);
 
