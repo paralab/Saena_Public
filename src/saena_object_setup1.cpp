@@ -85,7 +85,7 @@ int saena_object::create_prolongation(saena_matrix* A, std::vector<unsigned long
                                               aggregate[ A->col_local[A->indicesP_local[iter]] - A->split[rank] ],
                                               1 - omega));
             }else{
-                PEntryTemp.push_back(cooEntry(A->row_local[A->indicesP_local[iter]],
+                PEntryTemp.push_back(git commit -am "comment out print"cooEntry(A->row_local[A->indicesP_local[iter]],
                                               aggregate[ A->col_local[A->indicesP_local[iter]] - A->split[rank] ],
                                               -omega * A->values_local[A->indicesP_local[iter]] * A->inv_diag[A->row_local[A->indicesP_local[iter]]]));
             }
