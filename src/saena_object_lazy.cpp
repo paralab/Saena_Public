@@ -1077,7 +1077,7 @@ int saena_object::local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEn
         index_t loc_size = 0;
         for(nnz_t i = 0; i < A.nnz_l_local; i++){
             if(!almost_zero(A.values_local[i] - B.values_local[i])){
-                if(rank==1) printf("%u \t%u \t%f \t%f \n", A.row_local[i], A.col_local[i], A.values_local[i], B.values_local[i]);
+//                if(rank==1) printf("%u \t%u \t%f \t%f \n", A.row_local[i], A.col_local[i], A.values_local[i], B.values_local[i]);
                 C[loc_size] = cooEntry(A.row_local[i], A.col_local[i], B.values_local[i]-A.values_local[i]);
                 loc_size++;
             }
