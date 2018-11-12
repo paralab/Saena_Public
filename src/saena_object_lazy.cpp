@@ -22,14 +22,14 @@ int saena_object::update1(saena_matrix* A_new){
     MPI_Comm_rank(comm, &rank);
 
     //todo: delete this part!
-    if(rank==0){
-        for(nnz_t i = 0; i < A_new->nnz_l; i++){
-            std::cout << grids[0].A->entry[i] << "\t" << A_new->entry[i] << std::endl;
-        }
-    }
+//    if(rank==0){
+//        for(nnz_t i = 0; i < A_new->nnz_l; i++){
+//            std::cout << grids[0].A->entry[i] << "\t" << A_new->entry[i] << std::endl;
+//        }
+//    }
 
-//    std::vector<cooEntry> A_diff;
-//    local_diff(*grids[0].A, *A_new, A_diff);
+    std::vector<cooEntry> A_diff;
+    local_diff(*grids[0].A, *A_new, A_diff);
 
 
 
@@ -1110,7 +1110,7 @@ int saena_object::local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEn
         }
         C.resize(loc_size);
 
-//        print_vector(C, -1, "local_diff", A.comm);
+        print_vector(C, -1, "local_diff", A.comm);
 
         // remote diff
 //        std::vector<cooEntry> remote_diff;
