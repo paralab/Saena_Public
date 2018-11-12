@@ -17,8 +17,19 @@ int saena_object::update1(saena_matrix* A_new){
 //    the difference between this function and solve_pcg(): the finest level matrix (original LHS) is updated with
 //    the new one.
 
-    std::vector<cooEntry> A_diff;
-    local_diff(*grids[0].A, *A_new, A_diff);
+
+
+    //todo: delete this part!
+    for(nnz_t i = 0; i < A_new->nnz_l; i++){
+        std::cout << grids[0].A->entry[i] << "\t" << A_new->entry[i] << std::endl;
+    }
+
+//    std::vector<cooEntry> A_diff;
+//    local_diff(*grids[0].A, *A_new, A_diff);
+
+
+
+
 
     // first set A_new.eig_max_of_invdiagXA equal to the previous A's. Since we only need an upper bound, this is good enough.
     A_new->eig_max_of_invdiagXA = grids[0].A->eig_max_of_invdiagXA;
@@ -1058,31 +1069,33 @@ int saena_object::local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEn
         if(A.nnz_g != B.nnz_g)
             if(rank==0) std::cout << "error: local_diff(): A.nnz_g != B.nnz_g" << std::endl;
 
+//        A.print_entry(-1);
+//        B.print_entry(-1);
+
 //        C.clear();
         C.resize(A.nnz_l_local);
         index_t loc_size = 0;
         for(nnz_t i = 0; i < A.nnz_l_local; i++){
             if(!almost_zero(A.values_local[i] - B.values_local[i])){
-//                if(rank==1) printf("%u \t%u \t%f \n", A.row_local[i], A.col_local[i], A.values_local[i]-B.values_local[i]);
+                if(rank==1) printf("%u \t%u \t%f \t%f \n", A.row_local[i], A.col_local[i], A.values_local[i], B.values_local[i]);
                 C[loc_size] = cooEntry(A.row_local[i], A.col_local[i], B.values_local[i]-A.values_local[i]);
                 loc_size++;
             }
         }
         C.resize(loc_size);
 
-        print_vector(C, -1, "local_diff", A.comm);
+//        print_vector(C, -1, "local_diff", A.comm);
 
         // remote diff
-        std::vector<cooEntry> remote_diff;
-        if(rank==1) printf("\nremote diff:\n");
-        for(nnz_t i = 0; i < A.nnz_l_remote; i++){
-            if(!almost_zero(A.values_remote[i] - B.values_remote[i])){
-                if(rank==1) printf("%u \t%u \t%f \n", A.row_remote[i], A.col_remote[i], A.values_remote[i]-B.values_remote[i]);
-                remote_diff.emplace_back(cooEntry(A.row_remote[i], A.col_remote[i], B.values_remote[i]-A.values_remote[i]));
-            }
-        }
-
-        print_vector(remote_diff, -1, "remote_diff", A.comm);
+//        std::vector<cooEntry> remote_diff;
+//        if(rank==1) printf("\nremote diff:\n");
+//        for(nnz_t i = 0; i < A.nnz_l_remote; i++){
+//            if(!almost_zero(A.values_remote[i] - B.values_remote[i])){
+//                if(rank==1) printf("%u \t%u \t%f \n", A.row_remote[i], A.col_remote[i], A.values_remote[i]-B.values_remote[i]);
+//                remote_diff.emplace_back(cooEntry(A.row_remote[i], A.col_remote[i], B.values_remote[i]-A.values_remote[i]));
+//            }
+//        }
+//        print_vector(remote_diff, -1, "remote_diff", A.comm);
 
         // this part sets the parameters needed to be set until the end of repartition().
 //        C.Mbig = A.Mbig;
