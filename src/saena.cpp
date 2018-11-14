@@ -498,21 +498,25 @@ int saena::amg::matrix_diff(saena::matrix &A1, saena::matrix &B1){
         if(A->nnz_g != B->nnz_g)
             if(rank==0) std::cout << "error: matrix_diff(): A.nnz_g != B.nnz_g" << std::endl;
 
-//        A.print_entry(-1);
-//        B.print_entry(-1);
+        A->print_entry(-1);
+        B->print_entry(-1);
 
         MPI_Barrier(comm);
         printf("\nmatrix_diff: \n");
         MPI_Barrier(comm);
 
-        if(rank==0){
+//        if(rank==0){
             for(nnz_t i = 0; i < A->entry.size(); i++){
 //                if(!almost_zero(A->entry[i].val - B->entry[i].val)){
                     std::cout << A->entry[i] << "\t" << B->entry[i] << "\t" << A->entry[i].val - B->entry[i].val << std::endl;
 //                }
             }
-        }
+//        }
 //    }
+
+    MPI_Barrier(comm);
+    printf("A->entry.size() = %lu, B->entry.size() = %lu \n", A->entry.size(), B->entry.size());
+    MPI_Barrier(comm);
 
     return 0;
 }
