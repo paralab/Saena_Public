@@ -505,7 +505,7 @@ int saena::amg::matrix_diff(saena::matrix &A1, saena::matrix &B1){
         printf("\nmatrix_diff: \n");
         MPI_Barrier(comm);
 
-        if(rank==1){
+        if(rank==0){
             for(nnz_t i = 0; i < A->nnz_l; i++){
 //                if(!almost_zero(A->entry[i].val - B->entry[i].val)){
                     std::cout << A->entry[i] << "\t" << B->entry[i] << "\t" << A->entry[i].val - B->entry[i].val << std::endl;
