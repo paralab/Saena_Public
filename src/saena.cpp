@@ -141,7 +141,7 @@ int saena::matrix::assemble_writeToFile(const char *folder_name){
         m_pImpl->writeMatrixToFile(folder_name);
     }else{
         m_pImpl->repartition_nnz_update();
-        m_pImpl->matrix_setup_update();
+        m_pImpl->matrix_setup_update_no_scale();
         m_pImpl->writeMatrixToFile(folder_name);
     }
 
