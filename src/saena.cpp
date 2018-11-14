@@ -489,7 +489,7 @@ int saena::amg::matrix_diff(saena::matrix &A1, saena::matrix &B1){
     saena_matrix *A = A1.get_internal_matrix();
     saena_matrix *B = B1.get_internal_matrix();
 
-    if(A->active){
+//    if(A->active){
         MPI_Comm comm = A->comm;
         int nprocs, rank;
         MPI_Comm_size(comm, &nprocs);
@@ -506,13 +506,13 @@ int saena::amg::matrix_diff(saena::matrix &A1, saena::matrix &B1){
         MPI_Barrier(comm);
 
         if(rank==0){
-            for(nnz_t i = 0; i < A->nnz_l; i++){
+            for(nnz_t i = 0; i < A->entry.size(); i++){
 //                if(!almost_zero(A->entry[i].val - B->entry[i].val)){
                     std::cout << A->entry[i] << "\t" << B->entry[i] << "\t" << A->entry[i].val - B->entry[i].val << std::endl;
 //                }
             }
         }
-    }
+//    }
 
     return 0;
 }
