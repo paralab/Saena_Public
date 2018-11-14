@@ -507,9 +507,9 @@ int saena::amg::matrix_diff(saena::matrix &A1, saena::matrix &B1){
 
         if(rank==1){
             for(nnz_t i = 0; i < A->nnz_l; i++){
-                if(!almost_zero(A->entry[i].val - B->entry[i].val)){
+//                if(!almost_zero(A->entry[i].val - B->entry[i].val)){
                     std::cout << A->entry[i] << "\t" << B->entry[i] << "\t" << A->entry[i].val - B->entry[i].val << std::endl;
-                }
+//                }
             }
         }
     }
