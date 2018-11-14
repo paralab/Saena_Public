@@ -498,8 +498,8 @@ int saena::amg::matrix_diff(saena::matrix &A1, saena::matrix &B1){
         if(A->nnz_g != B->nnz_g)
             if(rank==0) std::cout << "error: matrix_diff(): A.nnz_g != B.nnz_g" << std::endl;
 
-        A->print_entry(-1);
-        B->print_entry(-1);
+//        A->print_entry(-1);
+//        B->print_entry(-1);
 
         MPI_Barrier(comm);
         printf("\nmatrix_diff: \n");
