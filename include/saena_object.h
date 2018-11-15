@@ -33,7 +33,7 @@ public:
     int postSmooth = 3;
     std::string direct_solver = "SuperLU"; // options: 1- CG, 2- SuperLU
     std::vector<Grid> grids;
-    float connStrength = 0.35; // connection strength parameter: control coarsening aggressiveness
+    float connStrength = 0.5; // connection strength parameter: control coarsening aggressiveness
     int CG_max_iter = 150; //150
     double CG_tol = 1e-14;
     bool repartition = false; // this parameter will be set to true if the partition of input matrix changed. it will be decided in set_repartition_rhs().
