@@ -98,7 +98,7 @@ int saena_object::update3(saena_matrix* A_new){
 
     std::vector<cooEntry> A_diff;
     local_diff(*grids[0].A, *A_new, A_diff);
-//    print_vector(A_diff, -1, "A_diff", grids[0].A->comm);
+    print_vector(A_diff, -1, "A_diff", grids[0].A->comm);
 //    print_vector(grids[0].A->split, 0, "split", grids[0].A->comm);
 
     grids[0].A = A_new; // the whole matrix A for level 0 should be updated with the updated matrix.
