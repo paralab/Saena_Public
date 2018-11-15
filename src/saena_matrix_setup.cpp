@@ -430,7 +430,7 @@ int saena_matrix::matrix_setup_update() {
         }
     }
 
-    inv_diag.resize(M);
+//    inv_diag.resize(M);
     inverse_diag();
 
     scale_matrix();
