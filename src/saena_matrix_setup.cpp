@@ -433,7 +433,7 @@ int saena_matrix::matrix_setup_update() {
     inv_diag.resize(M);
     inverse_diag();
 
-//    scale_matrix();
+    scale_matrix();
 
     return 0;
 }
