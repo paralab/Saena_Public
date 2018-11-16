@@ -109,8 +109,8 @@ int saena_object::update3(saena_matrix* A_new){
     grids[0].A = A_new; // the whole matrix A for level 0 should be updated with the updated matrix.
     for(int i = 0; i < max_level; i++){
         if(grids[i].A->active) {
-            if(rank==0) printf("_____________________________________\nlevel = %d \n", i);
-            print_vector(A_diff, 1, "A_diff", grids[0].A->comm);
+//            if(rank==0) printf("_____________________________________\nlevel = %d \n", i);
+//            print_vector(A_diff, 1, "A_diff", grids[0].A->comm);
 //            grids[i].Ac.print_entry(-1);
             coarsen_update_Ac(&grids[i], A_diff); // A_diff will be updated inside coarsen_update_Ac to be the diff for the next level.
 //            grids[i].Ac.print_entry(-1);
