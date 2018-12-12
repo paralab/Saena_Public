@@ -35,10 +35,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #ENDIF()
 #set(CMAKE_BUILD_TYPE Debug)
 
-set(CMAKE_BUILD_TYPE Release)
-
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+#set(CMAKE_BUILD_TYPE Release)
+#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 
 # -----------------------------------------------------------------------
 # OpenMP
@@ -204,6 +203,7 @@ set(HEADER_FILES ${HEADER_FILES}
 
 set(SOURCE_FILES ${SOURCE_FILES}
         ${HEADER_FILES}
+        src/main.cpp
         src/saena.cpp
         src/saena_matrix_dense.cpp
         src/strength_matrix.cpp
