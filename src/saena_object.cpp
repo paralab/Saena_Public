@@ -9,6 +9,8 @@
 #include "ietl_saena.h"
 #include "dollar.hpp"
 
+//#include "petsc_functions.h"
+
 #include <sys/stat.h>
 #include <cstdio>
 #include <cstdlib>
@@ -45,7 +47,7 @@ MPI_Comm saena_object::get_orig_comm(){
 }
 
 
-int saena_object::setup(saena_matrix* A) {
+int saena_object::setup(saena_matrix* A) { $
     int nprocs, rank, rank_new;
     MPI_Comm_size(A->comm, &nprocs);
     MPI_Comm_rank(A->comm, &rank);
@@ -66,6 +68,8 @@ int saena_object::setup(saena_matrix* A) {
             printf("level = 0 \nnumber of procs = %d \nmatrix size \t= %d \nnonzero \t= %lu \ndensity \t= %.6f \n",
                    nprocs, A->Mbig, A->nnz_g, A->density);}
 
+    if(fabs(sample_sz_percent - 1) < 1e-4) doSparsify = false;
+
     if(verbose_setup_steps && rank==0) printf("setup: find_eig()\n");
     if(smoother=="chebyshev"){
 //        double t1 = omp_get_wtime();
@@ -77,8 +81,12 @@ int saena_object::setup(saena_matrix* A) {
     if(verbose_setup_steps && rank==0) printf("setup: generate_dense_matrix()\n");
     A->switch_to_dense = switch_to_dense;
     A->dense_threshold = dense_threshold;
-    if(switch_to_dense && A->density > dense_threshold)
+    if(switch_to_dense && A->density > dense_threshold) {
         A->generate_dense_matrix();
+    }
+
+    mempool1 = new value_t[matmat_size_thre];
+    mempool2 = new index_t[A->Mbig * 4];
 
     if(verbose_setup_steps && rank==0) printf("setup: first Grid\n");
     grids.resize(max_level+1);
@@ -90,7 +98,7 @@ int saena_object::setup(saena_matrix* A) {
         if(grids[i].A->active) {
             if (shrink_level_vector.size()>i+1) if(shrink_level_vector[i+1]) grids[i].A->enable_shrink_next_level = true;
             if (shrink_values_vector.size()>i+1) grids[i].A->cpu_shrink_thre2_next_level = shrink_values_vector[i+1];
-            level_setup(&grids[i]); // create P, R and Ac for grid[i]
+            coarsen(&grids[i]); // create P, R and Ac for grid[i]
             grids[i + 1] = Grid(&grids[i].Ac, max_level, i + 1); // Pass A to grids[i+1] (created as Ac in grids[i]) // todo: use emplace_back for grids.
             grids[i].coarseGrid = &grids[i + 1]; // connect grids[i+1] to grids[i]
 
@@ -171,9 +179,13 @@ int saena_object::setup(saena_matrix* A) {
     }
 */
 
+    delete[] mempool1;
+    delete[] mempool2;
+
     if(verbose_setup && rank==0){
         printf("_____________________________\n\n");
         printf("number of levels = << %d >> (the finest level is 0)\n", max_level);
+        if(doSparsify) printf("final sample size percent = %f\n", 1.0 * sample_prcnt_numer / sample_prcnt_denom);
         printf("\n******************************************************\n");
     }
 
@@ -185,7 +197,7 @@ int saena_object::setup(saena_matrix* A) {
 }
 
 
-int saena_object::level_setup(Grid* grid){
+int saena_object::coarsen(Grid *grid){$
 
     int nprocs, rank;
     MPI_Comm_size(grid->A->comm, &nprocs);
@@ -193,7 +205,7 @@ int saena_object::level_setup(Grid* grid){
 
 //    if(verbose_level_setup){
 //        MPI_Barrier(grid->A->comm);
-//        printf("rank = %d, start of level_setup: level = %d \n", rank, grid->currentLevel);
+//        printf("rank = %d, start of coarsen: level = %d \n", rank, grid->currentLevel);
 //        MPI_Barrier(grid->A->comm);
 //    }
 
@@ -241,20 +253,28 @@ int saena_object::level_setup(Grid* grid){
 //    print_vector(grid->R.entry_local, -1, "grid->R.entry_local", grid->A->comm);
 //    print_vector(grid->R.entry_remote, -1, "grid->R.entry_remote", grid->A->comm);
 
-    // **************************** coarsen ****************************
+    // **************************** triple_mat_mult ****************************
 
-    t1 = omp_get_wtime();
-    coarsen(grid);
-//    coarsen_old(grid);
-    t2 = omp_get_wtime();
-    if(verbose_level_setup) print_time(t1, t2, "Coarsening: level "+std::to_string(grid->currentLevel), grid->A->comm);
+//    MPI_Barrier(grid->A->comm);
+//    t1 = MPI_Wtime();
+//    t1 = omp_get_wtime();
+    triple_mat_mult(grid);
+//    triple_mat_mult_old(grid);
+//    t2 = omp_get_wtime();
+//    t2 = MPI_Wtime();
+//    if(verbose_level_setup) print_time(t1, t2, "triple_mat_mult: level "+std::to_string(grid->currentLevel), grid->A->comm);
+//    print_time_ave(t2-t1, "triple_mat_mult: level "+std::to_string(grid->currentLevel), grid->A->comm);
 
-//    MPI_Barrier(grid->A->comm); printf("rank %d: here after coarsen!!! \n", rank); MPI_Barrier(grid->A->comm);
+//    MPI_Barrier(grid->A->comm); printf("rank %d: here after triple_mat_mult!!! \n", rank); MPI_Barrier(grid->A->comm);
 //    if(grid->Ac.active) print_vector(grid->Ac.split, 1, "grid->Ac.split", grid->Ac.comm);
 //    if(grid->Ac.active) print_vector(grid->Ac.entry, 1, "grid->Ac.entry", grid->A->comm);
 
 //    printf("rank = %d, M = %u, nnz_l = %lu, nnz_g = %lu, Ac.M = %u, Ac.nnz_l = %lu \n",
 //           rank, grid->A->M, grid->A->nnz_l, grid->A->nnz_g, grid->Ac.M, grid->Ac.nnz_l);
+
+    // **************************** triple_mat_mult in PETSc ****************************
+    // this part is only for experiments.
+//    petsc_coarsen(&grid->R, grid->A, &grid->P);
 
     return 0;
 }

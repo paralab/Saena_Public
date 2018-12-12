@@ -2,6 +2,7 @@
 #include "saena_object.h"
 #include "saena_matrix.h"
 #include "saena.hpp"
+//#include "petsc_functions.h"
 
 #include <iostream>
 #include <algorithm>
@@ -23,51 +24,16 @@ int main(int argc, char* argv[]){
 
     bool verbose = false;
 
-//#pragma omp parallel
-//    if(rank==0 && omp_get_thread_num()==0) printf("\nnumber of processes = %d, number of threads = %d\n\n", nprocs, omp_get_num_threads());
-
-/*
     if(argc != 4){
         if(rank == 0)
             std::cout << "This is how to make a 3DLaplacian: ./Saena <x grid size> <y grid size> <z grid size>" << std::endl;
         MPI_Finalize();
-        return -1;}
-*/
-/*
-    if(argc != 2){
-        if(rank == 0){
-            std::cout << "Usage: ./Saena <MatrixA>" << std::endl;
-            std::cout << "Matrix file should be in triples format." << std::endl;}
-        MPI_Finalize();
-        return -1;}
-*/
-/*
-    if(argc != 3){
-        if(rank == 0){
-            std::cout << "Usage: ./Saena <MatrixA> <rhs_vec>" << std::endl;
-            std::cout << "Matrix file should be in triples format." << std::endl;}
-        MPI_Finalize();
-        return -1;}
-*/
-/*
-    if(argc != 3){
-        if(rank == 0){
-            std::cout << "Usage: ./Saena <MatrixA> <MatrixA_new>" << std::endl;
-            std::cout << "Matrix file should be in triples format." << std::endl;}
-        MPI_Finalize();
-        return -1;}
-*/
-/*
-    if(argc != 4){
-        if(rank == 0){
-            std::cout << "Usage: ./Saena <MatrixA> <rhs_vec> <MatrixA_new>" << std::endl;
-            std::cout << "Matrix file should be in triples format." << std::endl;}
-        MPI_Finalize();
-        return -1;}
-*/
-    // *************************** initialize the matrix ****************************
+        return -1;
+    }
 
-    // ******** 1 - initialize the matrix: laplacian *************
+    // *************************** initialize the matrix: Laplacian ****************************
+
+    double t1 = MPI_Wtime();
 
     int mx(std::stoi(argv[1]));
     int my(std::stoi(argv[2]));
@@ -76,69 +42,31 @@ int main(int argc, char* argv[]){
     if(verbose){
         MPI_Barrier(comm);
         if(rank==0) printf("3D Laplacian: grid size: x = %d, y = %d, z = %d \n", mx, my, mz);
-        MPI_Barrier(comm);}
-
-    // timing the matrix setup phase
-    double t1 = MPI_Wtime();
+        MPI_Barrier(comm);
+    }
 
     saena::matrix A(comm);
     saena::laplacian3D(&A, mx, my, mz);
 //    saena::laplacian2D_old(&A, mx);
 //    saena::laplacian3D_old(&A, mx);
-//    A.print_entry(-1);
 
-    double t2 = MPI_Wtime();
-    if(verbose) print_time(t1, t2, "Matrix Assemble:", comm);
-
-    // ******** 2 - initialize the matrix: read from file *************
-/*
-    double t1 = MPI_Wtime();
-
-    char* file_name(argv[1]);
-    saena::matrix A (comm);
-    A.read_file(file_name);
-//    A.read_file(file_name, "triangle");
-    A.assemble();
-//    A.assemble_writeToFile("writeMatrix");
+    // ********** print matrix and time **********
 
     double t2 = MPI_Wtime();
     if(verbose) print_time(t1, t2, "Matrix Assemble:", comm);
     print_time(t1, t2, "Matrix Assemble:", comm);
-*/
+
 //    A.print(0);
 //    A.get_internal_matrix()->print_info(0);
 //    A.get_internal_matrix()->writeMatrixToFile("writeMatrix");
 
-    // *************************** set rhs ****************************
+//    petsc_viewer(A.get_internal_matrix());
+
+    // *************************** set rhs: Laplacian ****************************
 
     unsigned int num_local_row = A.get_num_local_rows();
     std::vector<double> rhs;
-
-    // ********** 1 - set rhs: random **********
-
-//    rhs.resize(num_local_row);
-//    generate_rhs_old(rhs);
-
-    // ********** 2 - set rhs: ordered: 1, 2, 3, ... **********
-
-//    rhs.resize(num_local_row);
-//    for(index_t i = 0; i < A.get_num_local_rows(); i++)
-//        rhs[i] = i + 1 + A.get_internal_matrix()->split[rank];
-
-    // ********** 3 - set rhs: Laplacian **********
-
-    // don't set the size for this method
     saena::laplacian3D_set_rhs(rhs, mx, my, mz, comm);
-
-    // ********** 4 - set rhs: read from file **********
-
-//    char* Vname(argv[2]);
-//    saena::read_vector_file(rhs, A, Vname, comm);
-//    read_vector_file(rhs, A.get_internal_matrix(), Vname, comm);
-
-    // set rhs
-//    A.get_internal_matrix()->matvec(v, rhs);
-//    rhs = v;
 
     // ********** print rhs **********
 
@@ -171,6 +99,11 @@ int main(int argc, char* argv[]){
 //    if(rank==0) printf("\nsp_epsilon = %f \n", sp_epsilon);
 //    solver.get_object()->sparse_epsilon = sp_epsilon;
 
+    // receive sparsifivation factor from input and set it.
+//    double sm_sz_prct(std::stof(argv[4]));
+//    if(rank==0) printf("sm_sz_prct = %f \n", sm_sz_prct);
+//    solver.set_sample_sz_percent(sm_sz_prct);
+
     solver.set_matrix(&A, &opts);
     solver.set_rhs(rhs);
 
@@ -182,7 +115,7 @@ int main(int argc, char* argv[]){
 //    print_vector(solver.get_object()->grids[0].rhs, -1, "rhs", comm);
 
     // *************************** AMG - Solve ****************************
-
+/*
     t1 = MPI_Wtime();
 
 //    solver.solve(u, &opts);
@@ -191,18 +124,8 @@ int main(int argc, char* argv[]){
     t2 = MPI_Wtime();
     if(solver.verbose) print_time(t1, t2, "Solve:", comm);
     print_time(t1, t2, "Solve:", comm);
-
+*/
 //    print_vector(u, -1, "u", comm);
-
-// *************************** write the Laplacian matrix to file ****************************
-
-//    std::string mat_name = "3DLap";
-//    mat_name += std::to_string(mx);
-//    mat_name += "-";
-//    mat_name += std::to_string(my);
-//    mat_name += "-";
-//    mat_name += std::to_string(mz);
-//    solver.get_object()->writeMatrixToFileA(A.get_internal_matrix(), mat_name);
 
     // *************************** check correctness of the solution ****************************
 

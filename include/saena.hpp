@@ -131,12 +131,14 @@ namespace saena {
 
         int set_multigrid_max_level(int max); // 0 means only use direct solver, so no multigrid will be used.
 
+        int set_sample_sz_percent(double s_sz_prcnt);
+
     protected:
         saena_object* m_pImpl;
     };
 
 
-    // second argument is dof on each processor
+    // second argument is degree-of-freedom on each processor
     int laplacian2D_old(saena::matrix* A, unsigned int dof_local);
     int laplacian3D(saena::matrix* A, unsigned int mx, unsigned int my, unsigned int mz);
     int laplacian3D_set_rhs(std::vector<double> &rhs, unsigned int mx, unsigned int my, unsigned int mz, MPI_Comm comm);

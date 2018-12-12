@@ -256,19 +256,6 @@ ADD_NEKTAR_LIBRARY(Saena
         DESCRIPTION "This library provides fast multigrid solves.")
 
 # -----------------------------------------------------------------------
-# MPI - part 2/2
-
-if(MPI_COMPILE_FLAGS)
-    set_target_properties(Saena PROPERTIES
-            COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
-endif()
-
-if(MPI_LINK_FLAGS)
-    set_target_properties(Saena PROPERTIES
-            LINK_FLAGS "${MPI_LINK_FLAGS}")
-endif()
-
-# -----------------------------------------------------------------------
 
 target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
 

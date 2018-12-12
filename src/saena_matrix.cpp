@@ -1190,8 +1190,8 @@ int saena_matrix::writeMatrixToFile(){
 
 
 int saena_matrix::writeMatrixToFile(const char *folder_name){
-    // Create txt files with name Ac-r0.txt for processor 0, Ac-r1.txt for processor 1, etc.
-    // Then, concatenate them in terminal: cat Ac-r0.mtx Ac-r1.mtx > Ac.mtx
+    // Create txt files with name mat-r0.txt for processor 0, mat-r1.txt for processor 1, etc.
+    // Then, concatenate them in terminal: cat mat-r0.mtx mat-r1.mtx > mat.mtx
     // row and column indices of txt files should start from 1, not 0.
     // write the files inside ${HOME}/folder_name
     // this is the default case for the sorting which is column-major.
@@ -1224,13 +1224,11 @@ int saena_matrix::writeMatrixToFile(const char *folder_name){
 //    par::sampleSort(entry_temp1, entry_temp2, comm);
 
     // first line of the file: row_size col_size nnz
-    if(rank==0)
+    if(rank==0) {
         outFileTxt << Mbig << "\t" << Mbig << "\t" << nnz_g << std::endl;
+    }
 
     for (nnz_t i = 0; i < entry_temp2.size(); i++) {
-//        if(A->entry[i].row == A->entry[i].col)
-//            continue;
-
 //        if(rank==0) std::cout  << A->entry[i].row + 1 << "\t" << A->entry[i].col + 1 << "\t" << A->entry[i].val << std::endl;
         outFileTxt << entry_temp2[i].row + 1 << "\t" << entry_temp2[i].col + 1 << "\t" << entry_temp2[i].val << std::endl;
     }

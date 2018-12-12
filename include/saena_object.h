@@ -19,7 +19,7 @@ class Grid;
 class saena_object {
 public:
 
-    int max_level = 8; // fine grid is level 0.
+    int max_level = 1; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 20;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,
@@ -50,6 +50,10 @@ public:
     bool doSparsify = false;
     std::string sparsifier = "majid"; // options: 1- TRSL, 2- drineas, majid
     double sparse_epsilon = 1;
+    double sample_sz_percent = 1.0;
+    double sample_sz_percent_final = 1.0; // = sample_prcnt_numer / sample_prcnt_denom
+    nnz_t sample_prcnt_numer = 0;
+    nnz_t sample_prcnt_denom = 0;
 
     int set_shrink_levels(std::vector<bool> sh_lev_vec);
     std::vector<bool> shrink_level_vector;
@@ -62,6 +66,10 @@ public:
     bool switch_to_dense = false;
     float dense_threshold = 0.1; // 0<dense_threshold<=1 decide when to switch to the dense structure.
                                  // dense_threshold should be greater than repartition_threshold, since it is more efficient on repartition based on the number of rows.
+
+    // memory pool used in triple_mat_mult
+    value_t *mempool1;
+    index_t *mempool2;
 
     bool verbose                  = false;
     bool verbose_setup            = true;
@@ -84,23 +92,47 @@ public:
 
     void set_parameters(int vcycle_num, double relative_tolerance, std::string smoother, int preSmooth, int postSmooth);
     int setup(saena_matrix* A);
-    int level_setup(Grid* grid);
     int coarsen(Grid *grid);
-    int coarsen_old(Grid *grid);
+    int triple_mat_mult(Grid *grid);
+    int triple_mat_mult_old(Grid *grid);
     int coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff);
 
     int fast_mm_nnz(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nnz_t A_nnz, nnz_t B_nnz,
                 index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
                 index_t B_col_size, index_t B_col_offset,
                 index_t *nnzPerColScan_leftStart, index_t *nnzPerColScan_leftEnd,
-                index_t *nnzPerColScan_rightStart, index_t *nnzPerColScan_rightEnd,
-                value_t *mempool, MPI_Comm comm);
-    int fast_mm(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nnz_t A_nnz, nnz_t B_nnz,
+                index_t *nnzPerColScan_rightStart, index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
+    int fast_mm_orig(cooEntry *A, cooEntry *B, std::vector<cooEntry> &C, nnz_t A_nnz, nnz_t B_nnz,
                 index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
                 index_t B_col_size, index_t B_col_offset,
                 index_t *nnzPerColScan_leftStart, index_t *nnzPerColScan_leftEnd,
-                index_t *nnzPerColScan_rightStart, index_t *nnzPerColScan_rightEnd,
-                value_t *mempool, MPI_Comm comm);
+                index_t *nnzPerColScan_rightStart, index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
+
+
+    int fast_mm(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+                nnz_t A_nnz, nnz_t B_nnz,
+                index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+                index_t B_col_size, index_t B_col_offset,
+                const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
+                const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
+    int fast_mm_part1(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+                      nnz_t A_nnz, nnz_t B_nnz,
+                      index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+                      index_t B_col_size, index_t B_col_offset,
+                      const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
+                      const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
+    int fast_mm_part2(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+                      nnz_t A_nnz, nnz_t B_nnz,
+                      index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+                      index_t B_col_size, index_t B_col_offset,
+                      const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
+                      const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
+    int fast_mm_part3(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+                      nnz_t A_nnz, nnz_t B_nnz,
+                      index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+                      index_t B_col_size, index_t B_col_offset,
+                      const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
+                      const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
 
     int find_aggregation(saena_matrix* A, std::vector<unsigned long>& aggregate, std::vector<index_t>& splitNew);
     int create_strength_matrix(saena_matrix* A, strength_matrix* S);
@@ -108,10 +140,12 @@ public:
     int aggregation_2_dist(strength_matrix *S, std::vector<unsigned long> &aggregate, std::vector<unsigned long> &aggArray);
     int aggregate_index_update(strength_matrix* S, std::vector<unsigned long>& aggregate, std::vector<unsigned long>& aggArray, std::vector<index_t>& splitNew);
     int create_prolongation(saena_matrix* A, std::vector<unsigned long>& aggregate, prolong_matrix* P);
-    int sparsify_trsl1(std::vector<cooEntry> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, MPI_Comm comm);
-    int sparsify_trsl2(std::vector<cooEntry> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, MPI_Comm comm);
-    int sparsify_drineas(std::vector<cooEntry> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, MPI_Comm comm);
-    int sparsify_majid(std::vector<cooEntry> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, double max_val, MPI_Comm comm);
+//    int sparsify_trsl1(std::vector<cooEntry_row> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, MPI_Comm comm);
+//    int sparsify_trsl2(std::vector<cooEntry> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, MPI_Comm comm);
+//    int sparsify_drineas(std::vector<cooEntry_row> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, MPI_Comm comm);
+    int sparsify_majid(std::vector<cooEntry_row> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, double max_val, MPI_Comm comm);
+//    int sparsify_majid(std::vector<cooEntry_row> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, double max_val, std::vector<index_t> &splitNew, MPI_Comm comm);
+    int sparsify_majid_serial(std::vector<cooEntry> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, double max_val, MPI_Comm comm);
     int sparsify_majid_with_dup(std::vector<cooEntry> & A, std::vector<cooEntry>& A_spars, double norm_frob_sq, nnz_t sample_size, double max_val, MPI_Comm comm);
 //    double spars_prob(cooEntry a, double norm_frob_sq);
     double spars_prob(cooEntry a);

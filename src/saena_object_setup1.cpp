@@ -164,8 +164,10 @@ int saena_object::find_aggregation(saena_matrix* A, std::vector<unsigned long>& 
     new_size_local = unsigned(aggArray.size());
     MPI_Allreduce(&new_size_local, &new_size, 1, MPI_UNSIGNED, MPI_SUM, comm);
     division = (double)A->Mbig / new_size;
-    if(rank==0) printf("\nconnStrength = %.2f \ncurrent size = %u \nnew size     = %u \ndivision     = %.2f\n",
-                       connStrength, A->Mbig, new_size, division);
+//    if(rank==0) {
+//        printf("\nconnStrength = %.2f \ncurrent size = %u \nnew size     = %u \ndivision     = %.2f\n",
+//               connStrength, A->Mbig, new_size, division);
+//    }
 
     if(adaptive_coarsening){
 
@@ -452,9 +454,9 @@ int saena_object::aggregation_1_dist(strength_matrix *S, std::vector<unsigned lo
     std::vector<unsigned long> initialWeight(size);
 //    std::vector<unsigned long> aggStatus2(size); // 1 for 01 not assigned, 0 for 00 assigned, 2 for 10 root
 
-//    randomVector(initialWeight, S->Mbig, S, comm);
-    randomVector3(initialWeight, S->Mbig, S, comm);
-//    randomVector4(initialWeight, S->Mbig);
+//    S->randomVector(initialWeight, S->Mbig, comm);
+    S->randomVector3(initialWeight, comm);
+//    S->randomVector4(initialWeight, S->Mbig);
 
 //    print_vector(initialWeight, -1, "initialWeight", comm);
 
@@ -931,9 +933,9 @@ int saena_object::aggregation_2_dist(strength_matrix *S, std::vector<unsigned lo
     std::vector<unsigned long> initialWeight(size);
 //    std::vector<unsigned long> aggStatus2(size); // 1 for 01 not assigned, 0 for 00 assigned, 2 for 10 root
 
-//    randomVector(initialWeight, S->Mbig, S, comm);
-    randomVector3(initialWeight, S->Mbig, S, comm);
-//    randomVector4(initialWeight, S->Mbig);
+//    S->randomVector(initialWeight, S->Mbig, comm);
+    S->randomVector3(initialWeight, comm);
+//    S->randomVector4(initialWeight, S->Mbig);
 
 //    print_vector(initialWeight, -1, "initialWeight", comm);
 
