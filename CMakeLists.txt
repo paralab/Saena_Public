@@ -221,13 +221,13 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/saena_object.cpp
         src/saena_object_setup1.cpp
         src/saena_object_setup2.cpp
+        src/saena_object_setup2_test.cpp
         src/saena_object_solve.cpp
         src/saena_object_lazy.cpp
         src/saena_object_repart_shrink.cpp
         src/saena_object_sparsify.cpp
         src/saena_object_elemental.cpp
         src/saena_object_write2file.cpp
-        src/saena_object_setup2_test.cpp
 
         #        src/petsc_functions.cpp
         )
@@ -250,5 +250,5 @@ ADD_NEKTAR_LIBRARY(Saena
 
 #target_link_libraries(Saena           ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB} ${PETSC_LIB})
 #target_link_libraries(Saena_read_file ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB} ${PETSC_LIB})
-target_link_libraries(Saena           ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY} m ${ZFP_LIB} ${PETSC_LIB})
+target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
 
