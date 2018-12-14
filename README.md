@@ -6,7 +6,7 @@
 
 2- copy paste the following block of commands:
 
-mkdir build && cd build; \
+mkdir build && cd build; \\\
 make config prefix=\`pwd\` -C ../external/parmetis-4.0.3/metis; \\\
 cd build_metis; \\\
 make install; \\\
