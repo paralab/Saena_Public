@@ -56,7 +56,7 @@ The following commands can be used to use Saena in a library:
 
 saena::matrix A(comm); // comm: MPI_Communicator
 
-A.add_duplicates(true); // in case of duplicates add the values. For removing duplicates remove this line.
+A.add_duplicates(true); // in case of duplicates add the values. For replacing duplicates remove this line or set it to false.
 
 A.set(I, J, V, size); // size: size of I (or J or V, they obviously should have the same size)
 
@@ -69,8 +69,6 @@ saena::options opts; // use the default options.
 // saena::options opts((char*)"options001.xml"); // choices for the smoorher: "jacobi", "chebyshev"
 
 saena::amg solver;
-
-// solver.set_multigrid_max_level(0); // 0 means only use direct solver, so no multigrid will be used. otherwise remove this line.
 
 solver.set_matrix(&A);
 
