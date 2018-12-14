@@ -6,26 +6,27 @@
 
 2- copy paste the following block of commands:
 
-cd external/parmetis-4.0.3/metis; \
-make config prefix=./install_folder ;\
-make -j28 install ;\
-cd ../; \
-make config prefix=./install_folder ;\
-make -j28 install ;\
-cd ../../; \
-mkdir build; cd build; \
-mkdir build_zfp; cd build_zfp; \
-cmake ../../external/zfp-0.5.3; \
-make -j28; \
-cd ..; \
-mkdir build_superlu; cd build_superlu; \
-cmake ../../external/SuperLU_DIST_5.4.0 \
--DXSDK_INDEX_SIZE=64 \
--Denable_blaslib=OFF \
--DCMAKE_INSTALL_PREFIX=. ;\
-make -j28 install; \
-cd ..; \
-cmake ..; \
+mkdir build && cd build; \
+make config prefix=\`pwd\` -C ../external/parmetis-4.0.3/metis; \\\
+cd build_metis; \\\
+make install; \\\
+cd ..; \\\
+make config prefix=\`pwd\` -C ../external/parmetis-4.0.3; \\\
+cd build_parmetis; \\\
+make install; \\\
+cd ..; \\\
+mkdir build_zfp && cd build_zfp; \\\
+cmake ../../external/zfp-0.5.3; \\\
+make -j28; \\\
+cd ..; \\\
+mkdir build_superlu && cd build_superlu; \\\
+cmake ../../external/SuperLU_DIST_5.4.0 \\\
+-DXSDK_INDEX_SIZE=64 \\\
+-Denable_blaslib=OFF \\\
+-DCMAKE_INSTALL_PREFIX=. ;\\\
+make -j28 install; \\\
+cd ..; \\\
+cmake ..; \\\
 make -j28
 
 
@@ -33,11 +34,15 @@ make -j28
 
 There is an example showing how to use Saena in src/main.cpp. Most functions are explained there.
 
-Run this command in the build folder to run the example:
+Run the following command in the build folder to run an example of 3DLaplacian. It accepts 3 arguments as size of x, y and z axes sizes:
 
-./Saena ../data/81s4x8o1mu1.bin
+./Saena 9 9 9
 
-Pass any matrix (A) in binary format as the argument to solve the system: Ax = rhs.
+Also Saena accepts mtx matrices as input (e.g. Florida Matrix Collection).
+
+./Saena_read_file <matrix.mtx>
+
+Pass any matrix (A) in mtx format as the argument to solve the system: Ax = rhs.
 The matrix should be in COO format with column-major order (the same format as the Florida Matrix Collection).
 rhs is generated randomly in this example. It is exaplained how to also pass rhs in the example.
 
@@ -55,7 +60,7 @@ The following commands can be used to use Saena in a library:
 
 saena::matrix A(comm); // comm: MPI_Communicator
 
-A.add_duplicates(true); // in case of duplicates add the values. For removing duplicates remove this line.
+A.add_duplicates(true); // in case of duplicates add the values. For replacing duplicates remove this line or set it to false.
 
 A.set(I, J, V, size); // size: size of I (or J or V, they obviously should have the same size)
 
@@ -68,8 +73,6 @@ saena::options opts; // use the default options.
 // saena::options opts((char*)"options001.xml"); // choices for the smoorher: "jacobi", "chebyshev"
 
 saena::amg solver;
-
-// solver.set_multigrid_max_level(0); // 0 means only use direct solver, so no multigrid will be used. otherwise remove this line.
 
 solver.set_matrix(&A);
 
