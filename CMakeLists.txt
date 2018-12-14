@@ -36,7 +36,7 @@ if(OPENMP_FOUND)
 endif()
 
 # -----------------------------------------------------------------------
-# MPI - part 1/2
+# MPI
 
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
