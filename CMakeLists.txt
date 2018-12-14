@@ -8,23 +8,23 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # -----------------------------------------------------------------------
 # Build Type
 
-IF(NOT CMAKE_BUILD_TYPE)
-        SET(CMAKE_BUILD_TYPE Release)
-ENDIF()
+#IF(NOT CMAKE_BUILD_TYPE)
+#        SET(CMAKE_BUILD_TYPE Release)
+#ENDIF()
 
 #set(CMAKE_BUILD_TYPE Debug)
 #set(CMAKE_BUILD_TYPE Release)
 
 #message(--\ Saena:\ CMAKE_BUILD_TYPE:\ ${CMAKE_BUILD_TYPE})
 
-IF(CMAKE_BUILD_TYPE STREQUAL Release)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
-ENDIF()
+#IF(CMAKE_BUILD_TYPE STREQUAL Release)
+#    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+#ENDIF()
 
-IF(CMAKE_BUILD_TYPE STREQUAL Debug)
-    add_definitions(-D__DEBUG__)
-ENDIF()
+#IF(CMAKE_BUILD_TYPE STREQUAL Debug)
+#    add_definitions(-D__DEBUG__)
+#ENDIF()
 
 # -----------------------------------------------------------------------
 # OpenMP
