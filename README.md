@@ -34,9 +34,9 @@ make -j28
 
 There is an example showing how to use Saena in src/main.cpp. Most functions are explained there.
 
-Run this command in the build folder to run the example:
+Run the following command in the build folder to run an example of 3DLaplacian. It accepts 3 arguments as size of x, y and z axes sized.
 
-./Saena ../data/81s4x8o1mu1.bin
+./Saena 9 9 9
 
 Pass any matrix (A) in binary format as the argument to solve the system: Ax = rhs.
 The matrix should be in COO format with column-major order (the same format as the Florida Matrix Collection).
