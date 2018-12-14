@@ -186,16 +186,16 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 # -----------------------------------------------------------------------
 
-#add_executable(Saena src/main.cpp ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(Saena src/main.cpp ${SOURCE_FILES} ${HEADER_FILES})
 
 # -----------------------------------------------------------------------
 # NEKTAR++
 
-ADD_NEKTAR_LIBRARY(Saena
-        SOURCES ${SOURCE_FILES}
-        HEADERS ${HEADER_FILES}
-        SUMMARY "Nektar++ Saena fast multigrid solver library"
-        DESCRIPTION "This library provides fast multigrid solves.")
+#ADD_NEKTAR_LIBRARY(Saena
+#        SOURCES ${SOURCE_FILES}
+#        HEADERS ${HEADER_FILES}
+#        SUMMARY "Nektar++ Saena fast multigrid solver library"
+#        DESCRIPTION "This library provides fast multigrid solves.")
 
 # -----------------------------------------------------------------------
 
