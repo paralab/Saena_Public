@@ -44,7 +44,7 @@ Pass any matrix (A) in binary format as the argument to solve the system: Ax = r
 
 To use Saena inside Nektar++ follow the following commands: \
 1- First clone this repositoy inside Nektar++/library/MultiRegions/ \
-2- copy paste the following block of commands:
+2- copy paste the following block of commands: \
 cd Saena_Public; \\\
 mkdir build && cd build; \\\
 make config prefix=\`pwd\` -C ../external/parmetis-4.0.3/metis; \\\
