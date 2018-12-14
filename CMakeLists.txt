@@ -44,11 +44,11 @@ include_directories(${MPI_INCLUDE_PATH})
 # -----------------------------------------------------------------------
 # Dependencies
 
-set(PARMETIS_ROOT_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
-set(METIS_INCLUDE_DIR      ${PARMETIS_ROOT_DIR}/metis/build/install_folder/include)
-set(METIS_LIBRARY_SAENA    ${PARMETIS_ROOT_DIR}/metis/build/install_folder/lib/libmetis.a)
-set(PARMETIS_INCLUDE_DIR   ${PARMETIS_ROOT_DIR}/build/install_folder/include)
-set(PARMETIS_LIBRARY_SAENA ${PARMETIS_ROOT_DIR}/build/install_folder/lib/libparmetis.a)
+#set(PARMETIS_ROOT_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
+set(METIS_LIBRARY_SAENA    ${CMAKE_BINARY_DIR}/build_metis/lib/libmetis.a)
+set(PARMETIS_LIBRARY_SAENA ${CMAKE_BINARY_DIR}/build_parmetis/lib/libparmetis.a)
+set(METIS_INCLUDE_DIR      ${CMAKE_BINARY_DIR}/build_metis/include)
+set(PARMETIS_INCLUDE_DIR   ${CMAKE_BINARY_DIR}/build_parmetis/include)
 
 # -----------------------------------------------------------------------
 # BLAS
