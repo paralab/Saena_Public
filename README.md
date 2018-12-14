@@ -6,19 +6,20 @@
 
 2- copy paste the following block of commands:
 
-cd external/parmetis-4.0.3/metis; \
-make config prefix=./install_folder ;\
-make -j28 install ;\
-cd ../; \
-make config prefix=./install_folder ;\
-make -j28 install ;\
-cd ../../; \
-mkdir build; cd build; \
-mkdir build_zfp; cd build_zfp; \
+mkdir build && cd build; \
+make config prefix=`pwd` -C ../external/parmetis-4.0.3/metis; \
+cd build_metis; \
+make install; \
+cd ..; \
+make config prefix=`pwd` -C ../external/parmetis-4.0.3; \
+cd build_parmetis; \
+make install; \
+cd ..; \
+mkdir build_zfp && cd build_zfp; \
 cmake ../../external/zfp-0.5.3; \
 make -j28; \
 cd ..; \
-mkdir build_superlu; cd build_superlu; \
+mkdir build_superlu && cd build_superlu; \
 cmake ../../external/SuperLU_DIST_5.4.0 \
 -DXSDK_INDEX_SIZE=64 \
 -Denable_blaslib=OFF \
