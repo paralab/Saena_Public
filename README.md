@@ -34,7 +34,7 @@ make -j28
 
 There is an example showing how to use Saena in src/main.cpp. Most functions are explained there.
 
-Run the following command in the build folder to run an example of 3DLaplacian. It accepts 3 arguments as size of x, y and z axes sized.
+Run the following command in the build folder to run an example of 3DLaplacian. It accepts 3 arguments as size of x, y and z axes sizes:
 
 ./Saena 9 9 9
 
