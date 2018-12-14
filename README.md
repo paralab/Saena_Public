@@ -21,7 +21,7 @@ Pass any matrix (A) in binary format as the argument to solve the system: Ax = r
 
 To use Saena inside Nektar++ follow the following commands: \
 1- First clone this repositoy inside Nektar++/library/MultiRegions/ \
-2- run install.sh to compile the solver and its dependencies.
+2- run install.sh to install the solver's dependencies, before compiling Nektar++.
 
 ## Use Saena in another library
 
