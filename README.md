@@ -4,9 +4,7 @@
 
 1- The CMakeLists.txt is written in a way to use Saena inside Nektar++. To use it as a stand-alone solver remove CMakeLists.txt. rename CMakeLists_standalone.txt to CMakeLists.txt.
 
-2- mkdir build and cd into build
-
-3- copy paste the following block of commands:
+2- copy paste the following block of commands:
 
 cd external/parmetis-4.0.3/metis; \
 make config prefix=./install_folder ;\
