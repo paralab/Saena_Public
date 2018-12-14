@@ -38,7 +38,11 @@ Run the following command in the build folder to run an example of 3DLaplacian. 
 
 ./Saena 9 9 9
 
-Pass any matrix (A) in binary format as the argument to solve the system: Ax = rhs.
+Also Saena accepts mtx matrices as input (e.g. Florida Matrix Collection).
+
+./Saena_read_file <matrix.mtx>
+
+Pass any matrix (A) in mtx format as the argument to solve the system: Ax = rhs.
 The matrix should be in COO format with column-major order (the same format as the Florida Matrix Collection).
 rhs is generated randomly in this example. It is exaplained how to also pass rhs in the example.
 
