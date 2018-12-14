@@ -4,30 +4,7 @@
 
 1- The CMakeLists.txt is written in a way to use Saena inside Nektar++. To use it as a stand-alone solver remove CMakeLists.txt. rename CMakeLists_standalone.txt to CMakeLists.txt.
 
-2- copy paste the following block of commands:
-
-mkdir build && cd build; \\\
-make config prefix=\`pwd\` -C ../external/parmetis-4.0.3/metis; \\\
-cd build_metis; \\\
-make install; \\\
-cd ..; \\\
-make config prefix=\`pwd\` -C ../external/parmetis-4.0.3; \\\
-cd build_parmetis; \\\
-make install; \\\
-cd ..; \\\
-mkdir build_zfp && cd build_zfp; \\\
-cmake ../../external/zfp-0.5.3; \\\
-make -j28; \\\
-cd ..; \\\
-mkdir build_superlu && cd build_superlu; \\\
-cmake ../../external/SuperLU_DIST_5.4.0 \\\
--DXSDK_INDEX_SIZE=64 \\\
--Denable_blaslib=OFF \\\
--DCMAKE_INSTALL_PREFIX=. ;\\\
-make -j28 install; \\\
-cd ..; \\\
-cmake ..; \\\
-make -j28
+2- run install_standalone.sh to compile the solver and its dependencies.
 
 
 ## Example
@@ -44,28 +21,7 @@ Pass any matrix (A) in binary format as the argument to solve the system: Ax = r
 
 To use Saena inside Nektar++ follow the following commands: \
 1- First clone this repositoy inside Nektar++/library/MultiRegions/ \
-2- copy paste the following block of commands: \
-cd Saena_Public; \\\
-mkdir build && cd build; \\\
-make config prefix=\`pwd\` -C ../external/parmetis-4.0.3/metis; \\\
-cd build_metis; \\\
-make install; \\\
-cd ..; \\\
-make config prefix=\`pwd\` -C ../external/parmetis-4.0.3; \\\
-cd build_parmetis; \\\
-make install; \\\
-cd ..; \\\
-mkdir build_zfp && cd build_zfp; \\\
-cmake ../../external/zfp-0.5.3; \\\
-make -j28; \\\
-cd ..; \\\
-mkdir build_superlu && cd build_superlu; \\\
-cmake ../../external/SuperLU_DIST_5.4.0 \\\
--DXSDK_INDEX_SIZE=64 \\\
--Denable_blaslib=OFF \\\
--DCMAKE_INSTALL_PREFIX=. ;\\\
-make -j28 install; \\\
-cd ..
+2- run install.sh to compile the solver and its dependencies.
 
 ## Use Saena in another library
 
