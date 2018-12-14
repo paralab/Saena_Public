@@ -6,15 +6,30 @@
 
 2- mkdir build and cd into build
 
-3- cmake ..
+3- copy paste the following block of commands:
 
-Note: Elemental is an external library inside Saena and will be installed inside system folders. To avoid that, the following argument can be passed to the cmake command to specify the installation path:
+cd external/parmetis-4.0.3/metis; \
+make config prefix=./install_folder ;\
+make -j28 install ;\
+cd ../; \
+make config prefix=./install_folder ;\
+make -j28 install ;\
+cd ../../; \
+mkdir build; cd build; \
+mkdir build_zfp; cd build_zfp; \
+cmake ../../external/zfp-0.5.3; \
+make -j28; \
+cd ..; \
+mkdir build_superlu; cd build_superlu; \
+cmake ../../external/SuperLU_DIST_5.4.0 \
+-DXSDK_INDEX_SIZE=64 \
+-Denable_blaslib=OFF \
+-DCMAKE_INSTALL_PREFIX=. ;\
+make -j28 install; \
+cd ..; \
+cmake ..; \
+make -j28
 
-cmake -D CMAKE_INSTALL_PREFIX="./elemental_install" ..
-
-In the above example, Elemental will be installed inside a directory called "elemental_install" inside the build directory.
-
-4- make
 
 ## Example
 
