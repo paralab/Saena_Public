@@ -31,9 +31,6 @@ option(enable_combblaslib   "Build the CombBLAS library" OFF)
 option(TPL_COMBBLAS_LIBRARIES "List of absolute paths to CombBLAS link libraries [].")
 option(TPL_COMBBLAS_INCLUDE_DIRS "List of absolute paths to CombBLAS include directories [].")
 
-# Majid:
-set(CMAKE_POSITION_INDEPENDENT_CODE ON)
-
 if (NOT enable_combblaslib)
   SET(XSDK_ENABLE_CXX OFF)
 endif()
@@ -211,7 +208,7 @@ endif()
 
 # added by Majid
 set(PARMETIS_ROOT ${CMAKE_CURRENT_SOURCE_DIR}/../parmetis-4.0.3)
-set(PARMETIS_BUILD_DIR ${PARMETIS_ROOT}/build)
+set(PARMETIS_BUILD_DIR ${CMAKE_BINARY_DIR}/../build_parmetis)
 set(TPL_PARMETIS_INCLUDE_DIRS "${PARMETIS_ROOT}/include;${PARMETIS_ROOT}/metis/include")
 set(TPL_PARMETIS_LIBRARIES "${PARMETIS_BUILD_DIR}/libparmetis/libparmetis.a;${PARMETIS_BUILD_DIR}/libmetis/libmetis.a")
 
