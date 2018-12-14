@@ -45,10 +45,10 @@ include_directories(${MPI_INCLUDE_PATH})
 # Dependencies
 
 #set(PARMETIS_ROOT_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
-set(METIS_LIBRARY_SAENA    ${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/lib/libmetis.a)
-set(PARMETIS_LIBRARY_SAENA ${CMAKE_CURRENT_SOURCE_DIR}/build/build_parmetis/lib/libparmetis.a)
-set(METIS_INCLUDE_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/include)
-set(PARMETIS_INCLUDE_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/build/build_parmetis/include)
+set(METIS_LIBRARY_SAENA    ${CMAKE_BINARY_DIR}/build_metis/lib/libmetis.a)
+set(PARMETIS_LIBRARY_SAENA ${CMAKE_BINARY_DIR}/build_parmetis/lib/libparmetis.a)
+set(METIS_INCLUDE_DIR      ${CMAKE_BINARY_DIR}/build_metis/include)
+set(PARMETIS_INCLUDE_DIR   ${CMAKE_BINARY_DIR}/build_parmetis/include)
 
 # -----------------------------------------------------------------------
 # BLAS
@@ -186,16 +186,16 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 # -----------------------------------------------------------------------
 
-#add_executable(Saena src/main.cpp ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(Saena src/main.cpp ${SOURCE_FILES} ${HEADER_FILES})
 
 # -----------------------------------------------------------------------
 # NEKTAR++
 
-ADD_NEKTAR_LIBRARY(Saena
-        SOURCES ${SOURCE_FILES}
-        HEADERS ${HEADER_FILES}
-        SUMMARY "Nektar++ Saena fast multigrid solver library"
-        DESCRIPTION "This library provides fast multigrid solves.")
+#ADD_NEKTAR_LIBRARY(Saena
+#        SOURCES ${SOURCE_FILES}
+#        HEADERS ${HEADER_FILES}
+#        SUMMARY "Nektar++ Saena fast multigrid solver library"
+#        DESCRIPTION "This library provides fast multigrid solves.")
 
 # -----------------------------------------------------------------------
 
