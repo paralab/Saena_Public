@@ -186,12 +186,12 @@ set(HEADER_FILES ${HEADER_FILES}
         include/restrict_matrix.h
         include/aux_functions.h
         include/grid.h
-        #        include/petsc_functions.h
+#        include/petsc_functions.h
         )
 
 set(SOURCE_FILES ${SOURCE_FILES}
         ${HEADER_FILES}
-        src/main.cpp
+#        src/main.cpp
         src/saena.cpp
         src/saena_matrix_dense.cpp
         src/strength_matrix.cpp
@@ -217,21 +217,23 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/saena_object_elemental.cpp
         src/saena_object_write2file.cpp
 
-        #        src/petsc_functions.cpp
+#        src/petsc_functions.cpp
         )
 # -----------------------------------------------------------------------
 
-#add_executable(Saena ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(Saena           src/main.cpp           ${SOURCE_FILES} ${HEADER_FILES})
+add_executable(Saena_read_file src/main_read_file.cpp ${SOURCE_FILES} ${HEADER_FILES})
 
 # -----------------------------------------------------------------------
 # NEKTAR++
 
-ADD_NEKTAR_LIBRARY(Saena
-        SOURCES ${SOURCE_FILES}
-        HEADERS ${HEADER_FILES}
-        SUMMARY "Nektar++ Saena fast multigrid solver library"
-        DESCRIPTION "This library provides fast multigrid solves.")
+#ADD_NEKTAR_LIBRARY(Saena
+#        SOURCES ${SOURCE_FILES}
+#        HEADERS ${HEADER_FILES}
+#        SUMMARY "Nektar++ Saena fast multigrid solver library"
+#        DESCRIPTION "This library provides fast multigrid solves.")
 
 # -----------------------------------------------------------------------
 
-target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
+target_link_libraries(Saena           ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
+target_link_libraries(Saena_read_file ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})

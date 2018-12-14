@@ -9,7 +9,7 @@
 #include "ietl_saena.h"
 #include "dollar.hpp"
 
-//#include "petsc_functions.h"
+#include "petsc_functions.h"
 
 #include <sys/stat.h>
 #include <cstdio>
@@ -255,14 +255,14 @@ int saena_object::coarsen(Grid *grid){$
 
     // **************************** triple_mat_mult ****************************
 
-//    MPI_Barrier(grid->A->comm);
-//    t1 = MPI_Wtime();
+    MPI_Barrier(grid->A->comm);
+    t1 = MPI_Wtime();
 //    t1 = omp_get_wtime();
     triple_mat_mult(grid);
 //    triple_mat_mult_old(grid);
 //    t2 = omp_get_wtime();
-//    t2 = MPI_Wtime();
-//    if(verbose_level_setup) print_time(t1, t2, "triple_mat_mult: level "+std::to_string(grid->currentLevel), grid->A->comm);
+    t2 = MPI_Wtime();
+    if(verbose_level_setup) print_time(t1, t2, "triple_mat_mult: level "+std::to_string(grid->currentLevel), grid->A->comm);
 //    print_time_ave(t2-t1, "triple_mat_mult: level "+std::to_string(grid->currentLevel), grid->A->comm);
 
 //    MPI_Barrier(grid->A->comm); printf("rank %d: here after triple_mat_mult!!! \n", rank); MPI_Barrier(grid->A->comm);

@@ -2,7 +2,7 @@
 #include "saena_object.h"
 #include "saena_matrix.h"
 #include "saena.hpp"
-#include "petsc_functions.h"
+//#include "petsc_functions.h"
 
 #include <iostream>
 #include <algorithm>
