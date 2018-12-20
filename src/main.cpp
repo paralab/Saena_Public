@@ -82,22 +82,9 @@ int main(int argc, char* argv[]){
     generate_rhs_old(rhs);
 
     // read the vector and set it in rhs
-/*
-    MPI_Status status;
-    MPI_File fh;
-    MPI_Offset offset;
-    char* Vname(argv[2]);
-    int mpiopen = MPI_File_open(comm, Vname, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
-    if(mpiopen){
-        if (rank==0) cout << "Unable to open the rhs vector file!" << endl;
-        MPI_Finalize();
-        return -1;
-    }
-
-    offset = A.get_internal_matrix()->split[rank] * sizeof(double);
-    MPI_File_read_at(fh, offset, &(*(rhs.begin())), num_local_row, MPI_DOUBLE, &status);
-    MPI_File_close(&fh);
-*/
+//    char* Vname(argv[2]);
+//    saena::read_vector_file(rhs, A, Vname, comm);
+//    read_vector_file(rhs, A.get_internal_matrix(), Vname, comm);
 
     // *************************** set u0 ****************************
 
