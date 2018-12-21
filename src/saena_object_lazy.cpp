@@ -1226,8 +1226,8 @@ int saena_object::triple_mat_mult_update_Ac(Grid *grid, std::vector<cooEntry> &d
     }
 #endif
 
-    if(Ac->active)
-        Ac->scale_back_matrix();
+//    if(Ac->active)
+//        Ac->scale_back_matrix();
 
 //    Ac->Mbig = P->Nbig;
 //    Ac->M = P->splitNew[rank+1] - P->splitNew[rank];
