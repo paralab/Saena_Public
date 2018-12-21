@@ -1086,13 +1086,15 @@ int saena_matrix::repartition_nnz_update_Ac(){
 
     density = (nnz_g / double(Mbig)) / (Mbig);
 
+#ifdef __DEBUG1__
 //    MPI_Barrier(comm);
-//    printf("repartition5 - start! rank = %d, Mbig = %u, M = %u, nnz_g = %lu, nnz_l = %lu, entry_temp.size = %lu \n",
+//    printf("repartition5 - start! rank = %d, Mbig = %u, M = %u, nnz_g = %lu, nnz_l = %lu, entry_temp.size before repart = %lu \n",
 //           rank, Mbig, M, nnz_g, nnz_l, entry_temp.size());
 //    MPI_Barrier(comm);
-
 //    print_vector(split, 0, "split", comm);
-//    print_vector(entry, -1, "entry", comm);
+//    if(Mbig == 48) print_vector(entry, -1, "entry", comm);
+//    if(Mbig == 48) print_vector(entry_temp, -1, "entry_temp", comm);
+#endif
 
     // *************************** exchange data ****************************
 
@@ -1180,10 +1182,14 @@ int saena_matrix::repartition_nnz_update_Ac(){
                 hint++;
                 entry_set.erase(p.first);
                 entry_set.insert(hint, temp_new);
-            }
-            else{
-                printf("Error: entry to update is not available in saena_matrix::repartition_nnz_update_Ac(): \n");
-                std::cout << "this entry:" << entry_temp[i] << std::endl << std::endl;
+            } else {
+                std::string msg = "\nerror on rank "; msg += std::to_string(rank);
+                msg += ": entry to update is not available in repartition_nnz_update_Ac(): ";
+                msg += std::to_string(entry_temp[i].row); msg += " "; msg += std::to_string(entry_temp[i].col);
+                msg += " "; msg += std::to_string(entry_temp[i].val);
+                std::cout << msg << std::endl;
+//                std::cout << "error on rank " << rank << ": entry to update is not available in repartition_nnz_update_Ac(): \n"
+//                          << "this entry: " << entry_temp[i] << std::endl << std::endl;
             }
         }
     }
@@ -1219,6 +1225,7 @@ int saena_matrix::repartition_nnz_update_Ac(){
         it2++;
     }
 
+//    if(Mbig == 48) print_vector(entry, -1, "entry", comm);
 //    print_vector(entry, -1, "entry", comm);
 
 //    entry_temp.clear();
