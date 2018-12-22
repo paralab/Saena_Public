@@ -35,6 +35,11 @@ if (NOT enable_combblaslib)
   SET(XSDK_ENABLE_CXX OFF)
 endif()
 
+# Majid:
+set(CMAKE_BUILD_TYPE Release)
+set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} 'PIC')
+set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} 'PIC')
+
 ######################################################################
 #
 # IDEAS: xSDK standards module
