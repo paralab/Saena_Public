@@ -37,8 +37,14 @@ endif()
 
 # Majid:
 set(CMAKE_BUILD_TYPE Release)
-set(CMAKE_C_FLAGS ${CMAKE_C_FLAGS} 'PIC')
-set(CMAKE_CXX_FLAGS ${CMAKE_CXX_FLAGS} 'PIC')
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fPIC")
+set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fPIC")
+
+if (CMAKE_VERSION VERSION_LESS 2.8.12)
+    add_definitions(-fPIC)
+else()
+    add_compile_options(-fPIC)
+endif()
 
 ######################################################################
 #
@@ -117,7 +123,6 @@ if (NOT CMAKE_INSTALL_PREFIX)
   set(CMAKE_INSTALL_PREFIX /usr/local)
 endif()
 
-
 if(NOT MSVC)
   include(GNUInstallDirs)
   set(default_install_inc_dir ${CMAKE_INSTALL_INCLUDEDIR})
@@ -133,7 +138,6 @@ endif()
 set(INSTALL_INC_DIR "${default_install_inc_dir}" CACHE STRING "The folder where headers will be installed.")
 set(INSTALL_LIB_DIR "${default_install_lib_dir}" CACHE STRING "The folder where libraries will be installed.")
 set(INSTALL_BIN_DIR "${default_install_bin_dir}" CACHE STRING "The folder where runtime files will be installed.")
-
 
 # Set up required compiler defines and options.
 ## get_directory_property( DirDefs COMPILE_DEFINITIONS )
