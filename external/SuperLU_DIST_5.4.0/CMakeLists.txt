@@ -134,9 +134,9 @@ set(INSTALL_BIN_DIR "${default_install_bin_dir}" CACHE STRING "The folder where 
 ## get_directory_property( DirDefs COMPILE_DEFINITIONS )
 # set(CMAKE_C_FLAGS "-DDEBUGlevel=0 -DPRNTlevel=0 ${CMAKE_C_FLAGS}")
 
-set(XSDK_INDEX_SIZE 64)
-if(XSDK_INDEX_SIZE EQUAL 64)
-    message("-- Using 64 bit integer for index size")
+set(XSDK_INDEX_SIZE 32)
+if(XSDK_INDEX_SIZE EQUAL 32)
+    message("-- Using 32 bit integer for index size")
 endif()	
 set(CMAKE_C_FLAGS_RELEASE "-O3" CACHE STRING "")
 set(CMAKE_CXX_FLAGS_RELEASE "-O3" CACHE STRING "")
