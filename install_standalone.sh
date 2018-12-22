@@ -1,4 +1,7 @@
-mkdir build && cd build
+if [ ! -d "build" ]; then
+    mkdir build
+fi
+cd build
 make config prefix=`pwd` -C ../external/parmetis-4.0.3/metis
 cd build_metis
 make install
@@ -20,3 +23,4 @@ make -j28 install
 cd ..
 cmake ..
 make -j28
+cd ..
