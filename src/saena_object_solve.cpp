@@ -24,6 +24,13 @@ int saena_object::solve_coarsest_CG(saena_matrix* A, std::vector<value_t>& u, st
     MPI_Comm_rank(comm, &rank);
 
     if(verbose_solve_coarse && rank==0) printf("start of solve_coarsest_CG()\n");
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(rank==0)
+        MPI_Barrier(comm);
+    }
+#endif
 
     // since u is zero, res = -rhs, and the residual in this function is the negative of what I have in this library.
     std::vector<value_t> res = rhs;
@@ -40,7 +47,7 @@ int saena_object::solve_coarsest_CG(saena_matrix* A, std::vector<value_t>& u, st
     std::vector<value_t> dir(A->M);
     dir = res;
 
-    double dot2;
+//    double dot2;
     std::vector<value_t> res2(A->M);
 
     double factor, dot_prev;
@@ -68,6 +75,13 @@ int saena_object::solve_coarsest_CG(saena_matrix* A, std::vector<value_t>& u, st
 
         if(verbose_solve_coarse && rank==0)
             std::cout << "sqrt(dot)/sqrt(initial_dot) = " << sqrt(dot/initial_dot) << "  \tCG_tol = " << CG_tol << std::endl;
+#ifdef __DEBUG1__
+        if(verbose_solve_coarse) {
+            MPI_Barrier(comm);
+            if(rank==0)
+                MPI_Barrier(comm);
+        }
+#endif
 
 //        A->residual(u, rhs, res2);
 //        dotProduct(res2, res2, &dot2, comm);
@@ -106,8 +120,16 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    if(verbose_solve_coarse && rank==0) printf("start of solve_coarsest_SuperLU()\n");
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(rank==0){
+            printf("start of solve_coarsest_SuperLU()\n");
+        }
+        MPI_Barrier(comm);
 //    print_vector(rhs, -1, "rhs passed to superlu", comm);
+    }
+#endif
 
     superlu_dist_options_t options;
     SuperLUStat_t stat;
@@ -177,7 +199,16 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     /* ------------------------------------------------------------
        INITIALIZE THE SUPERLU PROCESS GRID.
        ------------------------------------------------------------*/
-    if(verbose_solve_coarse && rank==0) printf("INITIALIZE THE SUPERLU PROCESS GRID. \n");
+
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(rank==0){
+            printf("INITIALIZE THE SUPERLU PROCESS GRID. \n");
+        }
+        MPI_Barrier(comm);
+    }
+#endif
 
     superlu_gridinit(comm, nprow, npcol, &grid);
 
@@ -186,15 +217,21 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 //    printf("iam = %d, nprow = %d, npcol = %d \n", iam, nprow, npcol);
 //    if ( iam >= nprow * npcol )	goto out;
 
-    if ( verbose_solve_coarse && !iam ) {
-        int v_major, v_minor, v_bugfix;
-        superlu_dist_GetVersionNumber(&v_major, &v_minor, &v_bugfix);
-        printf("Library version:\t%d.%d.%d\n", v_major, v_minor, v_bugfix);
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(!iam){
+            int v_major, v_minor, v_bugfix;
+            superlu_dist_GetVersionNumber(&v_major, &v_minor, &v_bugfix);
+            printf("Library version:\t%d.%d.%d\n", v_major, v_minor, v_bugfix);
 
 //        printf("Input matrix file:\t%s\n", *cpp);
-        printf("Process grid:\t\t%d X %d\n", nprow, npcol);
-        fflush(stdout);
+            printf("Process grid:\t\t%d X %d\n", nprow, npcol);
+            fflush(stdout);
+        }
+        MPI_Barrier(comm);
     }
+#endif
 
 #if ( VAMPIR>=1 )
     VT_traceoff();
@@ -213,16 +250,28 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 //                                   nzval_loc, colind, rowptr,
 //                                   SLU_NR_loc, SLU_D, SLU_GE);
 
-    if(verbose_solve_coarse && rank==0) printf("PASS THE MATRIX FROM SAENA. \n");
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(rank==0) printf("PASS THE MATRIX FROM SAENA. \n");
+        MPI_Barrier(comm);
+    }
+#endif
 
     m = A->Mbig;
     m_loc = A->M;
     n = m;
     nnz_loc = A->nnz_l;
     ldb = m_loc;
-    if(verbose_solve_coarse && rank==0)
-        printf("m = %d, m_loc = %d, n = %d, nnz_g = %ld, nnz_loc = %d, ldb = %d \n",
-               m, m_loc, n, A->nnz_g, nnz_loc, ldb);
+
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(rank==0) printf("m = %d, m_loc = %d, n = %d, nnz_g = %ld, nnz_loc = %d, ldb = %d \n",
+                           m, m_loc, n, A->nnz_g, nnz_loc, ldb);
+        MPI_Barrier(comm);
+    }
+#endif
 
     // CSR format (compressed row)
     // sort entries in row-major
@@ -232,17 +281,18 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 
     index_t fst_row = A->split[rank];
     std::vector<int> nnz_per_row(m_loc, 0);
-//    std::vector<int> rowptr(m_loc+1);
-//    std::vector<int> colind(nnz_loc);
-//    std::vector<double> nzval_loc(nnz_loc);
 
-    auto* rowptr = (int_t *) intMalloc_dist(m_loc+1);
+    auto* rowptr    = (int_t *) intMalloc_dist(m_loc+1);
     auto* nzval_loc = (double *) doubleMalloc_dist(nnz_loc);
-    auto* colind = (int_t *) intMalloc_dist(nnz_loc);
+    auto* colind    = (int_t *) intMalloc_dist(nnz_loc);
+
+    // Do this line to avoid this subtraction for each entry in the next "for" loop.
+    int *nnz_per_row_p = &nnz_per_row[0] - fst_row;
 
     for(nnz_t i = 0; i < nnz_loc; i++){
         nzval_loc[i] = entry_temp[i].val;
-        nnz_per_row[entry_temp[i].row - fst_row]++;
+//        nnz_per_row[entry_temp[i].row - fst_row]++;
+        nnz_per_row_p[entry_temp[i].row]++;
         colind[i] = entry_temp[i].col;
     }
 
@@ -252,9 +302,6 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
         rowptr[i+1] = rowptr[i] + nnz_per_row[i];
 
 //    A->print_entry(-1);
-//    print_vector(rowptr, -1, "rowptr", comm);
-//    print_vector(colind, -1, "colind", comm);
-//    print_vector(nzval_loc, -1, "nzval_loc", comm);
 //    if(rank==0){
 //        printf("\nmatrix entries in row-major format to be passed to SuperLU:\n");
 //        for(nnz_t i = 0; i < nnz_loc; i++)
@@ -312,22 +359,35 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     options.ReplaceTinyPivot = YES;
 #endif
 
-    if (verbose_solve_coarse && !iam) {
-        print_sp_ienv_dist(&options);
-        print_options_dist(&options);
-        fflush(stdout);
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(!iam){
+            print_sp_ienv_dist(&options);
+            print_options_dist(&options);
+            fflush(stdout);
+        }
+        MPI_Barrier(comm);
+        if(rank==0) printf("SOLVE THE LINEAR SYSTEM. \n");
+        MPI_Barrier(comm);
+
     }
+#endif
 
 //    m = A_SLU.nrow;
 //    n = A_SLU.ncol;
-
-    if(verbose_solve_coarse && rank==0) printf("SOLVE THE LINEAR SYSTEM. \n");
 
     // Initialize ScalePermstruct and LUstruct.
     ScalePermstructInit(m, n, &ScalePermstruct);
     LUstructInit(n, &LUstruct);
 
-    if(verbose_solve_coarse && rank==0) printf("SOLVE THE LINEAR SYSTEM: step 1 \n");
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(rank==0) printf("SOLVE THE LINEAR SYSTEM: step 1 \n");
+        MPI_Barrier(comm);
+    }
+#endif
 
     // Initialize the statistics variables.
     PStatInit(&stat);
@@ -335,7 +395,13 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     pdgssvx(&options, &A_SLU, &ScalePermstruct, b, ldb, nrhs, &grid,
             &LUstruct, &SOLVEstruct, berr, &stat, &info);
 
-    if(verbose_solve_coarse && rank==0) printf("SOLVE THE LINEAR SYSTEM: step 2 \n");
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(rank==0) printf("SOLVE THE LINEAR SYSTEM: step 2 \n");
+        MPI_Barrier(comm);
+    }
+#endif
 
     // put the solution in u
     // b points to rhs. after calling pdgssvx it will contain the solution.
@@ -343,19 +409,35 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 
 //    print_vector(u, -1, "u computed in superlu", comm);
 
-    if(verbose_solve_coarse && rank==0) printf("SOLVE THE LINEAR SYSTEM: step 3 \n");
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(rank==0) printf("SOLVE THE LINEAR SYSTEM: step 3 \n");
+        MPI_Barrier(comm);
+    }
+#endif
 
     // Check the accuracy of the solution.
 //    pdinf_norm_error(iam, ((NRformat_loc *)A_SLU.Store)->m_loc,
 //                     nrhs, b, ldb, xtrue, ldx, &grid);
 
-    if(verbose_solve_coarse) PStatPrint(&options, &stat, &grid); // Print the statistics.
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        PStatPrint(&options, &stat, &grid); // Print the statistics.
+    }
+#endif
 
     /* ------------------------------------------------------------
        DEALLOCATE STORAGE.
        ------------------------------------------------------------*/
 
-    if(verbose_solve_coarse && rank==0) printf("DEALLOCATE STORAGE. \n");
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(rank==0) printf("DEALLOCATE STORAGE. \n");
+        MPI_Barrier(comm);
+    }
+#endif
 
     PStatFree(&stat);
     Destroy_CompRowLoc_Matrix_dist(&A_SLU);
@@ -386,7 +468,13 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
     CHECK_MALLOC(iam, "Exit main()");
 #endif
 
-    if(verbose_solve_coarse && rank==0) printf("end of solve_coarsest_SuperLU()\n");
+#ifdef __DEBUG1__
+    if(verbose_solve_coarse) {
+        MPI_Barrier(comm);
+        if(rank==0) printf("end of solve_coarsest_SuperLU()\n");
+        MPI_Barrier(comm);
+    }
+#endif
 
     return 0;
 }
@@ -537,19 +625,26 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
         std::vector<value_t> uCorr;
         std::vector<value_t> temp;
 
+#ifdef __DEBUG1__
         if(verbose_vcycle){
             MPI_Barrier(comm);
             if(rank==0) printf("rank = %d: vcycle level = %d, A->M = %u, u.size = %lu, rhs.size = %lu \n",
-                   rank, grid->currentLevel, grid->A->M, u.size(), rhs.size());
-            MPI_Barrier(comm);}
+                               rank, grid->currentLevel, grid->A->M, u.size(), rhs.size());
+            MPI_Barrier(comm);
+        }
+#endif
 
         // **************************************** 0. direct-solve the coarsest level ****************************************
 
         if (grid->currentLevel == max_level) {
+
+#ifdef __DEBUG1__
             if(verbose_vcycle){
                 MPI_Barrier(comm);
                 if(rank==0) std::cout << "vcycle: solving the coarsest level using " << direct_solver << std::endl;
-                MPI_Barrier(comm);}
+                MPI_Barrier(comm);
+            }
+#endif
 
             res.resize(grid->A->M);
 
@@ -569,6 +664,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
             // -------------------------
 //            scale_vector(u, grid->A->inv_sq_diag);
 
+#ifdef __DEBUG1__
             t2 = omp_get_wtime();
             func_name = "vcycle: level " + std::to_string(grid->currentLevel) + ": solve coarsest";
             if (verbose) print_time(t1, t2, func_name, comm);
@@ -579,6 +675,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
                 if(rank==0) std::cout << "\nlevel = " << grid->currentLevel
                                       << ", after coarsest level = " << sqrt(dot) << std::endl;
             }
+#endif
 
             // print the solution
             // ------------------
@@ -610,49 +707,62 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
         // **************************************** 1. pre-smooth ****************************************
 
+#ifdef __DEBUG1__
         if(verbose_vcycle){
             MPI_Barrier(comm);
-            if(rank==0) printf("vcycle: presmooth\n");
-            MPI_Barrier(comm);}
+            if(rank==0) printf("vcycle level %d: presmooth\n", grid->currentLevel);
+            MPI_Barrier(comm);
+        }
 
 //        MPI_Barrier(grid->A->comm);
         t1 = omp_get_wtime();
+#endif
 
         if(preSmooth)
             smooth(grid, smoother, u, rhs, preSmooth);
 
+#ifdef __DEBUG1__
         t2 = omp_get_wtime();
         func_name = "Vcycle: level " + std::to_string(grid->currentLevel) + ": pre";
         if (verbose) print_time(t1, t2, func_name, comm);
 
 //        print_vector(u, -1, "u in vcycle", comm);
 //        if(rank==0) std::cout << "\n1. pre-smooth: u, currentLevel = " << grid->currentLevel << std::endl;
+#endif
 
         // **************************************** 2. compute residual ****************************************
 
+#ifdef __DEBUG1__
         if(verbose_vcycle){
             MPI_Barrier(comm);
-            if(rank==0) printf("vcycle: residual\n");
-            MPI_Barrier(comm);}
+            if(rank==0) printf("vcycle level %d: residual\n", grid->currentLevel);
+            MPI_Barrier(comm);
+        }
+#endif
 
         grid->A->residual(u, rhs, res);
 
 //        print_vector(res, -1, "res", comm);
 
+#ifdef __DEBUG1__
         if(verbose_vcycle_residuals){
             dotProduct(res, res, &dot, comm);
             if(rank==0) std::cout << "level = " << grid->currentLevel << ", after pre-smooth  = " << sqrt(dot) << std::endl;
         }
+#endif
 
         // **************************************** 3. restrict ****************************************
 
+#ifdef __DEBUG1__
         if(verbose_vcycle){
             MPI_Barrier(comm);
-            if(rank==0) printf("vcycle: restrict\n");
+            if(rank==0) printf("vcycle level %d: restrict\n", grid->currentLevel);
             printf("grid->Ac.M_old = %u \n", grid->Ac.M_old);
-            MPI_Barrier(comm);}
+            MPI_Barrier(comm);
+        }
 
         t1 = omp_get_wtime();
+#endif
 
         res_coarse.resize(grid->Ac.M_old);
         grid->R.matvec(res, res_coarse);
@@ -666,11 +776,13 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
             MPI_Comm_size(comm, &nprocs);
             MPI_Comm_rank(comm, &rank);
 
+#ifdef __DEBUG1__
             if (verbose_vcycle) {
                 MPI_Barrier(comm);
-                if (rank == 0) printf("vcycle: repartition_u_shrink\n");
+                if (rank == 0) printf("vcycle level %d: repartition_u_shrink\n", grid->currentLevel);
                 MPI_Barrier(comm);
             }
+#endif
 
 //            MPI_Barrier(comm); printf("before repartition_u_shrink: res_coarse.size = %ld \n", res_coarse.size()); MPI_Barrier(comm);
 //            if (grid->Ac.shrinked && nprocs > 1)
@@ -679,19 +791,23 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
                 repartition_u_shrink(res_coarse, *grid);
 //            MPI_Barrier(comm); printf("after  repartition_u_shrink: res_coarse.size = %ld \n", res_coarse.size()); MPI_Barrier(comm);
 
+#ifdef __DEBUG1__
             t2 = omp_get_wtime();
             func_name = "Vcycle: level " + std::to_string(grid->currentLevel) + ": restriction";
             if (verbose) print_time(t1, t2, func_name, comm);
 
-//	      print_vector(res_coarse, 0, "res_coarse", comm);
+//            print_vector(res_coarse, 0, "res_coarse", comm);
+#endif
 
             // **************************************** 4. recurse ****************************************
 
+#ifdef __DEBUG1__
             if (verbose_vcycle) {
                 MPI_Barrier(comm);
-                if (rank == 0) printf("vcycle: recurse\n");
+                if (rank == 0) printf("vcycle level %d: recurse\n", grid->currentLevel);
                 MPI_Barrier(comm);
             }
+#endif
 
             // scale rhs of the next level
             scale_vector(res_coarse, grid->coarseGrid->A->inv_sq_diag);
@@ -712,30 +828,36 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
         MPI_Comm_size(comm, &nprocs);
         MPI_Comm_rank(comm, &rank);
 
+#ifdef __DEBUG1__
         t1 = omp_get_wtime();
 
         if (verbose_vcycle) {
             MPI_Barrier(comm);
-            if (rank == 0) printf("vcycle: repartition_back_u_shrink\n");
+            if (rank == 0) printf("vcycle level %d: repartition_back_u_shrink\n", grid->currentLevel);
             MPI_Barrier(comm);
         }
+#endif
 
         if(nprocs > 1 && grid->Ac.active_minor)
             repartition_back_u_shrink(uCorrCoarse, *grid);
 
 //        print_vector(uCorrCoarse, -1, "uCorrCoarse", grid->A->comm);
 
+#ifdef __DEBUG1__
         if(verbose_vcycle){
             MPI_Barrier(comm);
-            if(rank==0) printf("vcycle: prolong\n");
+            if(rank==0) printf("vcycle level %d: prolong\n", grid->currentLevel);
             MPI_Barrier(comm);}
+#endif
 
         uCorr.resize(grid->A->M);
         grid->P.matvec(uCorrCoarse, uCorr);
 
+#ifdef __DEBUG1__
         t2 = omp_get_wtime();
         func_name = "Vcycle: level " + std::to_string(grid->currentLevel) + ": prolongation";
         if (verbose) print_time(t1, t2, func_name, comm);
+#endif
 
 //        if(rank==0)
 //            std::cout << "\n5. prolongation: uCorr = P*uCorrCoarse , currentLevel = " << grid->currentLevel
@@ -744,47 +866,56 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
         // **************************************** 6. correct ****************************************
 
+#ifdef __DEBUG1__
         if(verbose_vcycle){
             MPI_Barrier(comm);
-            if(rank==0) printf("vcycle: correct\n");
+            if(rank==0) printf("vcycle level %d: correct\n", grid->currentLevel);
             MPI_Barrier(comm);}
+#endif
 
-#pragma omp parallel for
+        #pragma omp parallel for
         for (index_t i = 0; i < u.size(); i++)
             u[i] -= uCorr[i];
 
 //        print_vector(u, 0, "u after correction", grid->A->comm);
 
+#ifdef __DEBUG1__
         if(verbose_vcycle_residuals){
             grid->A->residual(u, rhs, res);
             dotProduct(res, res, &dot, comm);
             if(rank==0) std::cout << "level = " << grid->currentLevel << ", after correction  = " << sqrt(dot) << std::endl;
         }
+#endif
 
         // **************************************** 7. post-smooth ****************************************
 
+#ifdef __DEBUG1__
         if(verbose_vcycle){
             MPI_Barrier(comm);
-            if(rank==0) printf("vcycle: post-smooth\n");
+            if(rank==0) printf("vcycle level %d: post-smooth\n", grid->currentLevel);
             MPI_Barrier(comm);}
 
         t1 = omp_get_wtime();
+#endif
 
         if(postSmooth)
             smooth(grid, smoother, u, rhs, postSmooth);
 
+#ifdef __DEBUG1__
         t2 = omp_get_wtime();
         func_name = "Vcycle: level " + std::to_string(grid->currentLevel) + ": post";
         if (verbose) print_time(t1, t2, func_name, comm);
 
+        if(verbose_vcycle_residuals){
+
 //        if(rank==1) std::cout << "\n7. post-smooth: u, currentLevel = " << grid->currentLevel << std::endl;
 //        print_vector(u, 0, "u post-smooth", grid->A->comm);
 
-        if(verbose_vcycle_residuals){
             grid->A->residual(u, rhs, res);
             dotProduct(res, res, &dot, comm);
             if(rank==0) std::cout << "level = " << grid->currentLevel << ", after post-smooth = " << sqrt(dot) << std::endl;
         }
+#endif
 
     } // end of if(active)
 
@@ -884,6 +1015,14 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+#ifdef __DEBUG1__
+    if(verbose_solve){
+        MPI_Barrier(comm);
+        if(rank == 0) printf("solve_pcg: start!\n");
+        MPI_Barrier(comm);
+    }
+#endif
+
     std::fill(u.begin(), u.end(), 0);
 
     // ************** check u size **************
@@ -896,14 +1035,26 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
         return -1;
     }
 
-    if(verbose_solve) if(rank == 0) printf("solve_pcg: check u size!\n");
+#ifdef __DEBUG1__
+    if(verbose_solve){
+        MPI_Barrier(comm);
+        if(rank == 0) printf("solve_pcg: check u size!\n");
+        MPI_Barrier(comm);
+    }
+#endif
 
     // ************** repartition u **************
 
     if(repartition)
         repartition_u(u);
 
-    if(verbose_solve) if(rank == 0) printf("solve_pcg: repartition u!\n");
+#ifdef __DEBUG1__
+    if(verbose_solve){
+        MPI_Barrier(comm);
+        if(verbose_solve) if(rank == 0) printf("solve_pcg: repartition u!\n");
+        MPI_Barrier(comm);
+    }
+#endif
 
     // ************** solve **************
 
@@ -949,7 +1100,13 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
     std::vector<value_t> rho(grids[0].A->M, 0);
     vcycle(&grids[0], rho, r);
 
-    if(verbose_solve) if(rank == 0) printf("solve_pcg: first vcycle!\n");
+#ifdef __DEBUG1__
+    if(verbose_solve){
+        MPI_Barrier(comm);
+        if(verbose_solve) if(rank == 0) printf("solve_pcg: first vcycle!\n");
+        MPI_Barrier(comm);
+    }
+#endif
 
 //    for(i = 0; i < r.size(); i++)
 //        printf("rho[%lu] = %f,\t r[%lu] = %f \n", i, rho[i], i, r[i]);
@@ -1019,7 +1176,13 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
         std::cout << "******************************************************" << std::endl;
     }
 
-    if(verbose_solve) if(rank == 0) printf("solve_pcg: solve!\n");
+#ifdef __DEBUG1__
+    if(verbose_solve){
+        MPI_Barrier(comm);
+        if(verbose_solve) if(rank == 0) printf("solve_pcg: solve!\n");
+        MPI_Barrier(comm);
+    }
+#endif
 
     // ************** scale u **************
 
@@ -1032,9 +1195,15 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
     if(repartition)
         repartition_back_u(u);
 
-    if(verbose_solve) if(rank == 0) printf("solve_pcg: repartition back u!\n");
+#ifdef __DEBUG1__
+    if(verbose_solve){
+        MPI_Barrier(comm);
+        if(rank == 0) printf("solve_pcg: end!\n");
+        MPI_Barrier(comm);
 
-//     print_vector(u, 0, "final u", comm);
+//        print_vector(u, 0, "final u", comm);
+    }
+#endif
 
 //    if(rank==0) dollar::text(std::cout);
 

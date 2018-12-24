@@ -486,7 +486,7 @@ int saena_matrix::set3(unsigned int row, unsigned int col, double val){
         }
     }else{
         printf("\nAttention: the structure of the matrix is being changed, so matrix.assemble() is required to call after being done calling matrix.set()!\n\n");
-        entry.push_back(send_buf);
+        entry.emplace_back(send_buf);
         std::sort(&*entry.begin(), &*entry.end());
         nnz_g++;
         nnz_l++;
@@ -519,7 +519,7 @@ int saena_matrix::set3(unsigned int* row, unsigned int* col, double* val, unsign
             }
         }else{
             printf("\nAttention: the structure of the matrix is being changed, so matrix.assemble() is required to call after being done calling matrix.set()!\n\n");
-            entry.push_back(temp);
+            entry.emplace_back(temp);
             std::sort(&*entry.begin(), &*entry.end());
             nnz_g++;
             nnz_l++;
@@ -1018,7 +1018,7 @@ int saena_matrix::residual(std::vector<value_t>& u, std::vector<value_t>& rhs, s
         #pragma omp parallel for
         for(index_t i = 0; i < M; i++)
             res[i] = -rhs[i];
-    } else{
+    } else {
         matvec(u, res);
 
         #pragma omp parallel for
@@ -1047,8 +1047,6 @@ int saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>
 //    int rank;
 //    MPI_Comm_rank(comm, &rank);
 
-//    printf("jacobi!!!\n");
-
     for(int j = 0; j < iter; j++){
         matvec(u, temp);
 
@@ -1076,8 +1074,9 @@ int saena_matrix::chebyshev(int iter, std::vector<value_t>& u, std::vector<value
     double delta = (beta - alpha) / 2;
     double theta = (beta + alpha) / 2;
     double s1 = theta/delta;
+    double twos1 = 2 * s1; // to avoid the multiplication in the "for loop.
     double rhok = 1/s1;
-    double rhokp1, d1, d2;
+    double rhokp1, two_rhokp1, d1, d2;
 
     // first loop
     residual(u, rhs, res);
@@ -1090,9 +1089,10 @@ int saena_matrix::chebyshev(int iter, std::vector<value_t>& u, std::vector<value
     }
 
     for(int i = 1; i < iter; i++){
-        rhokp1 = 1 / (2*s1 - rhok);
+        rhokp1 = 1 / (twos1 - rhok);
+        two_rhokp1 = 2 * rhokp1;
         d1     = rhokp1 * rhok;
-        d2     = 2*rhokp1 / delta;
+        d2     = two_rhokp1 / delta;
         rhok   = rhokp1;
         residual(u, rhs, res);
 
