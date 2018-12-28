@@ -43,7 +43,7 @@ public:
 
     MPI_Comm get_orig_comm();
 
-    const index_t matmat_size_thre = 200; // if(row * col) do the dense matmat default 1000000
+    const index_t matmat_size_thre = 1000000; // if(row * col) do the dense matmat default 1000000
 //    const index_t min_size_threshold = 50; //default 50
     const index_t matmat_nnz_thre = 200; //default 200
 
@@ -75,7 +75,7 @@ public:
     bool verbose_setup            = true;
     bool verbose_setup_steps      = false;
     bool verbose_level_setup      = false;
-    bool verbose_coarsen          = true;
+    bool verbose_coarsen          = false;
     bool verbose_matmat           = false;
     bool verbose_matmat_recursive = false;
     bool verbose_matmat_A         = false;
