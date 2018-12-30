@@ -117,7 +117,7 @@ int saena_object::update3(saena_matrix* A_new){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    A_new->assemble_no_scale();
+//    A_new->assemble_no_scale();
 
     // first set A_new.eig_max_of_invdiagXA equal to the previous A's. Since we only need an upper bound, this is good enough.
     // do the same for the next level matrices.
