@@ -159,7 +159,7 @@ public:
     double density = -1.0;
     float jacobi_omega = float(2.0/3);
     double eig_max_of_invdiagXA = 0; // the biggest eigenvalue of (A * inv_diag(A)) to be used in chebyshev smoother
-    double highest_diag_val = 1e-10; // todo: check if this is still required.
+//    double highest_diag_val = 1e-10; // todo: check if this is still required.
 //    double double_machine_prec = 1e-12; // it is hard-coded in aux_functions.h
 
     saena_matrix_dense dense_matrix;
@@ -200,6 +200,7 @@ public:
 //    int set3(unsigned int* row, unsigned int* col, double* val, unsigned int nnz_local);
 
     int assemble();
+    int assemble_no_scale();
     int setup_initial_data();
     int remove_duplicates();
     int repartition_nnz_initial(); // based on nnz.
@@ -219,6 +220,7 @@ public:
 
     // for update3 for lazy-update
     int matrix_setup_lazy_update();
+    int update_diag_lazy();
 
     //    int set_rho();
     int set_off_on_diagonal();
@@ -227,7 +229,7 @@ public:
     int scale_matrix();
     int scale_back_matrix();
 
-    // dummy functions to decide if shrinking is.
+    // dummy functions to decide if shrinking should happen
     int set_off_on_diagonal_dummy();
 //    int find_sortings_dummy();
     int matrix_setup_dummy();
