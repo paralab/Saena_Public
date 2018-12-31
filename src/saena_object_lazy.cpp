@@ -1670,15 +1670,10 @@ int saena_object::triple_mat_mult_update_Ac(Grid *grid, std::vector<cooEntry> &d
         // scale back, add new entries, scale again inside matrix_setup_lazy_update
         // also, update inv_sq_diag with the new matrix in update_diag_lazy.
 
-//        printf("triple_mat_mult: lazy 1: rank = %d\n", rank);
         Ac->scale_back_matrix();
-//        printf("triple_mat_mult: lazy 2: rank = %d\n", rank);
         Ac->repartition_nnz_update_Ac(); // based on number of nonzeros. update Ac->entry with Ac->entry_temp
-//        printf("triple_mat_mult: lazy 3: rank = %d\n", rank);
         Ac->update_diag_lazy();
-//        printf("triple_mat_mult: lazy 4: rank = %d\n", rank);
         Ac->scale_matrix();
-//        printf("triple_mat_mult: lazy 5: rank = %d\n", rank);
 
         // Ac->entry_temp is actually diff which should be used for the next level
         diff.clear();
