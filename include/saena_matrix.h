@@ -162,13 +162,18 @@ public:
 //    double highest_diag_val = 1e-10; // todo: check if this is still required.
 //    double double_machine_prec = 1e-12; // it is hard-coded in aux_functions.h
 
-    saena_matrix_dense dense_matrix;
+
+    // dense matrix parameters
+    // search for "uncomment to enable DENSE" to enable the dense part
+/*    saena_matrix_dense dense_matrix; */ // uncomment to enable DENSE
     bool switch_to_dense = false;
     bool dense_matrix_generated = false;
     float dense_threshold = 0.1; // 0<dense_threshold<=1 decide when to also generate dense_matrix for this matrix.
+    int generate_dense_matrix();
+
 
     // zfp parameters
-    zfp_field* field; // array meta data
+/*    zfp_field* field; // array meta data
     zfp_stream* zfp;    // compressed stream
     bitstream* stream;  // bit stream to write to or read from
 //    unsigned char *send_buffer; // storage for compressed stream
@@ -181,8 +186,10 @@ public:
     zfp_field* field2;  // array meta data
     zfp_stream* zfp2;   // compressed stream
     bitstream* stream2; // bit stream to write to or read from
+*/
     int allocate_zfp();
     int deallocate_zfp();
+
 
     saena_matrix();
     saena_matrix(MPI_Comm com);
@@ -257,8 +264,6 @@ public:
     int inverse_diag();
     int jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp);
     int chebyshev(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp, std::vector<value_t>& temp2);
-
-    int generate_dense_matrix();
 
     int print_entry(int ran);
     int print_info(int ran);
