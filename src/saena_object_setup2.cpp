@@ -3939,7 +3939,7 @@ int saena_object::triple_mat_mult(Grid *grid, std::vector<cooEntry_row> &RAP_row
     std::vector<index_t> nnzPerColScan_right(mat_recv_M_max + 1);
     std::vector<cooEntry> AP_temp;
 
-    printf("\n");
+//    printf("\n");
     if(nprocs > 1){
 
         int right_neighbor = (rank + 1)%nprocs;
@@ -4191,7 +4191,7 @@ int saena_object::triple_mat_mult(Grid *grid, std::vector<cooEntry_row> &RAP_row
     // multiply: R_i * (AP_temp)_i. in which R_i = P_i_tranpose
     // ===================================================
 
-    printf("\n");
+//    printf("\n");
     std::vector<cooEntry> RAP_temp;
 
     if(P_tranpose.empty() || AP.empty()){ // skip!
