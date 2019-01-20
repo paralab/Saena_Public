@@ -5,6 +5,14 @@
 
 #include <vector>
 #include <string>
+#include <unordered_map>
+
+// set one of the following to set fast_mm split based on nnz or matrix size
+#define SPLIT_NNZ
+//#define SPLIT_SIZE
+
+//#define FAST_MM_MAP
+#define FAST_MM_VECTOR
 
 typedef unsigned int index_t;
 typedef unsigned long nnz_t;
@@ -19,7 +27,7 @@ class Grid;
 class saena_object {
 public:
 
-    int max_level = 6; // fine grid is level 0.
+    int max_level = 10; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 20;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,
@@ -41,9 +49,10 @@ public:
     bool dynamic_levels = true;
     bool adaptive_coarsening = false;
 
-    MPI_Comm get_orig_comm();
-
-    const index_t matmat_size_thre = 1000000; // if(row * col) do the dense matmat default 1000000
+    std::string coarsen_method = "recursive" ; // 1-basic, 2-recursive, 3-no_overlap
+    const index_t matmat_size_thre1 = 50000000; // if(row * col < matmat_size_thre1) decide to do case1 or not. default 30M
+    const index_t matmat_size_thre2 = 10000000; // if(nnz_row * nnz_col < matmat_size_thre2) do case1. default 10M
+    const index_t matmat_size_thre3 = 3000000;  // if(nnz_row * nnz_col < matmat_size_thre3) do vector, otherwise map. default 3M
 //    const index_t min_size_threshold = 50; //default 50
     const index_t matmat_nnz_thre = 200; //default 200
 
@@ -67,15 +76,16 @@ public:
     float dense_threshold = 0.1; // 0<dense_threshold<=1 decide when to switch to the dense structure.
                                  // dense_threshold should be greater than repartition_threshold, since it is more efficient on repartition based on the number of rows.
 
-    // memory pool used in triple_mat_mult
+    // memory pool used in compute_coarsen
     value_t *mempool1;
     index_t *mempool2;
+//    std::unordered_map<index_t, value_t> map_matmat;
 
     bool verbose                  = false;
     bool verbose_setup            = true;
     bool verbose_setup_steps      = false;
     bool verbose_level_setup      = false;
-    bool verbose_coarsen          = false;
+    bool verbose_triple_mat_mult  = false;
     bool verbose_matmat           = false;
     bool verbose_matmat_recursive = false;
     bool verbose_matmat_A         = false;
@@ -85,55 +95,80 @@ public:
     bool verbose_vcycle_residuals = false;
     bool verbose_solve_coarse     = false;
 
+    bool verbose_triple_mat_mult_test = false;
+
     saena_object();
     ~saena_object();
     int destroy();
 
+    MPI_Comm get_orig_comm();
+
     void set_parameters(int vcycle_num, double relative_tolerance, std::string smoother, int preSmooth, int postSmooth);
     int setup(saena_matrix* A);
     int coarsen(Grid *grid);
-    int triple_mat_mult(Grid *grid);
-    int triple_mat_mult_old(Grid *grid);
-    int triple_mat_mult_update_Ac(Grid *grid, std::vector<cooEntry> &diff);
+    int compute_coarsen(Grid *grid);
+    int compute_coarsen_old(Grid *grid);
+    int compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff);
+    int triple_mat_mult(Grid *grid, std::vector<cooEntry_row> &RAP_row_sorted);
+    int triple_mat_mult_no_overlap(Grid *grid, std::vector<cooEntry_row> &RAP_row_sorted);
+    int triple_mat_mult_basic(Grid *grid, std::vector<cooEntry_row> &RAP_row_sorted);
 
-    int fast_mm_nnz(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
-                    nnz_t A_nnz, nnz_t B_nnz,
-                    index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
-                    index_t B_col_size, index_t B_col_offset,
-                    const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
-                    const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
-    int fast_mm_orig(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
-                     nnz_t A_nnz, nnz_t B_nnz,
-                     index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
-                     index_t B_col_size, index_t B_col_offset,
-                     const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
-                     const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
+    // for fast_mm experiments
+    int compute_coarsen_test(Grid *grid);
+    int triple_mat_mult_test(Grid *grid, std::vector<cooEntry_row> &RAP_row_sorted);
 
+    void fast_mm(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+                 nnz_t A_nnz, nnz_t B_nnz,
+                 index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+                 index_t B_col_size, index_t B_col_offset,
+                 const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
+                 const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd,
+                 MPI_Comm comm);
 
-    int fast_mm(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
-                nnz_t A_nnz, nnz_t B_nnz,
-                index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
-                index_t B_col_size, index_t B_col_offset,
-                const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
-                const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
-    int fast_mm_part1(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
-                      nnz_t A_nnz, nnz_t B_nnz,
-                      index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
-                      index_t B_col_size, index_t B_col_offset,
-                      const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
-                      const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
-    int fast_mm_part2(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
-                      nnz_t A_nnz, nnz_t B_nnz,
-                      index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
-                      index_t B_col_size, index_t B_col_offset,
-                      const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
-                      const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
-    int fast_mm_part3(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
-                      nnz_t A_nnz, nnz_t B_nnz,
-                      index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
-                      index_t B_col_size, index_t B_col_offset,
-                      const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
-                      const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
+//    void fast_mm(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+//                 nnz_t A_nnz, nnz_t B_nnz,
+//                 index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+//                 index_t B_col_size, index_t B_col_offset,
+//                 const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
+//                 const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd,
+//                 std::unordered_map<index_t, value_t> &map_matmat, MPI_Comm comm);
+
+    void matmat(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+                 nnz_t A_nnz, nnz_t B_nnz,
+                 index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+                 index_t B_col_size, index_t B_col_offset,
+                 const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
+                 const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd,
+                 MPI_Comm comm);
+
+//    void matmat(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+//                 nnz_t A_nnz, nnz_t B_nnz, index_t A_row_size, index_t A_col_size, index_t B_col_size,
+//                 const index_t *nnzPerRowScan_left, const index_t *nnzPerColScan_right, MPI_Comm comm);
+
+//    void fast_mm_parts(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+//                nnz_t A_nnz, nnz_t B_nnz,
+//                index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+//                index_t B_col_size, index_t B_col_offset,
+//                const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
+//                const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
+//    int fast_mm_part1(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+//                      nnz_t A_nnz, nnz_t B_nnz,
+//                      index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+//                      index_t B_col_size, index_t B_col_offset,
+//                      const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
+//                      const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
+//    void fast_mm_part2(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+//                      nnz_t A_nnz, nnz_t B_nnz,
+//                      index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+//                      index_t B_col_size, index_t B_col_offset,
+//                      const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
+//                      const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
+//    int fast_mm_part3(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+//                      nnz_t A_nnz, nnz_t B_nnz,
+//                      index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+//                      index_t B_col_size, index_t B_col_offset,
+//                      const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
+//                      const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd, MPI_Comm comm);
 
     int find_aggregation(saena_matrix* A, std::vector<unsigned long>& aggregate, std::vector<index_t>& splitNew);
     int create_strength_matrix(saena_matrix* A, strength_matrix* S);
@@ -215,4 +250,3 @@ public:
 };
 
 #endif //SAENA_SAENA_OBJECT_H
-
