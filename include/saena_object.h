@@ -7,7 +7,7 @@
 #include <string>
 #include <unordered_map>
 #include <bitset>
-//#include <spp.h> //sparsepp
+#include <spp.h> //sparsepp
 
 // set one of the following to set fast_mm split based on nnz or matrix size
 #define SPLIT_NNZ
@@ -29,7 +29,7 @@ class Grid;
 class saena_object {
 public:
 
-    int max_level = 7; // fine grid is level 0.
+    int max_level = 1; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 20;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,

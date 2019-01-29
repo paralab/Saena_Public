@@ -3841,13 +3841,6 @@ int saena_object::compute_coarsen(Grid *grid) {
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-#ifdef SPLIT_NNZ
-    if(rank==0) printf("\nfast_mm: split based on nnz\n");
-#endif
-#ifdef SPLIT_SIZE
-    if(rank==0) printf("\nfast_mm: split based on matrix size\n");
-#endif
-
 #ifdef __DEBUG1__
 //    print_vector(A->entry, -1, "A->entry", comm);
 //    print_vector(P->entry, -1, "P->entry", comm);
