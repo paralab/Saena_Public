@@ -6,6 +6,7 @@
 #include <vector>
 #include <string>
 #include <unordered_map>
+#include <spp.h> //sparsepp
 
 // set one of the following to set fast_mm split based on nnz or matrix size
 #define SPLIT_NNZ
@@ -27,7 +28,7 @@ class Grid;
 class saena_object {
 public:
 
-    int max_level = 10; // fine grid is level 0.
+    int max_level = 1; // fine grid is level 0.
     // coarsening will stop if the number of rows on one processor goes below 10.
     unsigned int least_row_threshold = 20;
     // coarsening will stop if the number of rows of last level divided by previous level is higher this value,
@@ -51,8 +52,8 @@ public:
 
     std::string coarsen_method = "recursive" ; // 1-basic, 2-recursive, 3-no_overlap
     const index_t matmat_size_thre1 = 50000000; // if(row * col < matmat_size_thre1) decide to do case1 or not. default 30M
-    const index_t matmat_size_thre2 = 10000000; // if(nnz_row * nnz_col < matmat_size_thre2) do case1. default 10M
-    const index_t matmat_size_thre3 = 3000000;  // if(nnz_row * nnz_col < matmat_size_thre3) do vector, otherwise map. default 3M
+    const index_t matmat_size_thre2 = 20000000; // if(nnz_row * nnz_col < matmat_size_thre2) do case1. default 20M
+    const index_t matmat_size_thre3 = 100000;  // if(nnz_row * nnz_col < matmat_size_thre3) do vector, otherwise map. default 500k
 //    const index_t min_size_threshold = 50; //default 50
     const index_t matmat_nnz_thre = 200; //default 200
 
@@ -80,6 +81,7 @@ public:
     value_t *mempool1;
     index_t *mempool2;
 //    std::unordered_map<index_t, value_t> map_matmat;
+    spp::sparse_hash_map<index_t, value_t> map_matmat;
 
     bool verbose                  = false;
     bool verbose_setup            = true;
@@ -110,8 +112,11 @@ public:
     int compute_coarsen_old(Grid *grid);
     int compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff);
     int triple_mat_mult(Grid *grid, std::vector<cooEntry_row> &RAP_row_sorted);
+    int triple_mat_mult_old_RAP(Grid *grid, std::vector<cooEntry_row> &RAP_row_sorted);
     int triple_mat_mult_no_overlap(Grid *grid, std::vector<cooEntry_row> &RAP_row_sorted);
     int triple_mat_mult_basic(Grid *grid, std::vector<cooEntry_row> &RAP_row_sorted);
+    int matmat(Grid *grid);
+    int matmat(saena_matrix *A, saena_matrix *B, saena_matrix *C);
 
     // for fast_mm experiments
     int compute_coarsen_test(Grid *grid);
@@ -133,15 +138,15 @@ public:
 //                 const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd,
 //                 std::unordered_map<index_t, value_t> &map_matmat, MPI_Comm comm);
 
-    void matmat(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
-                 nnz_t A_nnz, nnz_t B_nnz,
-                 index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
-                 index_t B_col_size, index_t B_col_offset,
-                 const index_t *nnzPerColScan_leftStart,  const index_t *nnzPerColScan_leftEnd,
-                 const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd,
-                 MPI_Comm comm);
+    void fast_mm_basic(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+                       nnz_t A_nnz, nnz_t B_nnz,
+                       index_t A_row_size, index_t A_row_offset, index_t A_col_size, index_t A_col_offset,
+                       index_t B_col_size, index_t B_col_offset,
+                       const index_t *nnzPerColScan_leftStart, const index_t *nnzPerColScan_leftEnd,
+                       const index_t *nnzPerColScan_rightStart, const index_t *nnzPerColScan_rightEnd,
+                       MPI_Comm comm);
 
-//    void matmat(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
+//    void fast_mm_basic(const cooEntry *A, const cooEntry *B, std::vector<cooEntry> &C,
 //                 nnz_t A_nnz, nnz_t B_nnz, index_t A_row_size, index_t A_col_size, index_t B_col_size,
 //                 const index_t *nnzPerRowScan_left, const index_t *nnzPerColScan_right, MPI_Comm comm);
 
@@ -220,9 +225,9 @@ public:
 //    int find_eig_Elemental(saena_matrix& A);
     int local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEntry> &C);
     int scale_vector(std::vector<value_t>& v, std::vector<value_t>& w);
-    int transpose_locally(std::vector<cooEntry> &A, nnz_t size);
-    int transpose_locally(std::vector<cooEntry> &A, nnz_t size, std::vector<cooEntry> &B);
-    int transpose_locally(std::vector<cooEntry> &A, nnz_t size, index_t row_offset, std::vector<cooEntry> &B);
+    int transpose_locally(cooEntry *A, nnz_t size);
+    int transpose_locally(cooEntry *A, nnz_t size, cooEntry *B);
+    int transpose_locally(cooEntry *A, nnz_t size, index_t row_offset, cooEntry *B);
 
     // lazy update functions
     int update1(saena_matrix* A_new);

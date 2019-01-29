@@ -1310,7 +1310,7 @@ int saena_object::compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &d
 
         // local transpose of R is being used to compute A*P. So R is transposed locally here.
         std::vector<cooEntry> R_tranpose(R->entry.size());
-        transpose_locally(R->entry, R->entry.size(), R->splitNew[rank], R_tranpose);
+        transpose_locally(&R->entry[0], R->entry.size(), R->splitNew[rank], &R_tranpose[0]);
 
 #ifdef __DEBUG1__
 //    print_vector(R->entry, -1, "R->entry", comm);
@@ -1418,7 +1418,7 @@ int saena_object::compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &d
 //        transpose_locally(P->entry, P->entry.size(), P_tranpose);
 
         std::vector<cooEntry> P_tranpose(P->entry_local.size());
-        transpose_locally(P->entry_local, P->entry_local.size(), P_tranpose);
+        transpose_locally(&P->entry_local[0], P->entry_local.size(), &P_tranpose[0]);
 
         // convert the indices to global
         for (nnz_t i = 0; i < P_tranpose.size(); i++) {
@@ -1721,7 +1721,7 @@ int saena_object::compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &d
 } // compute_coarsen()
 
 
-//int saena_object::compute_coarsen_update_Ac -> implemented based on the older version of matmat. newer.
+//int saena_object::compute_coarsen_update_Ac -> implemented based on the older version of fast_mm_basic. newer.
 /*
 int saena_object::triple_mat_mult_update_Ac(Grid *grid, std::vector<cooEntry> &diff){
 
@@ -1969,7 +1969,7 @@ int saena_object::triple_mat_mult_update_Ac(Grid *grid, std::vector<cooEntry> &d
 } // end of compute_coarsen_update_Ac()
 */
 
-//int saena_object::compute_coarsen_update_Ac -> implemented based on the older version of matmat. older.
+//int saena_object::compute_coarsen_update_Ac -> implemented based on the older version of fast_mm_basic. older.
 /*
 int saena_object::coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff){
 
