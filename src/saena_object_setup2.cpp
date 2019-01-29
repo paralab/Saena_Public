@@ -8,8 +8,7 @@
 #include "parUtils.h"
 #include "dollar.hpp"
 
-#include <spp.h> //sparsepp
-
+//#include <spp.h> //sparsepp
 //#include "petsc_functions.h"
 
 #include <cstdio>
@@ -1082,8 +1081,8 @@ void saena_object::fast_mm(const cooEntry *A, const cooEntry *B, std::vector<coo
 
 //                double t11 = MPI_Wtime();
 
-//                std::unordered_map<index_t, value_t> map_matmat;
-                spp::sparse_hash_map<index_t, value_t> map_matmat;
+                std::unordered_map<index_t, value_t> map_matmat;
+//                spp::sparse_hash_map<index_t, value_t> map_matmat;
                 map_matmat.reserve(A_nnz + 2*B_nnz);
 
                 index_t C_index;
