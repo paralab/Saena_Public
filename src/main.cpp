@@ -93,7 +93,7 @@ int main(int argc, char* argv[]){
 
     // *************************** AMG - Setup ****************************
     // There are 3 ways to set options:
-    
+
     // 1- set them manually
 //    int vcycle_num            = 300;
 //    double relative_tolerance = 1e-8;

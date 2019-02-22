@@ -157,7 +157,6 @@ set(HEADER_FILES ${HEADER_FILES}
         )
 
 set(SOURCE_FILES ${SOURCE_FILES}
-        ${HEADER_FILES}
         src/saena.cpp
         src/saena_matrix_dense.cpp
         src/strength_matrix.cpp
@@ -189,15 +188,19 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 #add_executable(Saena src/main.cpp ${SOURCE_FILES} ${HEADER_FILES})
 
+add_library(saena SHARED ${SOURCE_FILES})
+
 # -----------------------------------------------------------------------
 # NEKTAR++
 
-ADD_NEKTAR_LIBRARY(Saena
-        SOURCES ${SOURCE_FILES}
-        HEADERS ${HEADER_FILES}
-        SUMMARY "Nektar++ Saena fast multigrid solver library"
-        DESCRIPTION "This library provides fast multigrid solves.")
+#ADD_NEKTAR_LIBRARY(Saena
+#        SOURCES ${SOURCE_FILES}
+#        HEADERS ${HEADER_FILES}
+#        SUMMARY "Nektar++ Saena fast multigrid solver library"
+#        DESCRIPTION "This library provides fast multigrid solves.")
 
 # -----------------------------------------------------------------------
 
-target_link_libraries(Saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
+target_link_libraries(saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
+
+install(FILES ${HEADER_FILES} DESTINATION ${CMAKE_INSTALL_DIR}/include )
