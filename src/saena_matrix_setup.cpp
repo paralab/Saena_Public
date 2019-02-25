@@ -184,16 +184,36 @@ int saena_matrix::remove_duplicates() {
         data_size++;
     }
 
-    for(nnz_t i=1; i<data_sorted.size(); i++){
-        if(data_sorted[i] == data_sorted[i-1]){
-            if(add_duplicates){
-                data[data_size-1].val += data_sorted[i].val;
-            }else{
-                data[data_size-1] = data_sorted[i];
+//    for(nnz_t i=1; i<data_sorted.size(); i++){
+//        if(data_sorted[i] == data_sorted[i-1]){
+//            if(add_duplicates){
+//                data[data_size-1].val += data_sorted[i].val;
+//            }else{
+//                data[data_size-1] = data_sorted[i];
+//            }
+//        }else{
+//            data[data_size] = data_sorted[i];
+//            data_size++;
+//        }
+//    }
+
+    if(add_duplicates){
+        for(nnz_t i = 1; i < data_sorted.size(); i++) {
+            if (data_sorted[i] == data_sorted[i - 1]) {
+                data[data_size - 1].val += data_sorted[i].val;
+            } else {
+                data[data_size] = data_sorted[i];
+                data_size++;
             }
-        }else{
-            data[data_size] = data_sorted[i];
-            data_size++;
+        }
+    } else {
+        for(nnz_t i=1; i<data_sorted.size(); i++){
+            if(data_sorted[i] == data_sorted[i - 1]){
+                data[data_size - 1] = data_sorted[i];
+            }else{
+                data[data_size] = data_sorted[i];
+                data_size++;
+            }
         }
     }
 
@@ -294,9 +314,19 @@ int saena_matrix::matrix_setup() {
         // *************************** scale ****************************
         // scale the matrix to have its diagonal entries all equal to 1.
 
+//        for(nnz_t i = 0; i < nnz_l_local; i++) {
+//            if (rank == 0)
+//                printf("%u \t%u \t%f\n", row_local[i], col_local[i], values_local[i]);
+//        }
+
 //        print_vector(entry, 0, "entry", comm);
         scale_matrix();
 //        print_vector(entry, 0, "entry", comm);
+
+//        for(nnz_t i = 0; i < nnz_l_local; i++) {
+//            if (rank == 0)
+//                printf("%u \t%u \t%f\n", row_local[i], col_local[i], values_local[i]);
+//        }
 
         // *************************** print_entry info ****************************
 
@@ -387,6 +417,11 @@ int saena_matrix::matrix_setup_no_scale(){
 
         // *************************** scale ****************************
         // scale the matrix to have its diagonal entries all equal to 1.
+
+//        for(nnz_t i = 0; i < nnz_l_local; i++) {
+//            if (rank == 0)
+//                printf("%u \t%u \t%f\n", row_local[i], col_local[i], values_local[i]);
+//        }
 
 //        scale_matrix();
 
@@ -840,6 +875,11 @@ int saena_matrix::set_off_on_diagonal(){
 
         // compute nnz_max
         MPI_Allreduce(&nnz_l, &nnz_max, 1, MPI_UNSIGNED_LONG, MPI_MAX, comm);
+
+        // compute nnz_list
+        nnz_list.resize(nprocs);
+        MPI_Allgather(&nnz_l, 1, MPI_UNSIGNED_LONG, &nnz_list[0], 1, MPI_UNSIGNED_LONG, comm);
+//        print_vector(nnz_list, 1, "nnz_list", comm);
     }
 
     return 0;

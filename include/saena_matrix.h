@@ -12,14 +12,14 @@
 
 
 /**
- * @author Majid
+ * @author Majid Rasouli
  * @breif Contains the basic structure for the Saena matrix class (saena_matrix).
  *
  * */
 
-typedef unsigned int index_t;
+typedef unsigned int  index_t;
 typedef unsigned long nnz_t;
-typedef double value_t;
+typedef double        value_t;
 
 class saena_matrix {
 
@@ -61,6 +61,7 @@ public:
     index_t max_M = 0;
     std::vector<index_t> split; // (row-wise) partition of the matrix between processes
     std::vector<index_t> split_old;
+    std::vector<nnz_t> nnz_list; // number of nonzeros on each process. todo: Since it is local to each processor, unsigned int is enough. nnz_l should be changed too.
 
     nnz_t nnz_l_local  = 0;
     nnz_t nnz_l_remote = 0;
@@ -130,7 +131,7 @@ public:
     MPI_Comm comm_horizontal;
     MPI_Comm comm_old;
 
-    bool active = true;
+    bool active = false;
     bool active_old_comm = false; // this is used for prolong and post-smooth
 
     bool enable_shrink = false;  // default = true
@@ -153,7 +154,7 @@ public:
 //    int cpu_shrink_thre1_next = 0; // set 0 to shrink at every level. density >= (last_density_shrink * cpu_shrink_thre1)
 
     // shrink_minor: if there no entry for the coarse matrix on this proc, then shrink.
-    bool active_minor = true;    // default = true
+    bool active_minor = false;    // default = false
 //    index_t M_old_minor = 0; // local number of rows, before being repartitioned.
     std::vector<index_t> split_old_minor;
     bool shrinked_minor = false; // default = false
@@ -205,7 +206,7 @@ public:
 
     void set_comm(MPI_Comm com);
 
-    // The difference between set and set2 is that if there is a repetition, set will erase the previous one
+    // The difference between set and set2 is that if there is a duplicate, set will erase the previous one
     // and insert the new one, but in set2, the values of those entries will be added together.
     int set(index_t row, index_t col, value_t val);
     int set(index_t* row, index_t* col, value_t* val, nnz_t nnz_local);

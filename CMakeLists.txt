@@ -154,6 +154,7 @@ set(HEADER_FILES ${HEADER_FILES}
         include/restrict_matrix.h
         include/aux_functions.h
         include/grid.h
+        include/saena_vector.h
         )
 
 set(SOURCE_FILES ${SOURCE_FILES}
@@ -182,6 +183,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/saena_object_elemental.cpp
         src/saena_object_write2file.cpp
         src/saena_object_setup2_test.cpp
+        src/saena_vector.cpp
         )
 
 # -----------------------------------------------------------------------

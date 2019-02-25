@@ -1,6 +1,7 @@
 #include "saena.hpp"
 #include "saena_matrix.h"
 #include "saena_matrix_dense.h"
+#include "saena_vector.h"
 #include "saena_object.h"
 #include "pugixml.hpp"
 #include "dollar.hpp"
@@ -12,7 +13,7 @@
 #include <random>
 #include <math.h>
 
-# define PETSC_PI		3.14159265358979323846	/* pi */
+# define PETSC_PI 3.14159265358979323846
 
 // ******************************* matrix *******************************
 
@@ -51,23 +52,24 @@ saena::matrix::~matrix(){
 }
 
 
-int saena::matrix::read_file(char *name) {
+int saena::matrix::read_file(const char *name) {
     m_pImpl->read_file(name);
+    return 0;
 }
 
-int saena::matrix::read_file(char *name, const std::string &input_type) {
+int saena::matrix::read_file(const char *name, const std::string &input_type) {
     m_pImpl->read_file(name, input_type);
+    return 0;
 }
 
 
 int saena::matrix::set(index_t i, index_t j, value_t val){
 
-//    if( val != 0) {
-        if (!add_dup)
+        if (!add_dup) {
             m_pImpl->set(i, j, val);
-        else
+        } else {
             m_pImpl->set2(i, j, val);
-//    }
+        }
 
     return 0;
 }
@@ -233,9 +235,80 @@ int saena::matrix::add_duplicates(bool add) {
 }
 
 
+// ******************************* vector *******************************
+
+saena::vector::vector(MPI_Comm comm) {
+    m_pImpl = new saena_vector(comm);
+}
+
+saena::vector::vector() {
+    m_pImpl = new saena_vector();
+}
+
+// copy constructor
+saena::vector::vector(const saena::vector &B) {
+    m_pImpl = new saena_vector(*B.m_pImpl);
+    add_dup = B.add_dup;
+}
+
+saena::vector& saena::vector::operator=(const saena::vector &B) {
+    delete m_pImpl;
+    m_pImpl = new saena_vector(*B.m_pImpl);
+    add_dup = B.add_dup;
+    return *this;
+}
+
+void saena::vector::set_comm(MPI_Comm comm) {
+    m_pImpl->set_comm(comm);
+}
+
+MPI_Comm saena::vector::get_comm() {
+    return m_pImpl->comm;
+}
+
+saena::vector::~vector() {
+//    m_pImpl->erase();
+    delete m_pImpl;
+}
+
+
+//int saena::vector::read_file(const char *name) {
+//    m_pImpl->read_file(name);
+//    return 0;
+//}
+
+//int saena::vector::read_file(const char *name, const std::string &input_type) {
+//    m_pImpl->read_file(name, input_type);
+//    return 0;
+//}
+
+
+int saena::vector::set(index_t i, value_t val){
+
+    if (!add_dup) {
+        m_pImpl->set_rep_dup(i, val);
+    } else {
+        m_pImpl->set_add_dup(i, val);
+    }
+
+    return 0;
+}
+
+
+int saena::vector::assemble() {
+    m_pImpl->assemble();
+    return 0;
+}
+
+int saena::vector::get_vec(std::vector<double> &vec){
+    m_pImpl->get_vec(vec);
+    return 0;
+}
+
+
 // ******************************* options *******************************
 
-saena::options::options(){}
+saena::options::options() = default;
 
 saena::options::options(int vcycle_n, double relT, std::string sm, int preSm, int postSm){
     vcycle_num         = vcycle_n;
@@ -275,8 +348,7 @@ saena::options::options(char* name){
 
 }
 
-saena::options::~options(){
-}
+saena::options::~options() = default;
 
 void saena::options::set(int vcycle_n, double relT, std::string sm, int preSm, int postSm){
     vcycle_num         = vcycle_n;
@@ -542,6 +614,15 @@ int saena::amg::matmat(saena::matrix *A, saena::matrix *B, saena::matrix *C){
 
     return 0;
 }
+
+
+int saena::amg::matmat_ave(saena::matrix *A, saena::matrix *B, double &matmat_time){
+
+    m_pImpl->matmat_ave(A->get_internal_matrix(), B->get_internal_matrix(), matmat_time);
+
+    return 0;
+}
+
 
 
 int saena::laplacian2D_old(saena::matrix* A, index_t n_matrix_local){
@@ -971,8 +1052,9 @@ int saena::laplacian3D_old(saena::matrix* A, index_t n_matrix_local){
 
 
 int saena::band_matrix(saena::matrix &A, index_t M, unsigned int bandwidth){
-    // generates a band matrix with bandwidth "bandwidth".
+    // generates a band matrix with bandwidth of size "bandwidth".
     // set bandwidth to 0 to have a diagonal matrix.
+    // value of entry (i,j) = 1 / (i + j + 1)
 
     int rank, nprocs;
     MPI_Comm_size(A.get_comm(), &nprocs);
@@ -988,30 +1070,30 @@ int saena::band_matrix(saena::matrix &A, index_t M, unsigned int bandwidth){
     }
 
     //Type of random number distribution
-    std::uniform_real_distribution<value_t> dist(0, 1); //(min, max)
+//    std::uniform_real_distribution<value_t> dist(0, 1); //(min, max)
     //Mersenne Twister: Good quality random number generator
-    std::mt19937 rng;
+//    std::mt19937 rng;
     //Initialize with non-deterministic seeds
-    rng.seed(std::random_device{}());
+//    rng.seed(std::random_device{}());
 
     value_t val = 1;
     index_t d;
     for(index_t i = rank*M; i < (rank+1)*M; i++){
         d = 0;
         for(index_t j = i; j <= i+bandwidth; j++){
-            val = dist(rng); // comment out this to have all values equal to 1.
+//            val = dist(rng); // comment out this to have all values equal to 1.
+            val = 1.0 / (i + j + 1); // comment out this to have all values equal to 1.
             if(i==j){
-//                printf("%u \t%u \n", i, j);
+//                printf("%u \t%u \t%f \n", i, j, val);
                 A.set(i, j, val);
-            }
-            else{
+            }else{
                 if(j < Mbig){
-//                    printf("%u \t%u \n", i, j);
+//                    printf("%u \t%u \t%f \n", i, j, val);
                     A.set(i, j, val);
                 }
                 if(j >= 2*d) { // equivalent to if(j-2*d >= 0)
-//                    printf("%u \t%u \n", i, j - (2 * d));
-                    A.set(i, j - (2 * d), val);
+//                    printf("%u \t%u \t%f \n", i, j - (2 * d), 1.0 / (i + j - (2 * d) + 1);
+                    A.set(i, j - (2 * d), 1.0 / (i + j - (2 * d) + 1));
                 }
             }
             d++;
@@ -1037,6 +1119,7 @@ int saena::band_matrix(saena::matrix &A, index_t M, unsigned int bandwidth){
     MPI_Allreduce(&iter, &B->nnz_g, 1, MPI_UNSIGNED_LONG, MPI_SUM, A.get_comm());
     B->Mbig = Mbig;
     B->M = M;
+    B->density = ((double)B->nnz_g / B->Mbig) / B->Mbig;
     B->split.resize(nprocs+1);
     for(index_t i = 0; i < nprocs+1; i++)
         B->split[i] = i*M;
@@ -1045,8 +1128,10 @@ int saena::band_matrix(saena::matrix &A, index_t M, unsigned int bandwidth){
 
 //    A.assemble();
     A.assemble_band_matrix();
+
 //    printf("rank %d: M = %u, Mbig = %u, nnz_l = %lu, nnz_g = %lu \n",
-//           rank, A.get_num_local_rows(), A.get_num_rows(), A.get_local_nnz(), A.get_nnz());
+//            rank, A.get_num_local_rows(), A.get_num_rows(), A.get_local_nnz(), A.get_nnz());
+    if(!rank) printf("Mbig = %u, nnz_g = %lu, density = %.8f \n", A.get_num_rows(), A.get_nnz(), A.get_internal_matrix()->density);
 
     return 0;
 }
