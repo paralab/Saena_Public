@@ -12,6 +12,7 @@
 #include <mpi.h>
 #include <random>
 #include <math.h>
+#include <grid.h>
 
 # define PETSC_PI 3.14159265358979323846
 
@@ -300,11 +301,22 @@ int saena::vector::assemble() {
     return 0;
 }
 
+
 int saena::vector::get_vec(std::vector<double> &vec){
     m_pImpl->get_vec(vec);
     return 0;
 }
 
+
+int saena::vector::return_vec(std::vector<double> &u1, std::vector<double> &u2){
+    m_pImpl->return_vec(u1, u2);
+    return 0;
+}
+
+
+saena_vector* saena::vector::get_internal_vector(){
+    return m_pImpl;
+}
 
 // ******************************* options *******************************
 
@@ -418,8 +430,8 @@ int saena::amg::set_matrix(saena::matrix* A, saena::options* opts){
     return 0;
 }
 
-int saena::amg::set_rhs(std::vector<value_t> rhs){
-    m_pImpl->set_repartition_rhs(rhs);
+int saena::amg::set_rhs(saena::vector &rhs){
+    m_pImpl->set_repartition_rhs(rhs.get_internal_vector());
     return 0;
 }
 
@@ -486,6 +498,9 @@ int saena::amg::solve_pcg(std::vector<value_t>& u, saena::options* opts){
     m_pImpl->set_parameters(opts->get_vcycle_num(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pcg(u);
+    Grid *g = &m_pImpl->grids[0];
+    g->rhs_orig->return_vec(u);
+
     return 0;
 }
 

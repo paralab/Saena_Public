@@ -87,13 +87,12 @@ namespace saena {
         int add_duplicates(bool add);
 
         int assemble();
-//        int assemble_no_scale();
 //        int assemble_writeToFile();
 //        int assemble_writeToFile(const char *folder_name);
-//        int assemble_band_matrix();
 
         int get_vec(std::vector<double> &vec);
-        vector* get_internal_vector();
+        int return_vec(std::vector<double> &u1, std::vector<double> &u2);
+        saena_vector* get_internal_vector();
         MPI_Comm get_comm();
         index_t get_num_rows();
         index_t get_num_local_rows();
@@ -146,7 +145,9 @@ namespace saena {
         amg();
         ~amg();
         int set_matrix(saena::matrix* A, saena::options* opts);
-        int set_rhs(std::vector<value_t> rhs); // note: this function copies the rhs.
+//        int set_rhs(std::vector<value_t> rhs); // note: this function copies the rhs.
+        int set_rhs(saena::vector &rhs); // note: this function copies the rhs.
+
         saena_object* get_object();
         int set_shrink_levels(std::vector<bool> sh_lev_vec);
         int set_shrink_values(std::vector<int> sh_val_vec);
