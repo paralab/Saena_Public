@@ -23,7 +23,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #ENDIF()
 
 #IF(CMAKE_BUILD_TYPE STREQUAL Debug)
-#    add_definitions(-D__DEBUG__)
+#    add_definitions(-D__DEBUG1__)
 #ENDIF()
 
 # -----------------------------------------------------------------------
