@@ -27,4 +27,9 @@ cmake ../../external/SuperLU_DIST_5.4.0 \
 -Denable_blaslib=OFF \
 -DCMAKE_INSTALL_PREFIX=. ;\
 make -j28 install
-cd ../..
+cd ..
+
+# Saena
+cmake ..
+make -j28
+cd ..
