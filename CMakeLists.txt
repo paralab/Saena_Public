@@ -134,10 +134,10 @@ include_directories(
 # -----------------------------------------------------------------------
 # trsl: for sampling
 
-set(TRSL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/trsl-0.2.2)
-include_directories(
-        ${TRSL_DIR}
-)
+#set(TRSL_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/trsl-0.2.2)
+#include_directories(
+#        ${TRSL_DIR}
+#)
 
 # -----------------------------------------------------------------------
 # Main Files
@@ -179,7 +179,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/saena_object_solve.cpp
         src/saena_object_lazy.cpp
         src/saena_object_repart_shrink.cpp
-        src/saena_object_sparsify.cpp
+	#        src/saena_object_sparsify.cpp
         src/saena_object_elemental.cpp
         src/saena_object_write2file.cpp
         src/saena_object_setup2_test.cpp

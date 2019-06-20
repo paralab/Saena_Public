@@ -14,8 +14,8 @@
 //#include <spp.h> //sparsepp
 
 // set one of the following to set fast_mm split based on nnz or matrix size
-#define SPLIT_NNZ
-//#define SPLIT_SIZE
+//#define SPLIT_NNZ
+#define SPLIT_SIZE
 
 //#define FAST_MM_MAP
 //#define FAST_MM_VECTOR
@@ -23,6 +23,8 @@
 typedef unsigned int  index_t;
 typedef unsigned long nnz_t;
 typedef double        value_t;
+
+#define ITER_LAZY 20
 
 class strength_matrix;
 class saena_matrix;
@@ -107,6 +109,7 @@ public:
     bool verbose_vcycle           = false;
     bool verbose_vcycle_residuals = false;
     bool verbose_solve_coarse     = false;
+    bool verbose_update           = false;
 
     bool verbose_triple_mat_mult_test = false;
 
@@ -122,6 +125,7 @@ public:
     int compute_coarsen(Grid *grid);
     int compute_coarsen_old(Grid *grid);
     int compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff);
+    int compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry> &diff);
     int triple_mat_mult(Grid *grid, std::vector<cooEntry_row> &RAP_row_sorted);
     int triple_mat_mult_old_RAP(Grid *grid, std::vector<cooEntry_row> &RAP_row_sorted);
     int triple_mat_mult_no_overlap(Grid *grid, std::vector<cooEntry_row> &RAP_row_sorted);

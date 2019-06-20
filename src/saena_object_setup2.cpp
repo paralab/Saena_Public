@@ -3862,6 +3862,7 @@ int saena_object::matmat(saena_matrix *A, saena_matrix *B, saena_matrix *C){
 
 
 int saena_object::matmat_ave(saena_matrix *A, saena_matrix *B, double &matmat_time){
+    // This version only works on symmetric matrices, since local transpose of B is being used.
     // this version is only for experiments.
     // B1 should be symmetric. Because we need its transpose. Treat its row indices as column indices and vice versa.
 
@@ -3900,9 +3901,11 @@ int saena_object::matmat_ave(saena_matrix *A, saena_matrix *B, double &matmat_ti
 
 //    std::sort(B->entry.begin(), B->entry.end(), row_major);
 
+    // setting the local tranpose of B in mat_send
+    // ===========================================
     for(nnz_t i = 0; i < B->entry.size(); i++){
         mat_send[i] = cooEntry(B->entry[i].col, B->entry[i].row, B->entry[i].val);
-//        if(rank==1) std::cout << mat_send[i] << std::endl;
+//        if(rank==0) std::cout << mat_send[i] << std::endl;
     }
 
     std::sort(&mat_send[0], &mat_send[B->entry.size()]);
@@ -3911,7 +3914,7 @@ int saena_object::matmat_ave(saena_matrix *A, saena_matrix *B, double &matmat_ti
 //    print_time_ave(t1, "mat_send:", comm);
 
 #ifdef __DEBUG1__
-//    print_vector(A->entry, 1, "A->entry", comm);
+//    print_vector(A->entry, 0, "A->entry", comm);
 //    print_vector(A->nnzPerColScan, 0, "A->nnzPerColScan", comm);
 #endif
 
@@ -4133,6 +4136,13 @@ int saena_object::matmat_ave(saena_matrix *A, saena_matrix *B, double &matmat_ti
 //    if(rank==0) printf("\nAB:\n");
 //    if(rank==0) dollar::text(std::cout);
 //    dollar::clear();
+
+    // AB is a vector. Create a matrix for which AB is its entry() variable.
+//    AB->repartition_nnz();
+//    if(AB->active){
+//        AB->matrix_setup();
+//    }
+//    petsc_viewer(AB);
 
     return 0;
 }
@@ -4373,7 +4383,7 @@ int saena_object::compute_coarsen(Grid *grid) {
     // *******************************************************
 
     // reserve memory for matmat_size_thre2 used in fast_mm case1
-    map_matmat.reserve(2*matmat_size_thre2);
+//    map_matmat.reserve(2*matmat_size_thre2);
 //    for(nnz_t i = 0; i < matmat_size_thre2; i++){
 //        map_matmat[i] = 0;
 //    }
@@ -4434,6 +4444,7 @@ int saena_object::compute_coarsen(Grid *grid) {
         // version 2: with sparsification
         // *******************************************************
 
+/*
         // remove duplicates.
         // compute Frobenius norm squared (norm_frob_sq).
         cooEntry_row temp;
@@ -4503,7 +4514,7 @@ int saena_object::compute_coarsen(Grid *grid) {
                 printf("\nerror: wrong sparsifier!");
             }
         }
-
+*/
     }
 
 #ifdef __DEBUG1__

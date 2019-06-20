@@ -320,11 +320,15 @@ int read_vector_file(std::vector<value_t>& v, saena_matrix *A, char *file, MPI_C
     stat(file, &st);
     unsigned int rhs_size = st.st_size / sizeof(double);
     if(rhs_size != A->Mbig){
-        if(rank==0) printf("Error: Size of RHS does not match the number of rows of the LHS matrix!\n");
-        if(rank==0) printf("Number of rows of LHS = %d\n", A->Mbig);
-        if(rank==0) printf("Size of RHS = %d\n", rhs_size);
-        MPI_Finalize();
-        return -1;
+        if(!rank){
+            printf("Error: Size of RHS does not match the number of rows of the LHS matrix!\n");
+            printf("Number of rows of LHS = %d\n", A->Mbig);
+            printf("Size of RHS = %d\n", rhs_size);
+        }
+        MPI_Barrier(comm);
+        exit(EXIT_FAILURE);
+//        MPI_Finalize();
+//        return -1;
     }
 
     MPI_Status status;
