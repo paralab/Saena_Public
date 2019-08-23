@@ -4,64 +4,11 @@
 #include <iostream>
 #include <random>
 #include <fstream>
+#include <cmath>
 #include <math.h>
 #include <sys/stat.h>
 
 class saena_matrix;
-
-
-bool row_major (const cooEntry& node1, const cooEntry& node2)
-{
-    if(node1.row < node2.row)
-        return (true);
-    else if(node1.row == node2.row)
-        return(node1.col <= node2.col);
-    else
-        return false;
-}
-
-
-//template <class T>
-//float myNorm(std::vector<T>& v){
-//    float norm = 0;
-//    for(long i=0; i<v.size(); i++)
-//        norm += v[i] * v[i];
-//
-//    norm = sqrt(norm);
-//    return  norm;
-//}
-
-/*
-double myNorm(std::vector<double>& v){
-    double norm = 0;
-    for(long i=0; i<v.size(); i++)
-        norm += v[i] * v[i];
-
-    norm = sqrt(norm);
-    return  norm;
-}
-*/
-
-
-std::ostream & operator<<(std::ostream & stream, const cooEntry & item) {
-    stream << item.row << "\t" << item.col << "\t" << item.val;
-    return stream;
-}
-
-std::ostream & operator<<(std::ostream & stream, const cooEntry_row & item) {
-    stream << item.row << "\t" << item.col << "\t" << item.val;
-    return stream;
-}
-
-std::ostream & operator<<(std::ostream & stream, const vecEntry & item) {
-    stream << item.row << "\t" << item.val;
-    return stream;
-}
-
-std::ostream & operator<<(std::ostream & stream, const tuple1 & item) {
-    stream << item.idx1 << "\t" << item.idx2;
-    return stream;
-}
 
 
 void setIJV(char* file_name, index_t *I, index_t *J, value_t *V, nnz_t nnz_g, nnz_t initial_nnz_l, MPI_Comm comm){
@@ -74,7 +21,7 @@ void setIJV(char* file_name, index_t *I, index_t *J, value_t *V, nnz_t nnz_g, nn
     if(rank==0) printf("ERROR: change datatypes for function setIJV!!!");
     if(rank==0) printf("!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!");
 
-    std::vector<unsigned long> data(2*initial_nnz_l); // 3 is for i and j and val, i and j are int so both of them are like 1 long.
+    std::vector<unsigned long> data(2*initial_nnz_l); // 2 is for i and j and val, i and j are uint so both of them are like 1 ulong.
     unsigned long* datap;
     if(initial_nnz_l != 0)
         datap = &data[0];
@@ -115,6 +62,31 @@ int dotProduct(std::vector<value_t>& r, std::vector<value_t>& s, value_t* dot, M
     return 0;
 }
 
+
+// parallel norm
+int pnorm(std::vector<value_t>& r, value_t &norm, MPI_Comm comm){
+
+    double dot_l = 0;
+    for(index_t i=0; i<r.size(); i++)
+        dot_l += r[i] * r[i];
+    MPI_Allreduce(&dot_l, &norm, 1, MPI_DOUBLE, MPI_SUM, comm);
+    norm = std::sqrt(norm);
+
+    return 0;
+}
+
+// parallel norm
+value_t pnorm(std::vector<value_t>& r, MPI_Comm comm){
+
+    double dot_l = 0, norm;
+    for(index_t i=0; i<r.size(); i++)
+        dot_l += r[i] * r[i];
+    MPI_Allreduce(&dot_l, &norm, 1, MPI_DOUBLE, MPI_SUM, comm);
+
+//    std::cout << std::sqrt(norm) << std::endl;
+
+    return std::sqrt(norm);
+}
 
 double print_time(double t_start, double t_end, std::string function_name, MPI_Comm comm){
 
@@ -169,7 +141,7 @@ double print_time_ave(double t_dif, std::string function_name, MPI_Comm comm){
     average /= nprocs;
 
     if (rank==0)
-        std::cout << std::endl << function_name << "\n" << average << std::endl;
+        std::cout << function_name << "\n" << average << std::endl;
 
     return average;
 }
@@ -191,9 +163,9 @@ double print_time_ave_consecutive(double t_dif, MPI_Comm comm){
     return average;
 }
 
+
 //template <class T>
-//int SaenaObject::writeVectorToFile(std::vector<T>& v, unsigned long vSize, std::string name, MPI_Comm comm) {
-int writeVectorToFiled(std::vector<value_t>& v, index_t vSize, std::string name, MPI_Comm comm) {
+int write_vector_file_d(std::vector<value_t>& v, index_t vSize, std::string name, MPI_Comm comm) {
 
     // Create txt files with name name0.txt for processor 0, name1.txt for processor 1, etc.
     // Then, concatenate them in terminal: cat name0.txt name1.txt > V.txt

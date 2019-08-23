@@ -12,7 +12,7 @@
 
 
 int saena_object::update1(saena_matrix* A_new){
-
+#if 0
     // ************** update grids[0].A **************
 //    the difference between this function and solve_pcg(): the finest level matrix (original LHS) is updated with
 //    the new one.
@@ -36,12 +36,13 @@ int saena_object::update1(saena_matrix* A_new){
     // Since we only need an upper bound, this is good enough.
     A_new->eig_max_of_invdiagXA = grids[0].A->eig_max_of_invdiagXA;
     grids[0].A = A_new;
-
+#endif
     return 0;
 }
 
 
 int saena_object::update2(saena_matrix* A_new){
+#if 0
 
     // ************** update grids[i].A for all levels i **************
 
@@ -78,12 +79,13 @@ int saena_object::update2(saena_matrix* A_new){
     delete[] mempool2;
 
 //    if(rank==0) dollar::text(std::cout);
-
+#endif
     return 0;
 }
 
 
 int saena_object::update3(saena_matrix* A_new){
+#if 0
 
     // 1- replace grids[0].A with A_new.
     // 2- for grids[i].A for i = 1,2,... update parts of the diagonal blocks **************
@@ -204,7 +206,7 @@ int saena_object::update3(saena_matrix* A_new){
         if(!rank) printf("update3: end\n");
         MPI_Barrier(comm);
     }
-
+#endif
     return 0;
 }
 
@@ -1244,7 +1246,7 @@ int saena_object::local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEn
 
 
 int saena_object::compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff) {
-
+#if 0
     // Output: Ac = R * A * P
     // Steps:
     // 1- Compute AP = A * P. To do that use the transpose of R_i, instead of P. Pass all R_j's to all the processors,
@@ -1507,7 +1509,6 @@ int saena_object::compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &d
                 AP.back().val += AP_temp[++i].val;
             }
         }
-
         AP_temp.clear();
         AP_temp.shrink_to_fit();
 */
@@ -1818,13 +1819,13 @@ int saena_object::compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &d
     // view matrix Ac
     // --------------
 //    petsc_viewer(Ac);
-
+#endif
     return 0;
 } // compute_coarsen_update_Ac()
 
 
 int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry> &diff) {
-
+#if 0
     // Output: Ac = R * A * P
     // Steps:
     // 1- Compute AP = A * P. To do that use the transpose of R_i, instead of P. Pass all R_j's to all the processors,
@@ -1863,7 +1864,7 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 
 #ifdef __DEBUG1__
 //    MPI_Barrier(comm); printf("rank %d: diff.size = %lu \n", rank, diff.size()); MPI_Barrier(comm);
-    if (verbose_triple_mat_mult) {
+    if (verbose_compute_coarsen) {
         MPI_Barrier(comm);
         if (rank == 0) printf("start of compute_coarsen nprocs: %d \n", nprocs);
         MPI_Barrier(comm);
@@ -1913,10 +1914,10 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 //           rank, Ac->Mbig, Ac->M, Ac->nnz_g, Ac->nnz_l, Ac->density);
 //    MPI_Barrier(comm);
 
-//    if(verbose_triple_mat_mult){
+//    if(verbose_compute_coarsen){
 //        printf("\nrank = %d, Ac->Mbig = %u, Ac->M = %u, Ac->nnz_l = %lu, Ac->nnz_g = %lu \n", rank, Ac->Mbig, Ac->M, Ac->nnz_l, Ac->nnz_g);}
 
-    if(verbose_triple_mat_mult){
+    if(verbose_compute_coarsen){
         MPI_Barrier(comm); printf("compute_coarsen: step 2: rank = %d\n", rank); MPI_Barrier(comm);}
 #endif
 
@@ -1930,7 +1931,7 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 //    }
 
 #ifdef __DEBUG1__
-    if(verbose_triple_mat_mult){
+    if(verbose_compute_coarsen){
         MPI_Barrier(comm); printf("compute_coarsen: step 3: rank = %d\n", rank); MPI_Barrier(comm);}
 #endif
 
@@ -1996,7 +1997,7 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 #ifdef __DEBUG1__
 //    print_vector(P->splitNew, -1, "P->splitNew", comm);
 
-        if (verbose_triple_mat_mult) {
+        if (verbose_compute_coarsen) {
 //            MPI_Barrier(comm);
             printf("compute_coarsen: step 4: rank = %d\n", rank);
 //            MPI_Barrier(comm);
@@ -2040,7 +2041,7 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 #ifdef __DEBUG1__
 //    printf("rank %d: AP.size = %lu \n", rank, AP.size());
 //    print_vector(AP, -1, "AP", A->comm);
-        if (verbose_triple_mat_mult) {
+        if (verbose_compute_coarsen) {
 //            MPI_Barrier(comm);
             printf("compute_coarsen: step 5: rank = %d\n", rank);
 //            MPI_Barrier(comm);
@@ -2129,7 +2130,7 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 #ifdef __DEBUG1__
 //    MPI_Barrier(comm); printf("rank %d: RAP_temp.size = %lu \n", rank, RAP_temp.size()); MPI_Barrier(comm);
 //    print_vector(RAP_temp, -1, "RAP_temp", A->comm);
-        if (verbose_triple_mat_mult) {
+        if (verbose_compute_coarsen) {
 //            MPI_Barrier(comm);
             printf("compute_coarsen: step 6: rank = %d\n", rank);
 //            MPI_Barrier(comm);
@@ -2156,7 +2157,7 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 //    MPI_Barrier(comm); printf("rank %d: RAP_temp_row.size = %lu \n", rank, RAP_temp_row.size()); MPI_Barrier(comm);
 //    print_vector(RAP_temp_row, -1, "RAP_temp_row", comm);
 //    print_vector(P->splitNew, -1, "P->splitNew", comm);
-        if (verbose_triple_mat_mult) {
+        if (verbose_compute_coarsen) {
 //            MPI_Barrier(comm);
             printf("compute_coarsen: step 7: rank = %d\n", rank);
 //            MPI_Barrier(comm);
@@ -2181,7 +2182,7 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 #ifdef __DEBUG1__
 //    MPI_Barrier(comm); printf("rank %d: RAP_row_sorted.size = %lu \n", rank, RAP_row_sorted.size()); MPI_Barrier(comm);
 //    print_vector(RAP_row_sorted, -1, "RAP_row_sorted", A->comm);
-    if(verbose_triple_mat_mult){
+    if(verbose_compute_coarsen){
         MPI_Barrier(comm); printf("compute_coarsen: step 8: rank = %d\n", rank); MPI_Barrier(comm);}
 #endif
 
@@ -2211,7 +2212,7 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 
 #ifdef __DEBUG1__
 //    print_vector(Ac->entry, -1, "Ac->entry", A->comm);
-    if(verbose_triple_mat_mult){
+    if(verbose_compute_coarsen){
         MPI_Barrier(comm); printf("compute_coarsen: step 9: rank = %d\n", rank); MPI_Barrier(comm);}
 #endif
 
@@ -2219,7 +2220,7 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
     // use this part to print data to be used in Julia, to check the solution.
     // *******************************************************
 #ifdef __DEBUG1__
-/*
+
 //    std::cout << "\n";
 //    for(nnz_t i = 0; i < A->entry.size(); i++){
 //        std::cout << A->entry[i].row+1 << ", ";
@@ -2267,7 +2268,7 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 //    A = sparse(I, J ,V)
 //    and so on. then compare the multiplication from Julia with the following:
 //    print_vector(Ac->entry, -1, "Ac->entry", A->comm);
-*/
+
 #endif
 
     // *******************************************************
@@ -2324,7 +2325,7 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 //        repartition_u_shrink_prepare(grid);
 
 #ifdef __DEBUG1__
-        if(verbose_triple_mat_mult){
+        if(verbose_compute_coarsen){
             printf("compute_coarsen: step 11: rank = %d\n", rank);}
 #endif
 
@@ -2348,13 +2349,14 @@ int saena_object::compute_coarsen_update_Ac_old(Grid *grid, std::vector<cooEntry
 //    comm = grid->A->comm;
 
 #ifdef __DEBUG1__
-    if(verbose_triple_mat_mult){MPI_Barrier(comm); printf("end of compute_coarsen: rank = %d\n", rank); MPI_Barrier(comm);}
+    if(verbose_compute_coarsen){MPI_Barrier(comm); printf("end of compute_coarsen: rank = %d\n", rank); MPI_Barrier(comm);}
 #endif
 
     // view matrix Ac
     // --------------
 //    petsc_viewer(Ac);
 
+#endif
     return 0;
 } // compute_coarsen_update_Ac_old()
 
@@ -3152,7 +3154,7 @@ int saena_object::coarsen2(saena_matrix* A, prolong_matrix* P, restrict_matrix* 
     Ac->active_old_comm = true;
 //    printf("\nrank = %d, Ac->Mbig = %u, Ac->M = %u, Ac->nnz_l = %u, Ac->nnz_g = %u \n", rank, Ac->Mbig, Ac->M, Ac->nnz_l, Ac->nnz_g);
 
-//    if(verbose_triple_mat_mult){
+//    if(verbose_compute_coarsen){
 //        printf("\nrank = %d, Ac->Mbig = %u, Ac->M = %u, Ac->nnz_l = %u, Ac->nnz_g = %u \n", rank, Ac->Mbig, Ac->M, Ac->nnz_l, Ac->nnz_g);}
 
     if(verbose_coarsen2){

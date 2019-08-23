@@ -1,3 +1,4 @@
+#include "data_struct.h"
 #include <prolong_matrix.h>
 #include <restrict_matrix.h>
 
@@ -36,10 +37,10 @@ int restrict_matrix::transposeP(prolong_matrix* P) {
     M = splitNew[rank+1] - splitNew[rank];
 
     // this is used in triple_mat_mult
-    max_M = 0;
+    M_max = 0;
     for(index_t i = 0; i < nprocs; i++){
-        if(splitNew[i+1] - splitNew[i] > max_M){
-            max_M = splitNew[i+1] - splitNew[i];
+        if(splitNew[i+1] - splitNew[i] > M_max){
+            M_max = splitNew[i+1] - splitNew[i];
         }
     }
 
@@ -409,7 +410,13 @@ int restrict_matrix::transposeP(prolong_matrix* P) {
     openmp_setup();
     w_buff.resize(num_threads*M); // allocate for w_buff for matvec
 
+    // compute nnz_max
     MPI_Allreduce(&nnz_l, &nnz_max, 1, MPI_UNSIGNED_LONG, MPI_MAX, comm);
+
+    // compute nnz_list
+    nnz_list.resize(nprocs);
+    MPI_Allgather(&nnz_l, 1, MPI_UNSIGNED_LONG, &nnz_list[0], 1, MPI_UNSIGNED_LONG, comm);
+//    print_vector(nnz_list, 1, "nnz_list", comm);
 
     return 0;
 } //end of restrictMatrix::transposeP

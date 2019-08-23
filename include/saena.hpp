@@ -172,6 +172,8 @@ namespace saena {
 //        int solve_pcg_update(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new);
         // similar to solve_pcg_update, but updates the LHS with A_new.
 
+        int solve_pGMRES(std::vector<value_t>& u, saena::options* opts);
+
         int update1(saena::matrix* A_ne); // only update the finest level A, which is the input matrix.
         int update2(saena::matrix* A_ne); // updates grids[i].A for all levels, using the previously made grids[i].P and R.
         int update3(saena::matrix* A_ne); // like update 2, but only update local parts of As.
@@ -196,21 +198,33 @@ namespace saena {
         int lazy_update_counter = 0; // note: for lazy update project. delete it when done.
 
         int matmat(saena::matrix *A, saena::matrix *B, saena::matrix *C);
+        int matmat(saena::matrix *A, saena::matrix *B, saena::matrix *C, bool assemble);
         int matmat_ave(saena::matrix *A, saena::matrix *B, double &matmat_time); // this version is only for experiments.
 
     protected:
         saena_object* m_pImpl;
     };
 
+    // ==========================
+    // Matrix Generator Functions
+    // ==========================
 
     // second argument is degree-of-freedom on each processor
     int laplacian2D_old(saena::matrix* A, unsigned int dof_local);
+
     int laplacian3D(saena::matrix* A, unsigned int mx, unsigned int my, unsigned int mz);
+
     int laplacian3D_set_rhs(std::vector<double> &rhs, unsigned int mx, unsigned int my, unsigned int mz, MPI_Comm comm);
+
     int laplacian3D_set_rhs_zero(std::vector<double> &rhs, unsigned int mx, unsigned int my, unsigned int mz, MPI_Comm comm);
+
     int laplacian3D_old(saena::matrix* A, unsigned int dof_local);
+
     int band_matrix(saena::matrix &A, index_t M, unsigned int bandwidth);
 
+    // ==========================
+
     int read_vector_file(std::vector<value_t>& v, saena::matrix &A, char *file, MPI_Comm comm);
+
     index_t find_split(index_t loc_size, index_t &my_split, MPI_Comm comm);
 }

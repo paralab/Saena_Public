@@ -81,6 +81,8 @@ int saena_matrix::setup_initial_data(){
     Mbig++; // since indices start from 0, not 1.
 //    std::cout << "Mbig = " << Mbig << std::endl;
 
+    Nbig = Mbig; // todo: is the matrix always square?
+
     remove_duplicates();
 
     initial_nnz_l = data.size();
@@ -338,6 +340,7 @@ int saena_matrix::matrix_setup() {
 
         // *************************** print_entry info ****************************
 
+#ifdef __DEBUG1__
 /*
         nnz_t total_nnz_l_local;
         nnz_t total_nnz_l_remote;
@@ -356,6 +359,7 @@ int saena_matrix::matrix_setup() {
         if(rank==0) printf("\nremote_min = %u, remote_ave = %u, remote_max = %u \n",
                            col_remote_size_min, (col_remote_size_ave/nprocs), col_remote_size_max);
 */
+#endif
 
         if(verbose_matrix_setup) {
             MPI_Barrier(comm);
@@ -874,12 +878,12 @@ int saena_matrix::set_off_on_diagonal(){
             allocate_zfp();
         }
 
-        // compute max_M
-//        MPI_Allreduce(&M, &max_M, 1, MPI_UNSIGNED, MPI_MAX, comm);
-        max_M = 0;
+        // compute M_max
+//        MPI_Allreduce(&M, &M_max, 1, MPI_UNSIGNED, MPI_MAX, comm);
+        M_max = 0;
         for(index_t i = 0; i < nprocs; i++){
-            if(split[i+1] - split[i] > max_M){
-                max_M = split[i+1] - split[i];
+            if(split[i+1] - split[i] > M_max){
+                M_max = split[i+1] - split[i];
             }
         }
 

@@ -1,3 +1,4 @@
+#include "data_struct.h"
 #include "saena_matrix.h"
 #include "parUtils.h"
 #include "dollar.hpp"
@@ -8,6 +9,7 @@
 #include <sys/stat.h>
 #include <omp.h>
 #include <printf.h>
+#include <iomanip>
 #include "mpi.h"
 
 
@@ -1099,12 +1101,6 @@ int saena_matrix::residual(std::vector<value_t>& u, std::vector<value_t>& rhs, s
 
     MPI_Allreduce(&zero_vector_local, &zero_vector, 1, MPI_CXX_BOOL, MPI_LOR, comm);
 
-//    if(!zero_vector)
-//        matvec(u, res);
-//    #pragma omp parallel for
-//    for(index_t i = 0; i < M; i++)
-//        res[i] = -rhs[i];
-
     if(zero_vector){
         #pragma omp parallel for
         for(index_t i = 0; i < M; i++)
@@ -1114,8 +1110,46 @@ int saena_matrix::residual(std::vector<value_t>& u, std::vector<value_t>& rhs, s
 
         #pragma omp parallel for
         for(index_t i = 0; i < M; i++){
-//            if(rank==0 && i==0) std::cout << i << "\t" << res[i] << "\t" << rhs[i] << "\t" << res[i]-rhs[i] << std::endl;
-//            if(rank==0 && i==8) printf("i = %u \tu = %.16f \tAu = %.16f \tres = %.16f \n", i, u[i], res[i], res[i]-rhs[i]);
+            res[i] -= rhs[i];
+        }
+    }
+
+//    print_vector(res, -1, "res", comm);
+
+    return 0;
+}
+
+
+int saena_matrix::residual_negative(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res){
+    // Vector res = rhs - A*u
+    // The result of this functon is the negative of residual().
+
+    int nprocs, rank;
+    MPI_Comm_size(comm, &nprocs);
+    MPI_Comm_rank(comm, &rank);
+
+//    printf("residual start!!!\n");
+
+    // First check if u is zero or not. If it is zero, matvec is not required.
+    bool zero_vector_local = true, zero_vector;
+//#pragma omp parallel for
+    for(index_t i = 0; i < M; i++){
+        if(u[i] != 0){
+            zero_vector_local = false;
+            break;
+        }
+    }
+
+    MPI_Allreduce(&zero_vector_local, &zero_vector, 1, MPI_CXX_BOOL, MPI_LOR, comm);
+
+    if(zero_vector){
+        memcpy(&res[0], &rhs[0], M);
+    } else {
+
+        matvec(u, res);
+
+#pragma omp parallel for
+        for(index_t i = 0; i < M; i++){
             res[i] -= rhs[i];
         }
     }
@@ -1209,7 +1243,6 @@ int saena_matrix::print_entry(int ran){
         int rank, nprocs;
         MPI_Comm_size(comm, &nprocs);
         MPI_Comm_rank(comm, &rank);
-        printf("print");
 
         index_t iter = 0;
         if (ran >= 0) {
@@ -1323,7 +1356,8 @@ int saena_matrix::writeMatrixToFile(const char *folder_name){
 
     for (nnz_t i = 0; i < entry_temp2.size(); i++) {
 //        if(rank==0) std::cout  << A->entry[i].row + 1 << "\t" << A->entry[i].col + 1 << "\t" << A->entry[i].val << std::endl;
-        outFileTxt << entry_temp2[i].row + 1 << "\t" << entry_temp2[i].col + 1 << "\t" << entry_temp2[i].val << std::endl;
+        outFileTxt << entry_temp2[i].row + 1 << "\t" << entry_temp2[i].col + 1 << "\t"
+                   << std::setprecision(12) << entry_temp2[i].val << std::endl;
     }
 
     outFileTxt.clear();
