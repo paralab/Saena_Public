@@ -164,7 +164,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/prolong_matrix.cpp
         src/restrict_matrix.cpp
         src/aux_functions.cpp
-        src/grid.cpp
+#        src/grid.cpp
 
         src/saena_matrix.cpp
         src/saena_matrix_repart.cpp
