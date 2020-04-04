@@ -1,17 +1,17 @@
 #include "saena.hpp"
 #include "saena_matrix.h"
-#include "saena_matrix_dense.h"
+//#include "saena_matrix_dense.h"
 #include "saena_vector.h"
 #include "saena_object.h"
-#include "pugixml.hpp"
+//#include "pugixml.hpp"
 #include "dollar.hpp"
 
 #include <vector>
 #include <string>
-#include <cstring>
+//#include <cstring>
 #include <mpi.h>
 #include <random>
-#include <math.h>
+#include <cmath>
 #include <grid.h>
 
 # define PETSC_PI 3.14159265358979323846
@@ -192,11 +192,10 @@ nnz_t saena::matrix::get_local_nnz(){
     return m_pImpl->nnz_l;
 }
 
-int saena::matrix::print(int ran){
-    m_pImpl->print_entry(ran);
+int saena::matrix::print(int ran, std::string name){
+    m_pImpl->print_entry(ran, name);
     return 0;
 }
-
 
 int saena::matrix::enable_shrink(bool val){
     m_pImpl->enable_shrink = val;
@@ -364,6 +363,10 @@ saena::options::options(int vcycle_n, double relT, std::string sm, int preSm, in
 }
 
 saena::options::options(char* name){
+    printf("Enable pugi to be able to use function options(char* name)!");
+    exit(EXIT_FAILURE);
+    
+/*
     pugi::xml_document doc;
     if (!doc.load_file(name))
         std::cout << "Could not find the xml file!" << std::endl;
@@ -390,7 +393,7 @@ saena::options::options(char* name){
 
 //    std::cout << "solver_max_iter = " << solver_max_iter << ", solver_tol = " << solver_tol
 //              << ", smoother = " << smoother << ", preSmooth = " << preSmooth << ", postSmooth = " << postSmooth << std::endl;
-
+*/
 }
 
 saena::options::~options() = default;
@@ -674,29 +677,16 @@ int saena::amg::matrix_diff(saena::matrix &A1, saena::matrix &B1){
 }
 
 
-int saena::amg::matmat(saena::matrix *A, saena::matrix *B, saena::matrix *C){
+int saena::amg::matmat(saena::matrix *A, saena::matrix *B, saena::matrix *C, bool assemble /*=true*/, const bool print_timing /*=false*/){
 
-    m_pImpl->matmat(A->get_internal_matrix(), B->get_internal_matrix(), C->get_internal_matrix(), true);
-
-    return 0;
-}
-
-
-int saena::amg::matmat(saena::matrix *A, saena::matrix *B, saena::matrix *C, bool assemble){
-
-    m_pImpl->matmat(A->get_internal_matrix(), B->get_internal_matrix(), C->get_internal_matrix(), assemble);
+    if(C != nullptr){
+        m_pImpl->matmat(A->get_internal_matrix(), B->get_internal_matrix(), C->get_internal_matrix(), assemble, print_timing);
+    }else{
+        m_pImpl->matmat(A->get_internal_matrix(), B->get_internal_matrix(), nullptr, assemble, print_timing);
+    }
 
     return 0;
 }
-
-
-int saena::amg::matmat_ave(saena::matrix *A, saena::matrix *B, double &matmat_time){
-
-    m_pImpl->matmat_ave(A->get_internal_matrix(), B->get_internal_matrix(), matmat_time);
-
-    return 0;
-}
-
 
 
 int saena::laplacian2D_old(saena::matrix* A, index_t n_matrix_local){
@@ -1139,8 +1129,7 @@ int saena::band_matrix(saena::matrix &A, index_t M, unsigned int bandwidth){
 
     if(bandwidth >= Mbig){
         printf("Error: bandwidth is greater than the size of the matrix\n");
-        MPI_Finalize();
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     //Type of random number distribution
@@ -1208,6 +1197,84 @@ int saena::band_matrix(saena::matrix &A, index_t M, unsigned int bandwidth){
 //    printf("rank %d: M = %u, Mbig = %u, nnz_l = %lu, nnz_g = %lu \n",
 //            rank, A.get_num_local_rows(), A.get_num_rows(), A.get_local_nnz(), A.get_nnz());
     if(!rank) printf("Mbig = %u, nnz_g = %lu, density = %.8f \n", A.get_num_rows(), A.get_nnz(), A.get_internal_matrix()->density);
+
+    return 0;
+}
+
+
+int saena::random_symm_matrix(saena::matrix &A, index_t M, float density){
+    // generates a random matrix with density of size "density".
+
+    int rank, nprocs;
+    MPI_Comm_size(A.get_comm(), &nprocs);
+    MPI_Comm_rank(A.get_comm(), &rank);
+
+    if(density <= 0 || density > 1){
+        if(!rank) printf("Error: density should be in the range (0,1].\n");
+        exit(EXIT_FAILURE);
+    }
+
+    index_t       Mbig  = nprocs * M;
+    unsigned long nnz_l = floor(density * M * Mbig);
+
+//    if(nnz_l < M){
+//        printf("\nrank %d: The diagonal entries should be nonzero, so the density is increased to satisfy that.\n"
+//               "nnz_l = %ld, density = %f, M = %u, Mbig = %u\n", rank, nnz_l, density, M, Mbig);
+//    }
+
+    //Type of random number distribution
+    std::uniform_real_distribution<value_t> dist(0, 1);       //(min, max). this one is for the value of the entries.
+    std::uniform_int_distribution<index_t>  dist2(0, M-1);    //(min, max). this one is for the row indices.
+    std::uniform_int_distribution<index_t>  dist3(0, Mbig-1); //(min, max). this one is for the column indices.
+
+    //Mersenne Twister: Good quality random number generator
+    std::mt19937 rng(std::random_device{}());
+    std::mt19937 rng2(std::random_device{}());
+    std::mt19937 rng3(std::random_device{}());
+
+    index_t offset = M * rank;
+
+//    MPI_Barrier(comm);
+//    std::cout << "\nM: " << M << ", Mbig: " << Mbig << ", nnz_l: " << nnz_l << ", nnz_g: " << nnz_l * nprocs
+//              << ", offset: " << offset << ", density: " << density << std::endl;
+//    MPI_Barrier(comm);
+
+    // add the diagonal
+    index_t M_end = offset + M;
+    if(rank == nprocs - 1){
+        M_end = Mbig;
+    }
+    for(index_t i = offset; i < M_end; i++){
+        A.set(i , i, dist(rng));
+    }
+
+    index_t ii, jj;
+    value_t vv;
+
+    // The diagonal entries are added. Also, to keep the matrix symmetric, for each generated entry (i, j, v),
+    // the entry (j, i, v) is added.
+    unsigned long nnz_l_updated = (nnz_l - M) / 2;
+
+    if(nnz_l > M){
+        while(nnz_l_updated) {
+            vv = dist(rng);
+            ii = dist2(rng2) + offset;
+            jj = dist3(rng3);
+            if(ii > jj){
+                nnz_l_updated--;
+                A.set(ii, jj, vv);
+                A.set(jj, ii, vv);        // to keep the matrix symmetric
+
+//                if(rank == 1) {
+//                    std::cout << ii << "\t" << jj << "\t" << vv << std::endl;
+//                    printf("nnz_l_updated: %ld \n\n", nnz_l_updated);
+//                }
+            }
+        }
+    }
+
+    A.assemble();
+//    A.print(0);
 
     return 0;
 }

@@ -75,7 +75,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
             if (inFile_check_bin.is_open()) {
 
                 if (rank == 0)
-                    std::cout << "\nA binary file with the same name exists. Using that file instead of the mtx"
+                    std::cout << "A binary file with the same name exists. Using that file instead of the mtx"
                                  " file.\n\n";
                 inFile_check_bin.close();
 
@@ -84,7 +84,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
                 // write the file in binary by proc 0.
                 if (rank == 0) {
 
-                    std::cout << "\nFirst a binary file with name \"" << bin_filename
+                    std::cout << "First a binary file with name \"" << bin_filename
                               << "\" will be created in the same directory. \n\n";
 
                     std::string outFileName = filename.substr(0, extIndex) + ".bin";
@@ -287,6 +287,13 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
     nnz_g = st.st_size / (2*sizeof(index_t) + sizeof(value_t));
 
+    if(nnz_g == 0){
+        std::ostringstream errmsg;
+        errmsg << "number of nonzeros is 0 on rank " << rank << "inside function " << __func__ << std::endl;
+        std::cout << errmsg.str();
+        exit(EXIT_FAILURE);
+    }
+
     // find initial local nonzero
     initial_nnz_l = nnz_t(floor(1.0 * nnz_g / nprocs)); // initial local nnz
     if (rank == nprocs - 1) {
@@ -356,7 +363,11 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 }
 
 
-saena_matrix::~saena_matrix() = default;
+saena_matrix::~saena_matrix(){
+    if(free_zfp_buff){
+        deallocate_zfp();
+    }
+};
 
 
 int saena_matrix::set(index_t row, index_t col, value_t val){
@@ -1143,7 +1154,7 @@ int saena_matrix::residual_negative(std::vector<value_t>& u, std::vector<value_t
     MPI_Allreduce(&zero_vector_local, &zero_vector, 1, MPI_CXX_BOOL, MPI_LOR, comm);
 
     if(zero_vector){
-        memcpy(&res[0], &rhs[0], M);
+        memcpy(&res[0], &rhs[0], M); // todo: check memcpy. size is not right.
     } else {
 
         matvec(u, res);
@@ -1234,7 +1245,7 @@ int saena_matrix::chebyshev(int iter, std::vector<value_t>& u, std::vector<value
 }
 
 
-int saena_matrix::print_entry(int ran){
+int saena_matrix::print_entry(int ran, const std::string name){
 
     // if ran >= 0 print_entry the matrix entries on proc with rank = ran
     // otherwise print the matrix entries on all processors in order. (first on proc 0, then proc 1 and so on.)
@@ -1247,7 +1258,8 @@ int saena_matrix::print_entry(int ran){
         index_t iter = 0;
         if (ran >= 0) {
             if (rank == ran) {
-                printf("\nmatrix on proc = %d \n", ran);
+                std::cout << "\nmatrix " << name << " on proc " << ran << std::endl;
+//                printf("\nmatrix on proc = %d \n", ran);
                 printf("nnz = %lu \n", nnz_l);
                 for (auto i:entry) {
                     std::cout << iter << "\t" << i << std::endl;
@@ -1258,7 +1270,8 @@ int saena_matrix::print_entry(int ran){
             for (index_t proc = 0; proc < nprocs; proc++) {
                 MPI_Barrier(comm);
                 if (rank == proc) {
-                    printf("\nmatrix on proc = %d \n", proc);
+                    std::cout << "\nmatrix " << name << " on proc " << proc << std::endl;
+//                    printf("\nmatrix on proc = %d \n", proc);
                     printf("nnz = %lu \n", nnz_l);
                     for (auto i:entry) {
                         std::cout << iter << "\t" << i << std::endl;
@@ -1273,7 +1286,7 @@ int saena_matrix::print_entry(int ran){
 }
 
 
-int saena_matrix::print_info(int ran) {
+int saena_matrix::print_info(int ran, const std::string name) {
 
     // if ran >= 0 print the matrix info on proc with rank = ran
     // otherwise print the matrix info on all processors in order. (first on proc 0, then proc 1 and so on.)
@@ -1284,16 +1297,16 @@ int saena_matrix::print_info(int ran) {
 
     if(ran >= 0) {
         if (rank == ran) {
-            printf("\nmatrix A info on proc = %d \n", ran);
+            std::cout << "\nmatrix " << name << " info on proc " << ran << std::endl;
             printf("Mbig = %u, \tM = %u, \tnnz_g = %lu, \tnnz_l = %lu \n", Mbig, M, nnz_g, nnz_l);
         }
     } else{
         MPI_Barrier(comm);
-        if(rank==0) printf("\nmatrix A info:      Mbig = %u, \tnnz_g = %lu \n", Mbig, nnz_g);
+        if(rank==0) printf("\nmatrix %s info:      Mbig = %u, \tnnz_g = %lu \n", name.c_str(), Mbig, nnz_g);
         for(index_t proc = 0; proc < nprocs; proc++){
             MPI_Barrier(comm);
             if (rank == proc) {
-                printf("matrix A on rank %d: M    = %u, \tnnz_l = %lu \n", proc, M, nnz_l);
+                printf("matrix %s on rank %d: M    = %u, \tnnz_l = %lu \n", name.c_str(), proc, M, nnz_l);
             }
             MPI_Barrier(comm);
         }

@@ -65,6 +65,27 @@ include_directories(${LAPACK_INCLUDE_PATH})
 #set(LAPACK_LIB /usr/lib/openblas-base/liblapack.a)
 
 # -----------------------------------------------------------------------
+# MKL
+
+set(MKL_DIR "/uufs/chpc.utah.edu/sys/installdir/intel/compilers_and_libraries_2019.5.281/linux/mkl")
+include_directories(${MKL_DIR}/include)
+
+set(MKL_LIB_DIR    "${MKL_DIR}/lib/intel64_lin")
+
+set(MKL_LIB_CORE   "${MKL_LIB_DIR}/libmkl_core.so")
+set(MKL_LIB_LP64   "${MKL_LIB_DIR}/libmkl_intel_lp64.so")
+
+set(MKL_LIB_THREAD "${MKL_LIB_DIR}/libmkl_gnu_thread.so")
+#set(MKL_LIB_THREAD "${MKL_LIB_DIR}/libmkl_intel_thread.so")
+
+#set(MKL_LIB_BLACS "${MKL_LIB_DIR}/libmkl_blacs_intelmpi_lp64.so")
+#set(MKL_LIB_BLACS "${MKL_LIB_DIR}/libmkl_blacs_openmpi_lp64.so")
+
+set(MKL_OMP "/uufs/chpc.utah.edu/sys/installdir/intel/compilers_and_libraries_2019.5.281/linux/compiler/lib/intel64_lin/libiomp5.so")
+
+SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_LIB_CORE} ${MKL_LIB_LP64} ${MKL_LIB_THREAD} ${MKL_OMP})
+
+# -----------------------------------------------------------------------
 # SuperLU
 
 set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
@@ -96,16 +117,16 @@ set(SOURCE_FILES ${SOURCE_FILES}
 # -----------------------------------------------------------------------
 # pugixml: to read xml files for options
 
-include_directories(external/pugixml/include)
+#include_directories(external/pugixml/include)
 
-set(SOURCE_FILES ${SOURCE_FILES}
-        external/pugixml/src/pugixml.cpp
-        )
+#set(SOURCE_FILES ${SOURCE_FILES}
+#        external/pugixml/src/pugixml.cpp
+#        )
 
 # -----------------------------------------------------------------------
 # zfp: for compressing arrays
 
-set(ZFP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/zfp-0.5.3)
+set(ZFP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/zfp)
 set(ZFP_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/lib/libzfp.so)
 include_directories(
         ${ZFP_DIR}/array
@@ -146,25 +167,31 @@ include_directories(include)
 
 set(HEADER_FILES ${HEADER_FILES}
         include/saena.hpp
+        include/aux_functions.h
+        include/data_struct.h
         include/saena_matrix.h
         include/saena_matrix_dense.h
         include/saena_object.h
         include/strength_matrix.h
         include/prolong_matrix.h
         include/restrict_matrix.h
-        include/aux_functions.h
         include/grid.h
         include/saena_vector.h
+#        include/petsc_functions.h
+#        include/combblas_functions.h
+        include/GR_encoder.h
         )
 
 set(SOURCE_FILES ${SOURCE_FILES}
+        ${HEADER_FILES}
         src/saena.cpp
-        src/saena_matrix_dense.cpp
+        src/aux_functions.cpp
+        src/data_struct.cpp
         src/strength_matrix.cpp
         src/prolong_matrix.cpp
         src/restrict_matrix.cpp
-        src/aux_functions.cpp
-#        src/grid.cpp
+        src/saena_matrix_dense.cpp
+        src/saena_vector.cpp
 
         src/saena_matrix.cpp
         src/saena_matrix_repart.cpp
@@ -176,14 +203,18 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/saena_object.cpp
         src/saena_object_setup1.cpp
         src/saena_object_setup2.cpp
+        src/saena_object_setup_matmat.cpp
         src/saena_object_solve.cpp
         src/saena_object_lazy.cpp
         src/saena_object_repart_shrink.cpp
-	#        src/saena_object_sparsify.cpp
+        src/saena_object_sparsify.cpp
         src/saena_object_elemental.cpp
         src/saena_object_write2file.cpp
-        src/saena_object_setup2_test.cpp
-        src/saena_vector.cpp
+
+        src/GR_encoder.cpp
+
+#        src/petsc_functions.cpp
+#        src/combblas_functions.cpp
         )
 
 # -----------------------------------------------------------------------
@@ -202,6 +233,8 @@ add_library(saena SHARED ${SOURCE_FILES})
 #        DESCRIPTION "This library provides fast multigrid solves.")
 
 # -----------------------------------------------------------------------
+
+#target_link_libraries(saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${SAENA_LIB_DEPENDENCIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
 
 target_link_libraries(saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
 

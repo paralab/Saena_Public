@@ -17,7 +17,7 @@ cd ..
 
 #zfp
 mkdir build_zfp && cd build_zfp
-cmake ../../external/zfp-0.5.3
+cmake ../../external/zfp
 make -j28
 cd ..
 
