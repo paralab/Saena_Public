@@ -9,7 +9,7 @@
 #include "ietl_saena.h"
 #include "dollar.hpp"
 
-//#include "petsc_functions.h"
+#include "petsc_functions.h"
 
 #include <sys/stat.h>
 #include <cstdio>
@@ -50,9 +50,9 @@ int saena_object::setup(saena_matrix* A) {
     if(!rank) printf("fast_mm: split based on nnz\n");
 #endif
 #ifdef SPLIT_SIZE
-    if(rank==0) printf("fast_mm: split based on matrix size\n");
+//    if(rank==0) printf("fast_mm: split based on matrix size\n");
 #endif
-    if(!rank) std::cout << "coarsen_method: " << coarsen_method << std::endl;
+//    if(!rank) std::cout << "coarsen_method: " << coarsen_method << std::endl;
 
 //    float row_reduction_min;
 //    float total_row_reduction;
@@ -89,12 +89,14 @@ int saena_object::setup(saena_matrix* A) {
     grids[0] = Grid(A, 0); // pass A to grids[0]
 
     if(verbose_setup_steps && rank==0) printf("setup: other Grids\n");
+    std::vector< std::vector< std::vector<int> > > map_all;
+    std::vector< std::vector<int> > g2u_all;
     for(int i = 0; i < max_level; i++){
 //        MPI_Barrier(grids[0].A->comm); printf("rank = %d, level setup; before if\n", rank); MPI_Barrier(grids[0].A->comm);
 //        if(grids[i].A->active) {
             if (shrink_level_vector.size()>i+1) if(shrink_level_vector[i+1]) grids[i].A->enable_shrink_next_level = true;
             if (shrink_values_vector.size()>i+1) grids[i].A->cpu_shrink_thre2_next_level = shrink_values_vector[i+1];
-            coarsen(&grids[i]); // create P, R and Ac for grid[i]
+            coarsen(&grids[i], map_all, g2u_all); // create P, R and Ac for grid[i]
             grids[i + 1] = Grid(&grids[i].Ac, i + 1); // Pass A to grids[i+1] (created as Ac in grids[i]) // todo: use emplace_back for grids.
             grids[i].coarseGrid = &grids[i + 1]; // connect grids[i+1] to grids[i]
 
@@ -111,9 +113,10 @@ int saena_object::setup(saena_matrix* A) {
                     if (rank_new == 0) {
 //                    MPI_Comm_size(grids[i].Ac.comm, &nprocs);
                         printf("_____________________________\n\n");
-                        printf("level = %d \nnumber of procs = %d \nmatrix size \t= %d \nnonzero \t= %lu \ndensity \t= %.6f \n",
+                        printf("level = %d \nnumber of procs = %d \nmatrix size \t= %d \nnonzero \t= %lu"
+                               "\ndensity \t= %.6f \ncoarsen method \t= %s\n",
                                grids[i + 1].currentLevel, grids[i + 1].A->total_active_procs, grids[i + 1].A->Mbig, grids[i + 1].A->nnz_g,
-                               grids[i + 1].A->density);
+                               grids[i + 1].A->density, (grids[i].A->p_order == 1 ? "h-coarsen" : "p-coarsen"));
                     }
                 }
             }
@@ -151,10 +154,10 @@ int saena_object::setup(saena_matrix* A) {
                 }
             }
 //        }
+
         if(!grids[i].Ac.active)
             break;
     }
-
     // max_level is the lowest on the active processors in the last grid. So MPI_MIN is used in the following MPI_Allreduce.
     int max_level_send = max_level;
     MPI_Allreduce(&max_level_send, &max_level, 1, MPI_INT, MPI_MIN, grids[0].A->comm);
@@ -224,7 +227,7 @@ int saena_object::setup(saena_matrix* A) {
 }
 
 
-int saena_object::coarsen(Grid *grid){
+int saena_object::coarsen(Grid *grid, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all){
 
 #ifdef __DEBUG1__
     int nprocs, rank;
@@ -238,30 +241,8 @@ int saena_object::coarsen(Grid *grid){
 //    }
 
 //    grid->A->print_info(-1);
+    double t1, t2;
 #endif
-
-    // **************************** find_aggregation ****************************
-
-#ifdef __DEBUG1__
-    double t1 = omp_get_wtime();
-#endif
-
-    std::vector<unsigned long> aggregate(grid->A->M);
-    find_aggregation(grid->A, aggregate, grid->P.splitNew);
-
-#ifdef __DEBUG1__
-    double t2 = omp_get_wtime();
-    if(verbose_level_setup) print_time(t1, t2, "Aggregation: level "+std::to_string(grid->currentLevel), grid->A->comm);
-
-//    MPI_Barrier(grid->A->comm); printf("rank %d: here after find_aggregation!!! \n", rank); MPI_Barrier(grid->A->comm);
-//    print_vector(aggregate, -1, "aggregate", grid->A->comm);
-//    write_agg(aggregate, "agg1", grid->currentLevel, grid->A->comm);
-#endif
-
-    // **************************** changeAggregation ****************************
-
-    // use this to read aggregation from file and replace the aggregation_2_dist computed here.
-//    changeAggregation(grid->A, aggregate, grid->P.splitNew, grid->A->comm);
 
     // **************************** create_prolongation ****************************
 
@@ -269,7 +250,7 @@ int saena_object::coarsen(Grid *grid){
     t1 = omp_get_wtime();
 #endif
 
-    create_prolongation(grid->A, aggregate, &grid->P);
+    create_prolongation(grid, map_all,g2u_all);
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
@@ -295,10 +276,10 @@ int saena_object::coarsen(Grid *grid){
     if(verbose_level_setup) print_time(t1, t2, "Restriction: level "+std::to_string(grid->currentLevel), grid->A->comm);
 
 //    MPI_Barrier(grid->A->comm); printf("rank %d: here after transposeP!!! \n", rank); MPI_Barrier(grid->A->comm);
-//    grid->R.print_info(-1);
-//    grid->R.print_entry(-1);
 //    print_vector(grid->R.entry_local, -1, "grid->R.entry_local", grid->A->comm);
 //    print_vector(grid->R.entry_remote, -1, "grid->R.entry_remote", grid->A->comm);
+//    grid->R.print_info(-1);
+//    grid->R.print_entry(-1);
 #endif
 
     // **************************** compute_coarsen ****************************
@@ -310,7 +291,6 @@ int saena_object::coarsen(Grid *grid){
 #endif
 
     compute_coarsen(grid);
-//    compute_coarsen_old(grid);
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
@@ -327,9 +307,7 @@ int saena_object::coarsen(Grid *grid){
 
 //    int rank1;
 //    MPI_Comm_rank(grid->A->comm, &rank1);
-//    if(!rank1)
-//        printf("Mbig = %u, M = %u, nnz_l = %lu, nnz_g = %lu \n",
-//               grid->Ac.Mbig, grid->Ac.M, grid->Ac.nnz_l, grid->Ac.nnz_g);
+//    printf("Mbig = %u, M = %u, nnz_l = %lu, nnz_g = %lu \n", grid->Ac.Mbig, grid->Ac.M, grid->Ac.nnz_l, grid->Ac.nnz_g);
 //    print_vector(grid->Ac.entry, 0, "grid->Ac.entry", grid->Ac.comm);
 #endif
 
@@ -343,6 +321,18 @@ int saena_object::coarsen(Grid *grid){
 //    petsc_check_matmatmat(&grid->R, grid->A, &grid->P, &grid->Ac);
 
 //    map_matmat.clear();
+
+    return 0;
+}
+
+
+int saena_object::create_prolongation(Grid *grid, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all) {
+
+    if(grid->A->p_order == 1){
+        SA(grid);
+    }else{
+        pcoarsen(grid, map_all, g2u_all);
+    }
 
     return 0;
 }

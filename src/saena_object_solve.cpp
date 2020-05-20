@@ -722,10 +722,14 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &u, std::vector<value_t> &rhs){
     // For a similar code, using the same matrix for mutiple rhs's, read SuperLU_DIST_5.4.0/EXAMPLE/pddrive1.c
 
+#ifdef __DEBUG1__
+//    std::cout << __func__ << std::endl;
 //    MPI_Barrier(A->comm);
 //    printf("A->print_entry\n");
+//    A->print_info(-1);
 //    A->print_entry(-1);
 //    MPI_Barrier(A->comm);
+#endif
 
     MPI_Comm comm = A->comm;
     int nprocs, rank;
@@ -851,7 +855,6 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 //        options.PrintStat = YES;
     }else{
         options.Fact = FACTORED;
-
     }
 
 #if 0
@@ -1440,6 +1443,14 @@ int saena_object::solve(std::vector<value_t>& u){
 
     u.assign(grids[0].A->M, 0);
 
+    // ************** setup SuperLU **************
+
+//    saena_matrix *A_coarsest = &grids.back().Ac;
+
+    if(A_coarsest->active) {
+        setup_SuperLU();
+    }
+
     // ************** solve **************
 
 //    double temp;
@@ -1454,13 +1465,9 @@ int saena_object::solve(std::vector<value_t>& u){
     if(rank==0) printf("\ninitial residual = %e \n\n", sqrt(initial_dot));
 
     // if max_level==0, it means only direct solver is being used.
-    if(max_level == 0)
+    if(max_level == 0 && rank==0){
         printf("\nonly using the direct solver! \n");
-
-//    if(rank==0){
-//        printf("Vcycle #: \tabsolute residual\n");
-//        printf("-----------------------------\n");
-//    }
+    }
 
     int i;
     for(i=0; i < solver_max_iter; i++){
@@ -1488,9 +1495,17 @@ int saena_object::solve(std::vector<value_t>& u){
 
 //    print_vector(u, -1, "u", comm);
 
+    // ************** destroy data from SuperLU **************
+
+    if(A_coarsest->active) {
+        destroy_SuperLU();
+    }
+
     // ************** scale u **************
 
-    scale_vector(u, grids[0].A->inv_sq_diag);
+    if(scale){
+        scale_vector(u, grids[0].A->inv_sq_diag);
+    }
 
     // ************** repartition u back **************
 
@@ -1721,7 +1736,9 @@ int saena_object::solve_pcg(std::vector<value_t>& u){
 
     // ************** scale u **************
 
-    scale_vector(u, grids[0].A->inv_sq_diag);
+    if(scale){
+        scale_vector(u, grids[0].A->inv_sq_diag);
+    }
 
     // ************** repartition u back **************
 
@@ -1897,14 +1914,15 @@ int saena_object::solve_pcg_update(std::vector<value_t>& u, saena_matrix* A_new)
 // ************************************************
 
 void saena_object::GMRES_update(std::vector<double> &x, index_t k, saena_matrix_dense &h, std::vector<double> &s, std::vector<std::vector<double>> &v){
-    // ******************
-    // GMRES_update(u, i or i-1, H, s, v)
+    // ***************************************
+    // GMRES_update(u, i, H, s, v)
     // x_i = x_0 + y_1 * v_1 + ... + y_i * v_i
-    // ******************
+    // x_0 = x_i
+    // ***************************************
 
-    //    std::cout << __func__ << std::endl;
+//    std::cout << __func__ << std::endl;
 
-    // todo: optimize y. it is being created and allocated each time this function is being called.
+    // todo: pre-allocate y. it is being created and allocated each time this function is being called.
     std::vector<double> y = s;
 
     // Backsolve:
@@ -1918,14 +1936,17 @@ void saena_object::GMRES_update(std::vector<double> &x, index_t k, saena_matrix_
     }
 
     for (long j = 0; j <= k; j++){
-        // scale each vector v[j] by scalar y[j]
         // x += v[j] * y[j];
+        // scale each vector v[j] by scalar y[j]
+        // x and v[j] are vectors. y[j] is a scalar.
         scale_vector_scalar(v[j], y[j], x, true);
     }
 }
 
 
 void saena_object::GeneratePlaneRotation(double &dx, double &dy, double &cs, double &sn){
+    // set cs and sn
+
     if (dy == 0.0) {
         cs = 1.0;
         sn = 0.0;
@@ -1942,6 +1963,7 @@ void saena_object::GeneratePlaneRotation(double &dx, double &dy, double &cs, dou
 
 
 void saena_object::ApplyPlaneRotation(double &dx, double &dy, const double &cs, const double &sn){
+    // set dx and dy
 
 //    std::cout << "dx: " << dx << ", \tdy: " << dy << ", \tcs: " << cs << ", \tsn: " << sn << std::endl;
 
@@ -2156,10 +2178,10 @@ int saena_object::pGMRES(std::vector<double> &u){
 
             resid = fabs(s[i + 1]) / normb;
 
-            if (rank == 0) printf("%e\n", resid);
 #ifdef __DEBUG1__
             if (verbose_solve) {
                 MPI_Barrier(comm);
+                if (rank == 0) printf("%e\n", resid);
                 if (rank == 0) printf("resid: %e \t1st resid\n", resid);
                 MPI_Barrier(comm);
             }
@@ -2195,7 +2217,13 @@ int saena_object::pGMRES(std::vector<double> &u){
 
         beta  = pnorm(r, comm);
         resid = beta / normb;
-        if(rank == 0) printf("resid: %e \t2nd resid\n", resid);
+
+#ifdef __DEBUG1__
+        if(verbose_solve){
+            if(rank == 0) printf("resid: %e \t2nd resid\n", resid);
+        }
+#endif
+
         if (resid < tol) {
             goto gmres_out;
         }
