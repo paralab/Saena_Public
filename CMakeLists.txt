@@ -33,6 +33,7 @@ find_package(OpenMP)
 if(OPENMP_FOUND)
     set (CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
     set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+    add_definitions(-D_USE_OPENMP_)
 endif()
 
 # -----------------------------------------------------------------------
@@ -41,8 +42,24 @@ endif()
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
 
+SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MPI_LIBRARIES})
+
 # -----------------------------------------------------------------------
 # Dependencies
+# -----------------------------------------------------------------------
+# SuperLU
+
+set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
+set(SuperLU_DIST_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_superlu/lib/libsuperlu_dist.a)
+include_directories(
+        ${SuperLU_DIST_DIR}/build/include
+        ${SuperLU_DIST_DIR}/SRC
+)
+
+SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${SuperLU_DIST_LIB})
+
+# -----------------------------------------------------------------------
+# METIS and PARMETIS
 
 #set(PARMETIS_ROOT_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
 set(METIS_LIBRARY_SAENA    ${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/lib/libmetis.so)
@@ -50,11 +67,15 @@ set(PARMETIS_LIBRARY_SAENA ${CMAKE_CURRENT_SOURCE_DIR}/build/build_parmetis/lib/
 set(METIS_INCLUDE_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/include)
 set(PARMETIS_INCLUDE_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/build/build_parmetis/include)
 
+SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY})
+
 # -----------------------------------------------------------------------
 # BLAS
 
 find_package(BLAS REQUIRED)
 message(STATUS BLAS found: ${BLAS_LIBRARIES})
+
+SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${BLAS_LIBRARIES})
 
 # -----------------------------------------------------------------------
 # LAPACK
@@ -64,13 +85,15 @@ message( STATUS LAPACK found: ${LAPACK_LIBRARIES} )
 include_directories(${LAPACK_INCLUDE_PATH})
 #set(LAPACK_LIB /usr/lib/openblas-base/liblapack.a)
 
+SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${LAPACK_LIBRARIES})
+
 # -----------------------------------------------------------------------
 # MKL
 
-set(MKL_DIR "/uufs/chpc.utah.edu/sys/installdir/intel/compilers_and_libraries_2019.5.281/linux/mkl")
-include_directories(${MKL_DIR}/include)
+set(MKLROOT $ENV{MKLROOT})
+include_directories(${MKLROOT}/include)
 
-set(MKL_LIB_DIR    "${MKL_DIR}/lib/intel64_lin")
+set(MKL_LIB_DIR    "${MKLROOT}/lib/intel64_lin")
 
 set(MKL_LIB_CORE   "${MKL_LIB_DIR}/libmkl_core.so")
 set(MKL_LIB_LP64   "${MKL_LIB_DIR}/libmkl_intel_lp64.so")
@@ -81,19 +104,9 @@ set(MKL_LIB_THREAD "${MKL_LIB_DIR}/libmkl_gnu_thread.so")
 #set(MKL_LIB_BLACS "${MKL_LIB_DIR}/libmkl_blacs_intelmpi_lp64.so")
 #set(MKL_LIB_BLACS "${MKL_LIB_DIR}/libmkl_blacs_openmpi_lp64.so")
 
-set(MKL_OMP "/uufs/chpc.utah.edu/sys/installdir/intel/compilers_and_libraries_2019.5.281/linux/compiler/lib/intel64_lin/libiomp5.so")
+#set(MKL_OMP "/opt/intel/compilers_and_libraries_2020.0.166/linux/compiler/lib/intel64_lin/libiomp5.so")
 
-SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_LIB_CORE} ${MKL_LIB_LP64} ${MKL_LIB_THREAD} ${MKL_OMP})
-
-# -----------------------------------------------------------------------
-# SuperLU
-
-set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
-set(SuperLU_DIST_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_superlu/lib/libsuperlu_dist.a)
-include_directories(
-        ${SuperLU_DIST_DIR}/build/include
-        ${SuperLU_DIST_DIR}/SRC
-)
+SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_LIB_CORE} ${MKL_LIB_LP64} ${MKL_LIB_THREAD})
 
 # -----------------------------------------------------------------------
 # IETL: eigensolver
@@ -133,6 +146,8 @@ include_directories(
         ${ZFP_DIR}/array/zfp
         ${ZFP_DIR}/include
 )
+
+SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${ZFP_LIB})
 
 # -----------------------------------------------------------------------
 #PETSc
@@ -177,13 +192,11 @@ set(HEADER_FILES ${HEADER_FILES}
         include/restrict_matrix.h
         include/grid.h
         include/saena_vector.h
-#        include/petsc_functions.h
-#        include/combblas_functions.h
         include/GR_encoder.h
         )
 
 set(SOURCE_FILES ${SOURCE_FILES}
-        ${HEADER_FILES}
+#        ${HEADER_FILES}
         src/saena.cpp
         src/aux_functions.cpp
         src/data_struct.cpp
@@ -192,6 +205,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/restrict_matrix.cpp
         src/saena_matrix_dense.cpp
         src/saena_vector.cpp
+        src/GR_encoder.cpp
 
         src/saena_matrix.cpp
         src/saena_matrix_repart.cpp
@@ -203,6 +217,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/saena_object.cpp
         src/saena_object_setup1.cpp
         src/saena_object_setup2.cpp
+        src/saena_object_setup3.cpp
         src/saena_object_setup_matmat.cpp
         src/saena_object_solve.cpp
         src/saena_object_lazy.cpp
@@ -210,11 +225,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/saena_object_sparsify.cpp
         src/saena_object_elemental.cpp
         src/saena_object_write2file.cpp
-
-        src/GR_encoder.cpp
-
-#        src/petsc_functions.cpp
-#        src/combblas_functions.cpp
         )
 
 # -----------------------------------------------------------------------
@@ -236,6 +246,6 @@ add_library(saena SHARED ${SOURCE_FILES})
 
 #target_link_libraries(saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${SAENA_LIB_DEPENDENCIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
 
-target_link_libraries(saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
+target_link_libraries(saena ${SAENA_LIB_DEPENDENCIES})
 
 install(FILES ${HEADER_FILES} DESTINATION ${CMAKE_INSTALL_DIR}/include )
