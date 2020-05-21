@@ -196,7 +196,7 @@ set(HEADER_FILES ${HEADER_FILES}
         )
 
 set(SOURCE_FILES ${SOURCE_FILES}
-#        ${HEADER_FILES}
+        ${HEADER_FILES}
         src/saena.cpp
         src/aux_functions.cpp
         src/data_struct.cpp

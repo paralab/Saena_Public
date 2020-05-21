@@ -35,11 +35,12 @@ namespace saena {
         int set(index_t i, index_t j, unsigned int size_x, unsigned int size_y, value_t* val); // set contiguous block
         int set(index_t i, index_t j, unsigned int* di, unsigned int* dj, value_t* val, nnz_t nnz_local); // set generic block
 
+        void set_p_order(int _p_order);
+
         bool add_dup = true; // if false replace the duplicate, otherwise add the values together.
         int add_duplicates(bool add);
 
-        int assemble();
-        int assemble_no_scale();
+        int assemble(bool scale = true);
         int assemble_writeToFile();
         int assemble_writeToFile(const char *folder_name);
         int assemble_band_matrix();
@@ -119,26 +120,26 @@ namespace saena {
 
     class options {
     private:
-        int vcycle_num            = 500;
+        int    solver_max_iter    = 500;
         double relative_tolerance = 1e-12;
         std::string smoother      = "chebyshev";
-        int preSmooth             = 3;
-        int postSmooth            = 3;
+        int    preSmooth          = 3;
+        int    postSmooth         = 3;
 
     public:
         options();
-        options(int vcycle_num, double relative_tolerance, std::string smoother, int preSmooth, int postSmooth);
+        options(int max_iter, double relative_tolerance, std::string smoother, int preSmooth, int postSmooth);
         explicit options(char* name); // to set parameters from an xml file
         ~options();
 
-        void set(int vcycle_num, double relative_tolerance, std::string smoother, int preSmooth, int postSmooth);
-        void set_vcycle_num(int vcycle_num);
+        void set(int max_iter, double relative_tolerance, std::string smoother, int preSmooth, int postSmooth);
+        void set_max_iter(int max_iter);
         void set_relative_tolerance(double relative_tolerance);
         void set_smoother(std::string smoother);
         void set_preSmooth(int preSmooth);
         void set_postSmooth(int postSmooth);
 
-        int         get_vcycle_num();
+        int         get_max_iter();
         double      get_relative_tolerance();
         std::string get_smoother();
         int         get_preSmooth();
@@ -181,9 +182,6 @@ namespace saena {
 //        int solve_pcg_update2(std::vector<value_t>& u, saena::options* opts);
 //        int solve_pcg_update3(std::vector<value_t>& u, saena::options* opts);
 
-        void save_to_file(char* name, unsigned long* agg); // to save aggregates to a file.
-        unsigned long* load_from_file(char* name); // to load aggregates from a file.
-
         void destroy();
 
         bool verbose = false;
@@ -192,6 +190,8 @@ namespace saena {
         int matrix_diff(saena::matrix &A, saena::matrix &B);
 
         int set_multigrid_max_level(int max); // 0 means only use direct solver, so no multigrid will be used.
+
+        int set_scale(bool sc); // 0 means only use direct solver, so no multigrid will be used.
 
         int set_sample_sz_percent(double s_sz_prcnt);
 
