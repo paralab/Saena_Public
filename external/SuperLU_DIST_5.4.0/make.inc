@@ -15,11 +15,11 @@
 #
 #  The name of the libraries to be created/linked to
 #
-SuperLUroot = /home/majidrp/Projects/Saena_Public/build/build_superlu
+SuperLUroot = /home/majidrp/Projects/nektarpp_saena/library/MultiRegions/Saena_Public/build/build_superlu
 DSUPERLULIB = $(SuperLUroot)/SRC/libsuperlu_dist.a
 INCLUDEDIR  = $(SuperLUroot)/include
 
-LIBS 	    = $(DSUPERLULIB) /usr/lib/x86_64-linux-gnu/libblas.so /home/majidrp/Projects/Saena_Public/build/build_superlu/../build_parmetis/libparmetis/libparmetis.a /home/majidrp/Projects/Saena_Public/build/build_superlu/../build_parmetis/libmetis/libmetis.a
+LIBS 	    = $(DSUPERLULIB) /usr/lib/x86_64-linux-gnu/libblas.so /home/majidrp/Projects/nektarpp_saena/library/MultiRegions/Saena_Public/build/build_superlu/../build_parmetis/libparmetis/libparmetis.a /home/majidrp/Projects/nektarpp_saena/library/MultiRegions/Saena_Public/build/build_superlu/../build_parmetis/libmetis/libmetis.a
 LIBS 	    += 
 
 #
@@ -31,7 +31,7 @@ ARCHFLAGS    = cr
 RANLIB       = /usr/bin/ranlib
 
 CC           = /usr/bin/cc
-CFLAGS 	     = -O3 -DNDEBUG -I/home/majidrp/Projects/Saena_Public/external/SuperLU_DIST_5.4.0/../parmetis-4.0.3/metis/include -I/home/majidrp/Projects/Saena_Public/external/SuperLU_DIST_5.4.0/../parmetis-4.0.3/include -DUSE_VENDOR_BLAS -fopenmp   -fPIC
+CFLAGS 	     = -O3 -DNDEBUG -I/home/majidrp/Projects/nektarpp_saena/library/MultiRegions/Saena_Public/external/SuperLU_DIST_5.4.0/../parmetis-4.0.3/metis/include -I/home/majidrp/Projects/nektarpp_saena/library/MultiRegions/Saena_Public/external/SuperLU_DIST_5.4.0/../parmetis-4.0.3/include -DUSE_VENDOR_BLAS -fopenmp   -fPIC
 #CFLAGS      += -D
 # CFLAGS     +=  
 CXX          = 
