@@ -1,5 +1,7 @@
 #pragma once
 
+#include "data_struct.h"
+
 #include <vector>
 #include <string>
 #include <mpi.h>
@@ -8,10 +10,6 @@ class saena_matrix;
 class saena_vector;
 class saena_matrix_dense;
 class saena_object;
-
-typedef unsigned int  index_t;
-typedef unsigned long nnz_t;
-typedef double        value_t;
 
 
 namespace saena {
@@ -81,7 +79,6 @@ namespace saena {
         int set_idx_offset(index_t offset);
 
         int set(index_t i, value_t val); // set individual value
-        int set(const int* idx, const value_t* val, int size); // set multiple values
         int set(const index_t* idx, const value_t* val, index_t size); // set multiple values
         int set(const value_t* val, index_t size, index_t offset); // set multiple values
         int set(const value_t* val, index_t size); // set multiple values
@@ -209,7 +206,7 @@ namespace saena {
     // ==========================
 
     // second argument is degree-of-freedom on each processor
-    int laplacian2D_old(saena::matrix* A, unsigned int dof_local);
+    int laplacian2D_old(saena::matrix* A, index_t dof_local);
 
     int laplacian3D(saena::matrix* A, unsigned int mx, unsigned int my, unsigned int mz);
 
@@ -217,7 +214,7 @@ namespace saena {
 
     int laplacian3D_set_rhs_zero(std::vector<double> &rhs, unsigned int mx, unsigned int my, unsigned int mz, MPI_Comm comm);
 
-    int laplacian3D_old(saena::matrix* A, unsigned int dof_local);
+    int laplacian3D_old(saena::matrix* A, index_t dof_local);
 
     int band_matrix(saena::matrix &A, index_t M, unsigned int bandwidth);
 

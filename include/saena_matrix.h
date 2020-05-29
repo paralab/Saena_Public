@@ -1,6 +1,12 @@
 #ifndef SAENA_SAENA_MATRIX_H
 #define SAENA_SAENA_MATRIX_H
 
+/**
+ * @author Majid Rasouli
+ * @breif Contains the basic structure for the Saena matrix class (saena_matrix).
+ *
+ * */
+
 #include "saena_matrix_dense.h"
 #include "aux_functions.h"
 #include "zfparray1.h"
@@ -10,16 +16,6 @@
 #include <set>
 #include <mpi.h>
 
-
-/**
- * @author Majid Rasouli
- * @breif Contains the basic structure for the Saena matrix class (saena_matrix).
- *
- * */
-
-typedef unsigned int  index_t;
-typedef unsigned long nnz_t;
-typedef double        value_t;
 
 class saena_matrix {
 
@@ -177,8 +173,9 @@ public:
     int generate_dense_matrix();
     // ***********************************************************
 
-    // send_zfp parameters
+    // zfp parameters
     // ***********************************************************
+
     zfp_type    zfptype = zfp_type_double;
 
     zfp_field*  send_field;  // array meta data
@@ -189,6 +186,7 @@ public:
     zfp_stream* recv_zfp;    // compressed stream
     bitstream*  recv_stream; // bit stream to write to or read from
 
+    bool          use_zfp          = false;
     bool          free_zfp_buff    = false;
     unsigned char *zfp_send_buff   = nullptr, // storage for compressed stream to be sent
                   *zfp_recv_buff   = nullptr; // storage for compressed stream to be received
@@ -196,7 +194,7 @@ public:
                   zfp_send_comp_sz = 0,
                   zfp_recv_buff_sz = 0;
 
-    unsigned zfp_rate      = 64;
+    unsigned zfp_rate      = 32;
     double   zfp_precision = 32;
 
 //    double  *zfp_send_buff = nullptr, // storage for compressed send_stream
@@ -205,8 +203,14 @@ public:
 //    unsigned char *recv_buffer;
 
     int allocate_zfp();
-//    int allocate_zfp(const std::vector<double> &v);
     int deallocate_zfp();
+
+    // for the compression paper
+    void matvec_time_init();
+    void matvec_time_print() const;
+    unsigned long matvec_iter = 0;
+    double part1 = 0, part2 = 0, part3 = 0, part4 = 0, part5 = 0, part6 = 0;
+
     // ***********************************************************
 
     saena_matrix();
@@ -249,7 +253,6 @@ public:
     int matrix_setup_lazy_update();
     int update_diag_lazy();
 
-    //    int set_rho();
     int set_off_on_diagonal();
     int find_sortings();
     int openmp_setup();
@@ -263,6 +266,7 @@ public:
     int matvec_dummy(std::vector<value_t>& v, std::vector<value_t>& w);
     int compute_matvec_dummy_time();
 
+    // shrinking
     int decide_shrinking(std::vector<double> &prev_time);
     int shrink_cpu();
     int shrink_cpu_minor();
@@ -270,26 +274,38 @@ public:
 
     int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
     int matvec_sparse(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec_sparse_zfp(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec_timing1(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
-    int matvec_timing2(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
-    int matvec_timing3(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
-    int matvec_timing4(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
-    int matvec_timing4_alltoall(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
-    int matvec_timing5(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
-    int matvec_timing5_alltoall(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
+
+    // for the compression paper
+    int matvec_sparse_test(std::vector<value_t>& v, std::vector<value_t>& w);
+    int matvec_sparse_comp(std::vector<value_t>& v, std::vector<value_t>& w);
+    // openmp versions
+    int matvec_sparse_test_omp(std::vector<value_t>& v, std::vector<value_t>& w);
+    int matvec_sparse_comp_omp(std::vector<value_t>& v, std::vector<value_t>& w);
+
+    // matvec timing functions for the matvec paper
+//    int matvec_timing1(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
+//    int matvec_timing2(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
+//    int matvec_timing3(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
+//    int matvec_timing4(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
+//    int matvec_timing4_alltoall(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
+//    int matvec_timing5(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
+//    int matvec_timing5_alltoall(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
 
     int residual(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res);
     int residual_negative(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res);
     int inverse_diag();
+
+    // smoothers
     int jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp);
     int chebyshev(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp, std::vector<value_t>& temp2);
 
+    // I/O functions
     int print_entry(int ran, std::string name = "");
     int print_info(int ran, std::string name = "");
     int writeMatrixToFile();
     int writeMatrixToFile(const char *folder_name);
 
+    // erase and destroy
     int set_zero();
     int erase();
     int erase2();
