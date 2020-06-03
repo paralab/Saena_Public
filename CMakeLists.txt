@@ -244,7 +244,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
 # Install Saena inside the ThirdParty libraris in Nektar++.
 # The following command tells where saena should look for its dependencies
 set(CMAKE_INSTALL_RPATH "/usr/local/lib" "${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/lib"
-        "${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/lib")
+        "${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/${CMAKE_INSTALL_LIBDIR}")
 
 add_library(saena SHARED ${SOURCE_FILES})
 target_link_libraries(saena ${SAENA_LIB_DEPENDENCIES})
