@@ -564,13 +564,13 @@ public:
                  r(nullptr), col_scan(nullptr), v(nullptr) {}
 
     CSCMat_mm(index_t _row_sz, index_t _row_offset, index_t _col_sz, index_t _col_offset, nnz_t _nnz):
-        row_sz(_row_sz), row_offset(_row_offset), col_sz(_col_sz), col_offset(_col_offset), nnz(_nnz),
-        r(nullptr), col_scan(nullptr), v(nullptr) {}
+              row_sz(_row_sz), row_offset(_row_offset), col_sz(_col_sz), col_offset(_col_offset), nnz(_nnz),
+              r(nullptr), col_scan(nullptr), v(nullptr) {}
 
     CSCMat_mm(index_t _row_sz, index_t _row_offset, index_t _col_sz, index_t _col_offset, nnz_t _nnz,
               index_t *_r, value_t *_v, index_t *_col_scan):
-        row_sz(_row_sz), row_offset(_row_offset), col_sz(_col_sz), col_offset(_col_offset), nnz(_nnz),
-        r(_r), col_scan(_col_scan), v(_v) {}
+              row_sz(_row_sz), row_offset(_row_offset), col_sz(_col_sz), col_offset(_col_offset), nnz(_nnz),
+              r(_r), col_scan(_col_scan), v(_v) {}
 
     ~CSCMat_mm(){
         if(free_r){
