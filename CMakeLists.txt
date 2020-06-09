@@ -139,8 +139,10 @@ set(SOURCE_FILES ${SOURCE_FILES}
 # -----------------------------------------------------------------------
 # zfp: for compressing arrays
 
+include(GNUInstallDirs)
+
 set(ZFP_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/zfp)
-set(ZFP_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/lib/libzfp.so)
+set(ZFP_LIB ${CMAKE_CURRENT_BINARY_DIR}/build_zfp/${CMAKE_INSTALL_LIBDIR}/libzfp.so)
 include_directories(
         ${ZFP_DIR}/array
         ${ZFP_DIR}/array/zfp
@@ -228,12 +230,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
         )
 
 # -----------------------------------------------------------------------
-
-#add_executable(Saena src/main.cpp ${SOURCE_FILES} ${HEADER_FILES})
-
-add_library(saena SHARED ${SOURCE_FILES})
-
-# -----------------------------------------------------------------------
 # NEKTAR++
 
 #ADD_NEKTAR_LIBRARY(Saena
@@ -244,8 +240,12 @@ add_library(saena SHARED ${SOURCE_FILES})
 
 # -----------------------------------------------------------------------
 
-#target_link_libraries(saena ${MPI_LIBRARIES} ${SuperLU_DIST_LIB} ${BLAS_LIBRARIES} ${LAPACK_LIBRARIES} ${SAENA_LIB_DEPENDENCIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA} m ${ZFP_LIB})
+# Install Saena with rpath modified
+# Install Saena inside the ThirdParty libraris in Nektar++.
+# The following command tells where saena should look for its dependencies
+set(CMAKE_INSTALL_RPATH "/usr/local/lib" "${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/lib"
+        "${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/lib")
 
+add_library(saena SHARED ${SOURCE_FILES})
 target_link_libraries(saena ${SAENA_LIB_DEPENDENCIES})
-
-install(FILES ${HEADER_FILES} DESTINATION ${CMAKE_INSTALL_DIR}/include )
+install(TARGETS saena DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/ThirdParty/dist/lib)

@@ -6,9 +6,29 @@
 #include <cmath>
 #include "mpi.h"
 
-typedef unsigned int index_t;
-typedef unsigned long nnz_t;
-typedef double value_t;
+typedef int           index_t; // Saena index type
+typedef long          nnz_t;   // Saena nonzero type
+typedef double        value_t; // Saena value type
+typedef unsigned char uchar;
+
+//the following are UBUNTU/LINUX, and MacOS ONLY terminal color codes.
+#define COLORRESET   "\033[0m"
+#define BLACK   "\033[30m"      /* Black */
+#define RED     "\033[31m"      /* Red */
+#define GREEN   "\033[32m"      /* Green */
+#define YELLOW  "\033[33m"      /* Yellow */
+#define BLUE    "\033[34m"      /* Blue */
+#define MAGENTA "\033[35m"      /* Magenta */
+#define CYAN    "\033[36m"      /* Cyan */
+#define WHITE   "\033[37m"      /* White */
+#define BOLDBLACK   "\033[1m\033[30m"      /* Bold Black */
+#define BOLDRED     "\033[1m\033[31m"      /* Bold Red */
+#define BOLDGREEN   "\033[1m\033[32m"      /* Bold Green */
+#define BOLDYELLOW  "\033[1m\033[33m"      /* Bold Yellow */
+#define BOLDBLUE    "\033[1m\033[34m"      /* Bold Blue */
+#define BOLDMAGENTA "\033[1m\033[35m"      /* Bold Magenta */
+#define BOLDCYAN    "\033[1m\033[36m"      /* Bold Cyan */
+#define BOLDWHITE   "\033[1m\033[37m"      /* Bold White */
 
 
 inline index_t rem_sz(index_t sz, unsigned int k){
@@ -540,16 +560,16 @@ public:
 
     bool free_r = false, free_c = false, free_v = false;
 
-    CSCMat_mm(): row_sz(0), row_offset(0), col_sz(0), col_offset(0), nnz(0), r(nullptr), v(nullptr), col_scan(nullptr) {}
+    CSCMat_mm(): row_sz(0), row_offset(0), col_sz(0), col_offset(0), nnz(0), r(nullptr), col_scan(nullptr), v(nullptr) {}
 
     CSCMat_mm(index_t _row_sz, index_t _row_offset, index_t _col_sz, index_t _col_offset, nnz_t _nnz):
               row_sz(_row_sz), row_offset(_row_offset), col_sz(_col_sz), col_offset(_col_offset), nnz(_nnz),
-              r(nullptr), v(nullptr), col_scan(nullptr) {}
+              r(nullptr), col_scan(nullptr), v(nullptr) {}
 
     CSCMat_mm(index_t _row_sz, index_t _row_offset, index_t _col_sz, index_t _col_offset, nnz_t _nnz,
               index_t *_r, value_t *_v, index_t *_col_scan):
               row_sz(_row_sz), row_offset(_row_offset), col_sz(_col_sz), col_offset(_col_offset), nnz(_nnz),
-              r(_r), v(_v), col_scan(_col_scan) {}
+              r(_r), col_scan(_col_scan), v(_v) {}
 
     ~CSCMat_mm(){
         if(free_r){

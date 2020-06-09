@@ -1,6 +1,7 @@
 #ifndef SAENA_SAENA_OBJECT_H
 #define SAENA_SAENA_OBJECT_H
 
+#include "data_struct.h"
 #include "superlu_ddefs.h"
 #include "aux_functions.h"
 #include "saena_vector.h"
@@ -16,15 +17,8 @@
 //#define SPLIT_NNZ
 #define SPLIT_SIZE
 
-//#define FAST_MM_MAP
-//#define FAST_MM_VECTOR
-
-typedef unsigned int  index_t;
-typedef unsigned long nnz_t;
-typedef double        value_t;
-typedef unsigned char uchar;
-
-#define ITER_LAZY 20        // number of update steps for lazy-update
+// number of update steps for lazy-update
+#define ITER_LAZY 20
 
 const double ALMOST_ZERO = 1e-16;
 
@@ -257,11 +251,11 @@ public:
 
     void fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C, MPI_Comm comm);
 
-    int find_aggregation(saena_matrix* A, std::vector<unsigned long>& aggregate, std::vector<index_t>& splitNew);
+    int find_aggregation(saena_matrix* A, std::vector<index_t>& aggregate, std::vector<index_t>& splitNew);
     int create_strength_matrix(saena_matrix* A, strength_matrix* S);
-    int aggregation_1_dist(strength_matrix *S, std::vector<unsigned long> &aggregate, std::vector<unsigned long> &aggArray);
+    int aggregation_1_dist(strength_matrix *S, std::vector<index_t> &aggregate, std::vector<index_t> &aggArray);
     int aggregation_2_dist(strength_matrix *S, std::vector<unsigned long> &aggregate, std::vector<unsigned long> &aggArray);
-    int aggregate_index_update(strength_matrix* S, std::vector<unsigned long>& aggregate, std::vector<unsigned long>& aggArray, std::vector<index_t>& splitNew);
+    int aggregate_index_update(strength_matrix* S, std::vector<index_t>& aggregate, std::vector<index_t>& aggArray, std::vector<index_t>& splitNew);
     int create_prolongation(Grid *gird, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all);
 
     int set_repartition_rhs(saena_vector *rhs);

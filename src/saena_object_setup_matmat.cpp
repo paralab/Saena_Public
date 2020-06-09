@@ -5,15 +5,15 @@
 #include "GR_encoder.h"
 #include "aux_functions.h"
 #include "parUtils.h"
-#include "dollar.hpp"
+//#include "dollar.hpp"
 
 #include <mkl_spblas.h>
 
-#include <cstdio>
+//#include <cstdio>
 #include <fstream>
 #include <algorithm>
+//#include <iomanip>
 #include <mpi.h>
-#include <iomanip>
 
 
 double case1 = 0, case2 = 0, case3 = 0; // for timing case parts of fast_mm
@@ -209,11 +209,27 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
             MKL_INT request = 0;
 //            MKL_INT nnz_max = m * k;
 
+#ifdef __INTEL_COMPILER
+#pragma warning (disable:1478)
+#endif
+
+#ifdef __GNUC__
+#pragma GCC diagnostic ignored "-Wdeprecated-declarations"
+#endif
+
             mkl_dcsrmultcsr("n", &request, &sort, &m, &n, &k,
                             B.v, (int *) B.r, (int *) B.col_scan,
                             A.v, (int *) A.r, (int *) A.col_scan,
                             Cmkl_v, (int *) Cmkl_r, (int *) Cmkl_c_scan,
                             &matmat_thre1, &info);
+
+#ifdef __INTEL_COMPILER
+#pragma warning (enable:1478)
+#endif
+
+#ifdef __GNUC__
+#pragma GCC diagnostic warning "-Wdeprecated-declarations"
+#endif
 
 #ifdef __DEBUG1__
 //            printf("mkl_dcsrmultcsr result: %d\n", info);
@@ -1601,7 +1617,7 @@ int saena_object::matmat_assemble(saena_matrix *A, saena_matrix *B, saena_matrix
     C->M_old = C->M;
 
     C->nnz_l = C->entry.size();
-    MPI_Allreduce(&C->nnz_l, &C->nnz_g, 1, MPI_UNSIGNED_LONG, MPI_SUM, comm);
+    MPI_Allreduce(&C->nnz_l, &C->nnz_g, 1, par::Mpi_datatype<nnz_t>::value(), MPI_SUM, comm);
 
     C->comm            = A->comm;
     C->comm_old        = A->comm;

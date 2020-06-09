@@ -86,15 +86,6 @@ int saena_vector::set(const index_t* idx, const value_t* val, const index_t size
     return 0;
 }
 
-int saena_vector::set(const int* idx, const value_t* val, const int size){
-
-    for(index_t i = 0; i < size; i++){
-        set(idx[i], val[i]);
-    }
-
-    return 0;
-}
-
 int saena_vector::set(const value_t* val, const index_t size, const index_t offset){
 
     for(index_t i = 0; i < size; i++){
@@ -347,7 +338,7 @@ int saena_vector::return_vec(std::vector<double> &u1, std::vector<double> &u2){
         sendCountScan.resize(nprocs);
         recvCountScan[0] = 0;
         sendCountScan[0] = 0;
-        for (unsigned int i = 1; i < nprocs; i++) {
+        for (index_t i = 1; i < nprocs; i++) {
             recvCountScan[i] = recvCountScan[i - 1] + recvCount[i - 1];
             sendCountScan[i] = sendCountScan[i - 1] + sendCount[i - 1];
         }
@@ -389,8 +380,8 @@ int saena_vector::return_vec(std::vector<double> &u1, std::vector<double> &u2){
 
         // send_idx: elements that should be sent to other procs.
         send_idx.resize(send_sz);
-        MPI_Alltoallv(&recv_idx[0], &recvCount[0], &rdispls[0], MPI_UNSIGNED,
-                      &send_idx[0], &sendCount[0], &vdispls[0], MPI_UNSIGNED, comm);
+        MPI_Alltoallv(&recv_idx[0], &recvCount[0], &rdispls[0], par::Mpi_datatype<index_t>::value(),
+                      &send_idx[0], &sendCount[0], &vdispls[0], par::Mpi_datatype<index_t>::value(), comm);
 
         if (verbose_return_vec) {
 //            print_vector(send_idx, -1, "send_idx", comm);

@@ -42,9 +42,9 @@ int saena_matrix::shrink_cpu(){
     // create a new comm including only processes with 4k rank.
     MPI_Group bigger_group;
     MPI_Comm_group(comm, &bigger_group);
-    total_active_procs = (unsigned int)ceil((double)nprocs / cpu_shrink_thre2); // note: this is ceiling, not floor.
+    total_active_procs = (index_t)ceil((double)nprocs / cpu_shrink_thre2); // note: this is ceiling, not floor.
     std::vector<int> ranks(total_active_procs);
-    for(unsigned int i = 0; i < total_active_procs; i++)
+    for(index_t i = 0; i < total_active_procs; i++)
         ranks[i] = cpu_shrink_thre2 * i;
 //        ranks.emplace_back(Ac->cpu_shrink_thre2 * i);
 
@@ -64,7 +64,7 @@ int saena_matrix::shrink_cpu(){
         split.shrink_to_fit();
         split[0] = 0;
         split[total_active_procs] = Mbig;
-        for(unsigned int i = 1; i < total_active_procs; i++){
+        for(index_t i = 1; i < total_active_procs; i++){
 //            if(rank==0) printf("%u \t%lu \n", i, split_old[ranks[i]]);
             split[i] = split_temp[ranks[i]];
         }
@@ -102,7 +102,7 @@ int saena_matrix::shrink_cpu_minor(){
 
     total_active_procs = 0;
     std::vector<int> ranks(nprocs);
-    for(unsigned int i = 0; i < nprocs; i++){
+    for(index_t i = 0; i < nprocs; i++){
         if(split[i+1] - split[i] != 0){
             ranks[total_active_procs] = i;
             total_active_procs++;
@@ -127,7 +127,7 @@ int saena_matrix::shrink_cpu_minor(){
         split.shrink_to_fit();
         split[0] = 0;
         split[total_active_procs] = Mbig;
-        for(unsigned int i = 1; i < total_active_procs; i++){
+        for(index_t i = 1; i < total_active_procs; i++){
 //            if(rank==0) printf("%u \t%lu \n", i, split_old[ranks[i]]);
             split[i] = split_old_minor[ranks[i]];
         }
@@ -379,8 +379,6 @@ int saena_matrix::set_off_on_diagonal_dummy(){
                 col_remote2.emplace_back(entry[0].col);
                 nnzPerCol_remote.emplace_back(1);
                 vElement_remote.emplace_back(entry[0].col);
-                vElementRep_remote.emplace_back(1);
-//                if(rank==1) printf("col = %u \tprocNum = %ld \n", entry[0].col, lower_bound3(&split[0], &split[nprocs], entry[0].col));
                 recvCount[lower_bound2(&split[0], &split[nprocs], entry[0].col)] = 1;
             }
         }
@@ -396,11 +394,6 @@ int saena_matrix::set_off_on_diagonal_dummy(){
 //                    values_local.emplace_back(entry[i].val);
 //                    row_local.emplace_back(entry[i].row - split[rank]);
                     col_local.emplace_back(entry[i].col);
-
-//                    if (entry[i].col != entry[i - 1].col)
-//                        vElementRep_local.emplace_back(1);
-//                    else
-//                        vElementRep_local.back()++;
                 } else {
                     nnz_l_remote++;
 //                    nnzPerRow_remote[entry[i].row - split[rank]]++;
@@ -412,13 +405,11 @@ int saena_matrix::set_off_on_diagonal_dummy(){
                     if (entry[i].col != entry[i - 1].col) {
                         col_remote_size++;
                         vElement_remote.emplace_back(entry[i].col);
-                        vElementRep_remote.emplace_back(1);
                         procNum = lower_bound2(&split[0], &split[nprocs], entry[i].col);
 //                        if(rank==1) printf("col = %u \tprocNum = %ld \n", entry[i].col, procNum);
                         recvCount[procNum]++;
                         nnzPerCol_remote.emplace_back(1);
                     } else {
-                        vElementRep_remote.back()++;
                         nnzPerCol_remote.back()++;
                     }
                     // the original col values are not being used. the ordering starts from 0, and goes up by 1.
@@ -451,7 +442,7 @@ int saena_matrix::set_off_on_diagonal_dummy(){
         sendCountScan.resize(nprocs);
         recvCountScan[0] = 0;
         sendCountScan[0] = 0;
-        for (unsigned int i = 1; i < nprocs; i++){
+        for (index_t i = 1; i < nprocs; i++){
             recvCountScan[i] = recvCountScan[i-1] + recvCount[i-1];
             sendCountScan[i] = sendCountScan[i-1] + sendCount[i-1];
         }
@@ -492,10 +483,10 @@ int saena_matrix::set_off_on_diagonal_dummy(){
         recvSize   = rdispls[nprocs - 1] + recvCount[nprocs - 1];
 
         vIndex.resize(vIndexSize);
-        MPI_Alltoallv(&vElement_remote[0], &recvCount[0], &rdispls[0], MPI_UNSIGNED,
-                      &vIndex[0],          &sendCount[0], &vdispls[0], MPI_UNSIGNED, comm);
+        MPI_Alltoallv(&vElement_remote[0], &recvCount[0], &rdispls[0], par::Mpi_datatype<index_t>::value(),
+                      &vIndex[0],          &sendCount[0], &vdispls[0], par::Mpi_datatype<index_t>::value(), comm);
 
-//    print_vector(vIndex, -1, "vIndex", comm);
+//        print_vector(vIndex, -1, "vIndex", comm);
 
         if(verbose_matrix_setup) {
             MPI_Barrier(comm);
