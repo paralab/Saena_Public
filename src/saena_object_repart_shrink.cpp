@@ -180,9 +180,8 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
 
     // ************** check rhs size **************
 
-    auto    rhs_size_local = (index_t) rhs0.size();
-    index_t rhs_size_total = 0;
-    MPI_Allreduce(&rhs_size_local, &rhs_size_total, 1, par::Mpi_datatype<index_t>::value(), MPI_SUM, comm);
+    index_t rhs_size_local = (index_t)rhs0.size(), rhs_size_total;
+    MPI_Allreduce(&rhs_size_local, &rhs_size_total, 1, MPI_UNSIGNED, MPI_SUM, comm);
     if(grids[0].A->Mbig != rhs_size_total){
         if(rank==0) printf("Error: size of LHS (=%u) and RHS (=%u) are not equal!\n", grids[0].A->Mbig,rhs_size_total);
         MPI_Finalize();
@@ -193,9 +192,9 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
 
     std::vector<index_t> rhs_init_partition(nprocs);
     rhs_init_partition[rank] = (index_t)rhs0.size();
-    auto temp = (index_t) rhs0.size();
+    auto temp = (index_t)rhs0.size();
 
-    MPI_Allgather(&temp, 1, par::Mpi_datatype<index_t>::value(), &*rhs_init_partition.begin(), 1, par::Mpi_datatype<index_t>::value(), comm);
+    MPI_Allgather(&temp, 1, MPI_UNSIGNED, &*rhs_init_partition.begin(), 1, MPI_UNSIGNED, comm);
 //    MPI_Alltoall(&*grids[0].rhs_init_partition.begin(), 1, MPI_INT, &*grids[0].rhs_init_partition.begin(), 1, MPI_INT, grids[0].comm);
 
 //    print_vector(rhs_init_partition, 1, "rhs_init_partition", comm);
@@ -419,9 +418,9 @@ int saena_object::shrink_cpu_A(saena_matrix* Ac, std::vector<index_t>& P_splitNe
 
     // 2 - update the number of rows on process 4k, and resize "entry".
     index_t Ac_M_neighbors_total = 0;
-    nnz_t Ac_nnz_neighbors_total = 0;
-    MPI_Reduce(&Ac->M,     &Ac_M_neighbors_total,   1, par::Mpi_datatype<index_t>::value(), MPI_SUM, 0, Ac->comm_horizontal);
-    MPI_Reduce(&Ac->nnz_l, &Ac_nnz_neighbors_total, 1, par::Mpi_datatype<nnz_t>::value(),   MPI_SUM, 0, Ac->comm_horizontal);
+    unsigned int Ac_nnz_neighbors_total = 0;
+    MPI_Reduce(&Ac->M, &Ac_M_neighbors_total, 1, MPI_UNSIGNED, MPI_SUM, 0, Ac->comm_horizontal);
+    MPI_Reduce(&Ac->nnz_l, &Ac_nnz_neighbors_total, 1, MPI_UNSIGNED, MPI_SUM, 0, Ac->comm_horizontal);
 
     if(rank_new == 0){
         Ac->M = Ac_M_neighbors_total;
@@ -431,7 +430,7 @@ int saena_object::shrink_cpu_A(saena_matrix* Ac, std::vector<index_t>& P_splitNe
     }
 
     // last cpu that its right neighbors are going be shrinked to.
-    auto last_root_cpu = (index_t) floor(nprocs/Ac->cpu_shrink_thre2) * Ac->cpu_shrink_thre2;
+    auto last_root_cpu = (unsigned int)floor(nprocs/Ac->cpu_shrink_thre2) * Ac->cpu_shrink_thre2;
 //    printf("last_root_cpu = %u\n", last_root_cpu);
 
     int neigbor_rank;
@@ -454,10 +453,10 @@ int saena_object::shrink_cpu_A(saena_matrix* Ac, std::vector<index_t>& P_splitNe
 
             // 3 - send and receive size of Ac.
             if (rank_new == 0)
-                MPI_Recv(&A_recv_nnz, 1, par::Mpi_datatype<nnz_t>::value(), neigbor_rank, 0, Ac->comm_horizontal, MPI_STATUS_IGNORE);
+                MPI_Recv(&A_recv_nnz, 1, MPI_UNSIGNED_LONG, neigbor_rank, 0, Ac->comm_horizontal, MPI_STATUS_IGNORE);
 
             if (rank_new == neigbor_rank)
-                MPI_Send(&Ac->nnz_l, 1, par::Mpi_datatype<nnz_t>::value(), 0, 0, Ac->comm_horizontal);
+                MPI_Send(&Ac->nnz_l, 1, MPI_UNSIGNED_LONG, 0, 0, Ac->comm_horizontal);
 
             // 4 - send and receive Ac.
             if (rank_new == 0) {
@@ -524,7 +523,7 @@ int saena_object::shrink_cpu_A(saena_matrix* Ac, std::vector<index_t>& P_splitNe
     // 6 - create a new comm including only processes with 4k rank.
     MPI_Group bigger_group;
     MPI_Comm_group(comm, &bigger_group);
-    auto total_active_procs = (index_t)ceil((double)nprocs / Ac->cpu_shrink_thre2); // note: this is ceiling, not floor.
+    auto total_active_procs = (unsigned int)ceil((double)nprocs / Ac->cpu_shrink_thre2); // note: this is ceiling, not floor.
     std::vector<int> ranks(total_active_procs);
     for(i = 0; i < total_active_procs; i++)
         ranks[i] = Ac->cpu_shrink_thre2 * i;
@@ -558,7 +557,7 @@ int saena_object::shrink_cpu_A(saena_matrix* Ac, std::vector<index_t>& P_splitNe
         Ac->split.shrink_to_fit();
         Ac->split[0] = 0;
         Ac->split[total_active_procs] = Ac->Mbig;
-        for(index_t i = 1; i < total_active_procs; i++){
+        for(unsigned int i = 1; i < total_active_procs; i++){
 //            if(rank==0) printf("%u \t%lu \n", i, split_old[ranks[i]]);
             Ac->split[i] = split_temp[ranks[i]];
         }
@@ -1078,7 +1077,7 @@ int saena_object::shrink_u_rhs(Grid* grid, std::vector<value_t>& u, std::vector<
     }
 
     // last cpu that its right neighbors are going be shrinked to.
-    auto last_root_cpu = (index_t)floor(nprocs/grid->A->cpu_shrink_thre2) * grid->A->cpu_shrink_thre2;
+    auto last_root_cpu = (unsigned int)floor(nprocs/grid->A->cpu_shrink_thre2) * grid->A->cpu_shrink_thre2;
 //    printf("last_root_cpu = %u\n", last_root_cpu);
 
     int neigbor_rank;
@@ -1165,7 +1164,7 @@ int saena_object::unshrink_u(Grid* grid, std::vector<value_t>& u) {
         offset = grid->Ac.split_old[rank + 1] - grid->Ac.split_old[rank];
 
     // last cpu that its right neighbors are going be shrinked to.
-    auto last_root_cpu = (index_t)floor(nprocs/grid->A->cpu_shrink_thre2) * grid->A->cpu_shrink_thre2;
+    auto last_root_cpu = (unsigned int)floor(nprocs/grid->A->cpu_shrink_thre2) * grid->A->cpu_shrink_thre2;
 //    printf("last_root_cpu = %u\n", last_root_cpu);
 
 

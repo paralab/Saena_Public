@@ -101,7 +101,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
                     while (inFile.peek() == '%') inFile.ignore(2048, '\n');
 
                     // M and N are the size of the matrix with nnz nonzeros
-                    nnz_t M, N, nnz;
+                    unsigned int M, N, nnz;
                     inFile >> M >> N >> nnz;
 
 //                printf("M = %u, N = %u, nnz = %u \n", M, N, nnz);
@@ -114,7 +114,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
                     // number of nonzeros is less than 2*nnz, considering the diagonal
                     // that's why there is a resize for entry when nnz is found.
 
-                    index_t a, b, i = 0;
+                    unsigned int a, b, i = 0;
                     double c;
 
                     if (input_type.empty()) {
@@ -239,7 +239,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
                     std::string line;
                     double temp;
-                    index_t row = 0, col;
+                    unsigned int row = 0, col;
 
                     while (std::getline(inFile, line)) {
                         std::istringstream iss(line);
@@ -342,7 +342,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
     // after removing duplicates, initial_nnz_l and nnz_g will be smaller, so update them.
     initial_nnz_l = data.size();
-    MPI_Allreduce(&initial_nnz_l, &nnz_g, 1, par::Mpi_datatype<nnz_t>::value(), MPI_SUM, comm);
+    MPI_Allreduce(&initial_nnz_l, &nnz_g, 1, MPI_UNSIGNED_LONG, MPI_SUM, comm);
 
     // *************************** find Mbig (global number of rows) ****************************
     // Since data[] has row-major order, the last element on the last process is the number of rows.
@@ -350,7 +350,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
     cooEntry last_element = data.back();
     Mbig = last_element.row + 1; // since indices start from 0, not 1.
-    MPI_Bcast(&Mbig, 1, par::Mpi_datatype<index_t>::value(), nprocs-1, comm);
+    MPI_Bcast(&Mbig, 1, MPI_UNSIGNED, nprocs-1, comm);
 
     if(verbose_saena_matrix){
         MPI_Barrier(comm);
@@ -403,7 +403,7 @@ int saena_matrix::set(index_t* row, index_t* col, value_t* val, nnz_t nnz_local)
     std::pair<std::set<cooEntry_row>::iterator, bool> p;
 
     // todo: isn't it faster to allocate memory for nnz_local, then assign, instead of inserting one by one.
-    for(nnz_t i=0; i<nnz_local; i++){
+    for(unsigned int i=0; i<nnz_local; i++){
 
         temp_new = cooEntry_row(row[i], col[i], val[i]);
         p = data_coo.insert(temp_new);
@@ -461,7 +461,7 @@ int saena_matrix::set2(index_t* row, index_t* col, value_t* val, nnz_t nnz_local
     cooEntry_row temp_old, temp_new;
     std::pair<std::set<cooEntry_row>::iterator, bool> p;
 
-    for(nnz_t i=0; i<nnz_local; ++i){
+    for(unsigned int i=0; i<nnz_local; i++){
         if(!almost_zero(val[i])){
             temp_new = cooEntry_row(row[i], col[i], val[i]);
             p = data_coo.insert(temp_new);
@@ -631,9 +631,7 @@ int saena_matrix::erase(){
 //    vElementRep_local.shrink_to_fit();
     vElementRep_remote.shrink_to_fit();
 
-    if(free_zfp_buff){
-        deallocate_zfp();
-    }
+    deallocate_zfp();
 
     M = 0;
     Mbig = 0;
@@ -731,9 +729,7 @@ int saena_matrix::erase2(){
     vElement_remote.shrink_to_fit();
     w_buff.shrink_to_fit();
 
-    if(free_zfp_buff){
-        deallocate_zfp();
-    }
+    deallocate_zfp();
 
 //    M = 0;
 //    Mbig = 0;
@@ -1063,9 +1059,7 @@ int saena_matrix::erase_no_shrink_to_fit(){
 //    vElementRep_local.shrink_to_fit();
 //    vElementRep_remote.shrink_to_fit();
 
-    if(free_zfp_buff){
-        deallocate_zfp();
-    }
+    deallocate_zfp();
 
     M = 0;
     Mbig = 0;

@@ -3,6 +3,11 @@
 
 #include "data_struct.h"
 
+typedef unsigned int  index_t;
+typedef unsigned long nnz_t;
+typedef double        value_t;
+typedef unsigned char uchar;
+
 
 // Golomb-Rice encoder
 class GR_encoder {

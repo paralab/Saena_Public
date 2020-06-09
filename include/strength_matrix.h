@@ -7,6 +7,10 @@
 #include "mpi.h"
 
 
+typedef unsigned int index_t;
+typedef unsigned long nnz_t;
+typedef double value_t;
+
 class strength_matrix {
 
 public:

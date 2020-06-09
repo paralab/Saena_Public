@@ -1,7 +1,6 @@
 #ifndef SAENA_GRID_H
 #define SAENA_GRID_H
 
-#include "data_struct.h"
 #include "prolong_matrix.h"
 #include "restrict_matrix.h"
 #include "saena_matrix.h"
@@ -9,6 +8,10 @@
 
 #include <vector>
 #include <mpi.h>
+
+typedef unsigned int index_t;
+typedef unsigned long nnz_t;
+typedef double value_t;
 
 
 class Grid{
