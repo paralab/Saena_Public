@@ -31,5 +31,5 @@ cd ..
 
 # Saena
 cmake ..
-make -j28
+make -j28 install
 cd ..
