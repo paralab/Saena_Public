@@ -60,6 +60,7 @@ public:
     index_t M_max   = 0; // biggest M on all the processors
 
     int p_order = 1;
+    int prodim = 2;
 
     std::set<cooEntry_row> data_coo;
     std::vector<cooEntry>  entry;
@@ -121,8 +122,6 @@ public:
     std::vector<nnz_t> iter_local_array2;
     std::vector<nnz_t> iter_remote_array2;
     std::vector<index_t> vElement_remote;
-//    std::vector<index_t> vElementRep_local;
-    std::vector<index_t> vElementRep_remote;
     std::vector<value_t> w_buff; // for matvec3()
 
     bool add_duplicates = true;
@@ -232,6 +231,7 @@ public:
 //    int set3(unsigned int* row, unsigned int* col, double* val, unsigned int nnz_local);
 
     void set_p_order(int _p_order);
+    void set_prodim(int _prodim);
 
     int assemble(bool scale = true);
     int setup_initial_data();
@@ -277,6 +277,7 @@ public:
 
     // for the compression paper
     int matvec_sparse_test(std::vector<value_t>& v, std::vector<value_t>& w);
+    int matvec_sparse_test2(std::vector<value_t>& v, std::vector<value_t>& w);
     int matvec_sparse_comp(std::vector<value_t>& v, std::vector<value_t>& w);
     // openmp versions
     int matvec_sparse_test_omp(std::vector<value_t>& v, std::vector<value_t>& w);
