@@ -414,7 +414,7 @@ public:
     }
 
     std::vector<int> next_p_level(std::vector<int> ind_fine, int order);
-    std::vector<int> next_p_level_new(std::vector<int> ind_fine, int order, int &type);
+    std::vector<int> next_p_level_new(std::vector<int> ind_fine, int order, int *type = NULL);
     void set_PR_from_p(int order, std::vector< std::vector<int> > map, std::vector< std::vector<double> > &Pp);//, std::vector< std::vector<double> > &Rp);
     void set_P_from_mesh(int order, std::vector< std::vector<int> > map, std::vector<cooEntry_row> &P_temp, MPI_Comm comm, std::vector<int> g2u);
     
