@@ -58,7 +58,7 @@ public:
     double       row_reduction_down_thrshld = 0.10;
 
     bool repartition         = false; // this parameter will be set to true if the partition of input matrix changed. it will be decided in set_repartition_rhs().
-    bool dynamic_levels      = true;
+    bool dynamic_levels      = false;
     bool adaptive_coarsening = false;
 //    bool shrink_cpu          = true;
 
