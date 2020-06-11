@@ -416,7 +416,7 @@ public:
     std::vector<int> next_p_level(std::vector<int> ind_fine, int order);
     std::vector<int> next_p_level_new(std::vector<int> ind_fine, int order, int *type = NULL);
     void set_PR_from_p(int order, std::vector< std::vector<int> > map, std::vector< std::vector<double> > &Pp);//, std::vector< std::vector<double> > &Rp);
-    void set_P_from_mesh(int order, std::vector< std::vector<int> > map, std::vector<cooEntry_row> &P_temp, MPI_Comm comm, std::vector<int> g2u);
+    void set_P_from_mesh(int order, std::vector< std::vector<int> > map, std::vector<cooEntry_row> &P_temp, MPI_Comm comm, std::vector< std::vector<int> > &g2u_all);
     
     std::vector<double> get_interpolation(int ind, int orderm);
     // replace above one after testing
@@ -435,8 +435,9 @@ public:
     inline std::vector< std::vector<double> > one_interp_P(int order);
 
 	inline std::vector< std::vector<int> > mesh_info(int order, std::string filename, std::vector< std::vector< std::vector<int> > > &map_all, MPI_Comm comm);
-	inline std::vector<int> g2umap(int order, std::string filename, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector<int> > map, MPI_Comm comm);
+	void g2umap(int order, std::string filename, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map, MPI_Comm comm);
 	int bdydof;
+	int next_bdydof;
     int elemno;
     int nodeno_fine;
     int nodeno_coarse;

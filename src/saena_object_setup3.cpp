@@ -73,14 +73,13 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     }
 #endif
 
-	cout << "*******************************Finish mesh_info ********************************" << endl;
-    vector<int> g2u;
-    if (map_all.size() == 1){
-        g2u = g2umap(order, filename_g2u, g2u_all, map, comm);
-    }else{
-        g2u = g2umap(order, filename_g2u, g2u_all, map_all.at(map_all.size()-2), comm);
-    }
-	cout << "*******************************Finish g2u ********************************" << endl;
+	if (rank == rank_v)
+		cout << "*******************************Finish mesh_info ********************************" << endl;
+  
+    g2umap(order, filename_g2u, g2u_all, map_all, comm);
+   
+	if (rank == rank_v)
+		cout << "*******************************Finish g2u ********************************" << endl;
 
 #ifdef __DEBUG1__
     if(verbose_coarsen) {
@@ -109,8 +108,8 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     vector<cooEntry_row> P_temp;
 //    vector< vector<double> > Pp;//, Rp;
 	//set_PR_from_p(order, map, prodim, Pp);//, Rp);
-    set_P_from_mesh(order, map, P_temp, comm, g2u);//, Rp);
-
+    set_P_from_mesh(order, map, P_temp, comm, g2u_all);//, Rp);
+	bdydof = next_bdydof;
 #ifdef __DEBUG1__
 //    print_vector(P_temp, -1, "P_temp", comm);
     if(verbose_coarsen) {
@@ -169,9 +168,10 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
 
     vector<cooEntry_row> Pent;
 //    P->entry.clear();
-    //par::sampleSort(P_temp, Pent, P->split, comm);
+    par::sampleSort(P_temp, Pent, P->split, comm);
 
-	Pent = P_temp;
+	//Pent = P_temp;
+	//print_vector(P_temp, -1, "P_temp", comm);
     // remove duplicates
     Pent.erase( unique( Pent.begin(), Pent.end() ), Pent.end() );
 
@@ -292,6 +292,8 @@ vector<int> saena_object::next_p_level_new(vector<int> ind_fine, int order, int 
     // 2: tet
     // 3: hex
 	// 4: prism
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
 	int type;
     int vert_size = ind_fine.size();
     if (vert_size == (order+1)*(order+1))
@@ -306,7 +308,8 @@ vector<int> saena_object::next_p_level_new(vector<int> ind_fine, int order, int 
         type = 4;
     else
     {
-        std::cout << "element type is not implemented!" << std::endl;
+		if (rank == rank_v)
+        	std::cout << "element type is not implemented!" << std::endl;
     }
   
     //cout << 6+9*(order-1)+3*(order-1)*(order-1)+(order-1)*(order-2)+(order-1)*(order-1)*(order-2)/2 << " " << vert_size << endl;
@@ -432,28 +435,30 @@ vector<int> saena_object::coarse_p_node_arr(vector< vector<int> > map, int order
     return ind;
 } 
 
-void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<cooEntry_row> &P_temp, MPI_Comm comm, vector<int> g2u){
+void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<cooEntry_row> &P_temp, MPI_Comm comm, vector< vector<int> > &g2u_all){
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+	vector<int> g2u_f = g2u_all.at(g2u_all.size()-2);
+	vector<int> g2u_c = g2u_all.at(g2u_all.size()-1);
     // get universal number of dof
     // any other better way?
-	int g2u_univ_size = 0;
-	int g2u_size = g2u.size();
-   
-	MPI_Allreduce(&g2u_size, &g2u_univ_size, 1, MPI_INT, MPI_SUM, comm);
+	int g2u_f_univ_size = 0;
+	int g2u_f_size = g2u_f.size();
+  
+	MPI_Allreduce(&g2u_f_size, &g2u_f_univ_size, 1, MPI_INT, MPI_SUM, comm);
 
-	vector<int> g2u_univ_map(g2u_univ_size);
+	vector<int> g2u_univ_map(g2u_f_univ_size);
 	vector<int> count_arr(nprocs);
-	MPI_Allgather(&g2u_size, 1, MPI_INT, count_arr.data(), 1, MPI_INT, comm);
+	MPI_Allgather(&g2u_f_size, 1, MPI_INT, count_arr.data(), 1, MPI_INT, comm);
 
 	vector<int> displs(nprocs);
 	displs[0] = 0;
 	for (int i=1; i<nprocs;i++)
 		displs[i] = displs[i-1]+count_arr[i-1];
 
-	MPI_Allgatherv(g2u.data(), g2u.size(), MPI_INT, g2u_univ_map.data(), count_arr.data(), displs.data(), MPI_INT, comm);
+	MPI_Allgatherv(g2u_f.data(), g2u_f_size, MPI_INT, g2u_univ_map.data(), count_arr.data(), displs.data(), MPI_INT, comm);
 
 	// compute the universal fine matrix size
 	// ======================================
@@ -465,6 +470,10 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
     
     int univ_nodeno_fine = g2u_univ_map_tmp.size();
     g2u_univ_map_tmp.clear();
+
+		//cout << univ_nodeno_fine << endl;
+		//MPI_Barrier(MPI_COMM_WORLD);
+		//exit(0);	 
 //    g2u_univ_map.clear(); //TODO
 
     // ======================================
@@ -486,7 +495,12 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
         }
     }
 
-	cout << "bdy node # = " << bdydof << endl;
+	if (rank == rank_v)
+	{
+		cout << "order = " << order << endl;
+		cout << "bdy node # = " << bdydof << endl;
+		cout << "next bdy node # = " << next_bdydof << endl;
+	}
     // col is global
     // row is universal
     // nodeno_coarse is the local coarse level size without boundary nodes
@@ -502,7 +516,7 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
     // next level g2u
     // index next level node index
     // value this level g2u value
-	vector<int> g2u_map(nodeno_coarse);
+	//vector<int> g2u_map_c(nodeno_coarse);
     // coarse_node_ind index is coraser mesh node index
     // coarse_node_ind value is finer mesh node index
 
@@ -548,13 +562,13 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
             // TODO This is slow, may need smarter way
             int P_col = findloc(coarse_node_ind, ind_coarse.at(j));
 
-			max_col = max(max_col, P_col);
             /*if (rank == rank_v && ind_coarse[j] == 42)
                 cout << "P_col = " << P_col << std::endl;*/
 
             // index corase level dof
             // value universal value at this level
-			g2u_map.at(P_col) = g2u[ind_coarse.at(j)-1-bdydof];
+			//g2u_map.at(P_col) = g2u[ind_coarse.at(j)-1-bdydof];
+			//cout << P_col << " " << g2u_map.at(P_col) << endl;
             // assuming the map ordering (connectivity) is the same as ref element
             // shared nodes between elements should have the same values
             // when evaluated in each of the elememnts
@@ -572,8 +586,10 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
                 // row is universal
                 if(fabs(val[k]) > 1e-14){
 					//cout << "HERE--------------" << endl;
-                    P_temp.emplace_back(g2u.at(map.at(i).at(k)-1-bdydof), g2u_map[P_col], val[k]);
-					max_row = max(max_row, g2u.at(map.at(i).at(k)-1-bdydof));
+                    P_temp.emplace_back(g2u_f.at(map.at(i).at(k)-1-bdydof), g2u_c.at(P_col), val[k]);
+                    //P_temp.emplace_back(g2u.at(map.at(i).at(k)-1-bdydof), P_col, val[k]);
+					max_row = max(max_row, map.at(i).at(k)-1-bdydof);
+					max_col = max(max_col, P_col);
                 }
 
 //                Pp_loc.at(g2u.at(map.at(i).at(k)-1-bdydof)).at(P_col) = val.at(k);
@@ -589,8 +605,8 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
 				//skip.push_back(P_col);
         }
     }
-
-	cout << "max row and col = " << max_row << " " << max_col << endl;
+    if (rank == rank_v)
+		cout << "max row and col = " << max_row << " " << max_col << endl;
     std::sort(P_temp.begin(), P_temp.end());
     P_temp.erase( unique( P_temp.begin(), P_temp.end() ), P_temp.end() );
 
@@ -1349,9 +1365,9 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, string file
 	int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
-    vector <vector<int> > map;
+    vector <vector<int> > map = map_all.at(map_all.size()-1);
     if (map_all.size() == 1) {
-        map = map_all[0];
+        //map = map_all[0];
         elemno = map_all[0].size();
 #if 0
         // assume pure quad elememt for now
@@ -1386,56 +1402,63 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, string file
         std::cout << "\n";*/
         //exit(0);
 #endif
-    }else{
-        vector< vector<int> > map_pre = map_all.at(map_all.size()-1);
+    }
+
+	if (order > 1)
+	{
         // coarse_node_ind index is coraser mesh node index
         // coarse_node_ind value is finer mesh node index
-        vector<int> coarse_node_ind = coarse_p_node_arr(map_pre, order*2);
+
+        vector<int> coarse_node_ind = coarse_p_node_arr(map, order);
         sort(coarse_node_ind.begin(), coarse_node_ind.end());
         
+    	vector <vector<int> > map_next(elemno);
         for (int i = 0; i < elemno; ++i){
-            vector<int> aline = map_pre.at(i);
-            vector<int> ind_coarse = next_p_level_new(aline, order*2);
+            vector<int> aline = map.at(i);
+            vector<int> ind_coarse = next_p_level_new(aline, order);
             for (int j = 0; j < ind_coarse.size(); ++j){
                 int mapped_val = findloc(coarse_node_ind, ind_coarse.at(j));
-                map.at(i).emplace_back(mapped_val+1);
+                map_next.at(i).emplace_back(mapped_val+1);
             }
         }
-    }
-    map_all.emplace_back(vector< vector<int> >());
-    for (int i = 0; i < map.size(); ++i){
-        map_all.at(map_all.size()-1).push_back(vector<int>());
-        for (int j = 0; j < map.at(0).size(); ++j){
-            map_all.at(map_all.size()-1).at(i).emplace_back(map.at(i).at(j));
-        }
-    }
-    // get fine and corase number of nodes in this P level
-    nodeno_coarse = coarse_p_node_arr(map, order).size();
-    nodeno_fine = 0;
-    for (int i = 0; i < map.size(); ++i){
-        nodeno_fine = std::max(*max_element(map[i].begin(), map[i].end()), nodeno_fine);        
-    }
-    if (rank == rank_v){
-        cout << "elem # = " << elemno << endl;
-        cout << "fine node # = " << nodeno_fine << ", and coarse node # = " << nodeno_coarse << endl;
-    }
-
-    //std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
-    return map;
-
+		map_all.emplace_back(vector< vector<int> >());
+		for (int i = 0; i < elemno; ++i){
+			map_all.at(map_all.size()-1).push_back(vector<int>());
+			for (int j = 0; j < map_next.at(i).size(); ++j){
+				map_all.at(map_all.size()-1).at(i).emplace_back(map_next.at(i).at(j));
+			}
+		}
+    
+		// get fine and corase number of nodes in this P level
+    	nodeno_coarse = coarse_p_node_arr(map, order).size();
+    	nodeno_fine = 0;
+    	for (int i = 0; i < map.size(); ++i){
+        	nodeno_fine = std::max(*max_element(map[i].begin(), map[i].end()), nodeno_fine);        
+    	}
+    	if (rank == rank_v){
+        	cout << "elem # = " << elemno << endl;
+        	cout << "current fine node # = " << nodeno_fine << ", and next coarse node # = " << nodeno_coarse << endl;
+    	}
+	}
+	else {
+    	if (rank == rank_v){
+        	cout << "This is the p = 1 level, and NO next coarse p level is computed" << endl;
+    	}
+	}	
+    	//std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
+    
+	return map;
 
 }
 
 //this is the function as mesh info for test for now
-inline std::vector<int> saena_object::g2umap(int order, string filename, vector< vector<int> > &g2u_all, vector< vector<int> > map, MPI_Comm comm)
+void saena_object::g2umap(int order, string filename, vector< vector<int> > &g2u_all, vector< vector< vector<int> > > &map_all, MPI_Comm comm)
 {
 
-	vector<int> g2u;
-    if (g2u_all.size() == 1) {
-        g2u = g2u_all[0];
-#if 0
+    //if (g2u_all.size() == 1) {
+
         // assume pure quad elememt for now
-        ifstream ifs;
+        /*ifstream ifs;
         ifs.open(filename.c_str());
         istringstream iss;
         string aLine;
@@ -1455,20 +1478,25 @@ inline std::vector<int> saena_object::g2umap(int order, string filename, vector<
         }
         ifs.clear();
         ifs.close();
-        iss.clear();
+        iss.clear();*/
         /*for(int k=0; k<g2u.size()/2;k++)
         {
             std::cout << g2u.at(2*k) << " " << g2u.at(2*k+1);
         }
         std::cout << "\n";
         exit(0);*/
-#endif
-    } else {
-        vector <int> next_level_g2u;
+   // } else {
+
+		// entry value is based on finer node 
+        vector <int> g2u_next_fine_node;
         // coarse_node_ind index is coraser mesh node index
         // coarse_node_ind value is finer mesh node index
-        vector<int> coarse_node_ind = coarse_p_node_arr(map, order*2);
-        int next_bdydof = 0;
+		vector< vector<int> > map = map_all.at(map_all.size()-2);
+		vector< vector<int> > map_c = map_all.at(map_all.size()-1);
+
+        vector<int> coarse_node_ind = coarse_p_node_arr(map, order);
+		sort(coarse_node_ind.begin(), coarse_node_ind.end());
+        next_bdydof = 0;
         for (int i = 0; i < coarse_node_ind.size(); ++i)
         {
             // get universal dof value
@@ -1476,7 +1504,7 @@ inline std::vector<int> saena_object::g2umap(int order, string filename, vector<
             if (coarse_node_ind.at(i)-1 <bdydof)
                 next_bdydof ++;
             else
-                next_level_g2u.push_back(g2u_all.at(g2u_all.size()-1).at(coarse_node_ind.at(i)-1-bdydof));
+                g2u_next_fine_node.push_back(g2u_all.at(g2u_all.size()-1).at(coarse_node_ind.at(i)-1-bdydof));
         }
         // now fill mapping from global to universal in next level
         // need communication
@@ -1484,7 +1512,7 @@ inline std::vector<int> saena_object::g2umap(int order, string filename, vector<
         MPI_Comm_size(comm, &nprocs);
         MPI_Comm_rank(comm, &rank);
         int g2u_univ_size;
-        int glb_size = next_level_g2u.size();
+        int glb_size = g2u_next_fine_node.size();
         MPI_Allreduce(&glb_size, &g2u_univ_size, 1, MPI_INT, MPI_SUM, comm);
         vector<int> g2u_univ(g2u_univ_size);
         vector<int> count_arr(nprocs);
@@ -1493,35 +1521,67 @@ inline std::vector<int> saena_object::g2umap(int order, string filename, vector<
         displs[0] = 0;
         for (int i=1; i<nprocs;i++)
             displs[i] = displs[i-1]+count_arr[i-1];
-        MPI_Allgatherv(next_level_g2u.data(), next_level_g2u.size(), MPI_INT, g2u_univ.data(), count_arr.data(), displs.data(), MPI_INT, comm);
+        MPI_Allgatherv(g2u_next_fine_node.data(), g2u_next_fine_node.size(), MPI_INT, g2u_univ.data(), count_arr.data(), displs.data(), MPI_INT, comm);
         // sort the universal g2u map to make sure it is consistent with universal Ac = R*A*P dof ordering 
         // since universal P column is also sorted in the same way
         // now universal g2u index becomes the map value for Ac
         sort(g2u_univ.begin(),g2u_univ.end());
         g2u_univ.erase( unique( g2u_univ.begin(), g2u_univ.end() ), g2u_univ.end() );
         // loop over global map to assign universal value to it
-        
+       
+		//cout << g2u_univ.size() << endl;
+		//MPI_Barrier(MPI_COMM_WORLD);
+		//exit(0);	 
+		// entry value is based on coarser node
+
+        /*vector <int> g2u_next_coarse_node;
         for (int i=0; i<coarse_node_ind.size(); i++)
         {
             // if it is boundary node, it has no conterpart in g2u
             // bdydof will be at the begining since coarse_node_ind is sorted
             if (coarse_node_ind[i] -1 < bdydof)
                 continue;
-            int next_g2u_val = findloc(g2u_univ, g2u_all.at(g2u_all.size()-1).at(coarse_node_ind[i]-1-bdydof));
+            int g2u_next_val = findloc(g2u_univ, g2u_all.at(g2u_all.size()-1).at(coarse_node_ind[i]-1-bdydof));
             // relate i-bdydof (global dof in next level) and next_g2u_val (universal dof in next level)
-            g2u.push_back(next_g2u_val);        
-        }
-        bdydof = next_bdydof;
-    }
-    g2u_all.push_back( vector<int> ());
-    for (int i=0; i<g2u.size(); i++)
-    {
-        g2u_all.at(g2u_all.size()-1).push_back(g2u.at(i));
-    }
-    //std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
-    return g2u;
+            g2u_next_coarse_node.push_back(g2u_next_val);        
+        }*/
 
+		//cout << g2u_next_coarse_node.size() << endl;
+		//MPI_Barrier(MPI_COMM_WORLD);
+		//exit(0);	 
+   		vector <int> g2u_next_coarse_node(nodeno_coarse-next_bdydof);
 
+		//cout << g2u_next_coarse_node.size() << endl;
+		//cout << g2u_next_fine_node.size() << endl;
+		//exit(0);
+		for (int el = 0; el < elemno; el++)
+		{
+			for (int i=0; i< map_c[el].size(); i++)
+			{
+				int ind = map_c.at(el).at(i);
+				//cout << ind << endl;
+				int glb = coarse_node_ind.at(ind-1);
+				//cout << glb << endl;
+				if (glb -1 < bdydof)
+					continue;
+ 
+				int uni = g2u_all.at(g2u_all.size()-1).at(glb-1-bdydof);
+				//cout << uni << endl;
+				int loc = findloc(g2u_univ, uni);
+				//cout << loc << endl;
+				g2u_next_coarse_node.at(ind-1-next_bdydof) = loc;
+			}
+		
+		}
+		
+ 
+		g2u_all.push_back( vector<int> ());
+		for (int i=0; i<g2u_next_coarse_node.size(); i++)
+		{
+			g2u_all.at(g2u_all.size()-1).push_back(g2u_next_coarse_node.at(i));
+		}
+		//std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
+    
 }
 
 // TODO hard coded
@@ -2316,7 +2376,7 @@ std::vector<double> saena_object::get_interpolation_new2(int ind, int order, int
                     double ss = (gl[j]-(-1))/2*(endp-(-1))+(-1);
                     double aa = 2*(1+rr)/(1-ss)-1;;
                     double bb = ss;
-                    double tmp = 1000000000000; //phi_P(type,p,aa,q)*phi_Pq(type,p,q,bb);
+                    double tmp = phi_P(type,p,aa,q)*phi_Pq(type,p,q,bb);
                     val.push_back(tmp);
                 }
             }
@@ -2346,7 +2406,7 @@ std::vector<double> saena_object::get_interpolation_new2(int ind, int order, int
             {
                 for (int j=0; j<=order; j++)
                 {
-                    double tmp = phi_P(type,p,gl[i])*phi_P(type,q,gl[j]);
+                    double tmp = 10000000;//phi_P(type,p,gl[i])*phi_P(type,q,gl[j]);
 					//cout << tmp << endl;
                     val.push_back(tmp);
                 }
