@@ -17,6 +17,16 @@ using namespace std;
 // Assume the mesh info is the connectivity
 // using a 2d vector for now
 int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,std::vector< std::vector<int> > &g2u_all){
+ 
+	// test Jacobi
+    /*int N = 10; 
+    double alpha = 7; 
+    double beta = 5; 
+    double x[1] = {0.578495}; 
+
+	double *xx = jacobiP(N,alpha,beta,x);
+	cout << xx[N] << endl;
+	exit(0);*/
 
     saena_matrix   *A  = grid->A;
     prolong_matrix *P  = &grid->P;
@@ -108,7 +118,7 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     vector<cooEntry_row> P_temp;
 //    vector< vector<double> > Pp;//, Rp;
 	//set_PR_from_p(order, map, prodim, Pp);//, Rp);
-    set_P_from_mesh(order, map, P_temp, comm, g2u_all);//, Rp);
+    set_P_from_mesh(order, map, P_temp, comm, g2u_all, map_all);//, Rp);
 	bdydof = next_bdydof;
 #ifdef __DEBUG1__
 //    print_vector(P_temp, -1, "P_temp", comm);
@@ -278,6 +288,125 @@ vector<int> saena_object::next_p_level(vector<int> ind_fine, int order){
     return indices;
 }
 
+vector<int> saena_object::next_p_level_new2(vector<int> ind_fine, int order, int *type_){
+    // assuming the elemental ordering is like
+    // 7--8--9
+    // |  |  |
+    // 4--5--6
+    // |  |  |
+    // 1--2--3
+
+    // check element type
+    // 0: tri 
+    // 1: quad
+    // 2: tet
+    // 3: hex
+	// 4: prism
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+	int type;
+    int vert_size = ind_fine.size();
+    if (vert_size == (order+1)*(order+1))
+        type = 1;
+    else if (vert_size == (order+1)*(order+1)*(order+1))
+        type = 3;
+    else if (vert_size == (order+1)*(order+2)/2)
+        type = 0;
+    else if (vert_size == (order*order*order+11*order)/6+order*order+1)
+        type = 2;
+    else if ( vert_size == 6+9*(order-1)+3*(order-1)*(order-1)+(order-1)*(order-2)+(order-1)*(order-1)*(order-2)/2 )
+        type = 4;
+    else
+    {
+		if (rank == rank_v)
+        	std::cout << "element type is not implemented!" << std::endl;
+    }
+  
+    //cout << 6+9*(order-1)+3*(order-1)*(order-1)+(order-1)*(order-2)+(order-1)*(order-1)*(order-2)/2 << " " << vert_size << endl;
+	//cout << "element type = " << type << endl; 
+    vector<int> indices;
+    if (type == 1)
+	{
+
+		for (int i=0; i<=order/2; i++)
+		{
+			for (int j=0; j<=order/2; j++)
+			{
+				indices.push_back(ind_fine[(order+1)*i+j]);
+			}
+		}
+    }
+
+    if (type == 3)
+    {
+		for (int i=0; i<=order/2; i++)
+		{
+			for (int j=0; j<=order/2; j++)
+			{
+				for (int k=0; k<=order/2; k++)
+				{
+					indices.push_back(ind_fine[(order+1)*(order+1)*i+(order+1)*j+k]);
+				}
+			}
+		}
+    }
+
+	// hard coded for now ...
+    if (type == 0)
+    {
+		for (int i=0; i<=order/2; i++)
+		{
+			for (int j=0; j<=order/2-i; j++)
+			{
+				indices.push_back(ind_fine[(2*order+3-i)*i/2+j]);
+			}
+		}
+    }
+
+    if (type == 2)
+    {
+		int counter = 0;
+		for (int i=0; i<=order; i++)
+		{
+			for (int j=0; j<=order-i; j++)
+			{
+				for (int k=0; k<=order-i-j; k++)
+				{
+					//cout << sum_i+sum_j+k << endl;
+					if (i<=order/2 && j<=order/2-i && k<= order/2-i-j)
+						indices.push_back(indices[counter]);
+	
+					counter ++;
+				}
+			}
+		}
+	}
+
+	if (type == 4)
+	{
+		int counter = 0;
+		for (int i=0; i<=order; i++)
+		{
+			for (int j=0; j<=order; j++)
+			{
+				for (int k=0; k<=order-i; k++)
+				{
+					//cout << sum_i+sum_j+k << endl;
+					if (i<=order/2 && j<=order/2 && k<= order/2-i)
+						indices.push_back(indices[counter]);
+	
+					counter ++;
+				}
+			}
+		}
+	}
+
+	if (type_ != NULL)
+		*type_ = type;
+
+    return indices;
+}
+
 vector<int> saena_object::next_p_level_new(vector<int> ind_fine, int order, int *type_){
     // assuming the elemental ordering is like
     // 7--8--9
@@ -315,8 +444,10 @@ vector<int> saena_object::next_p_level_new(vector<int> ind_fine, int order, int 
     //cout << 6+9*(order-1)+3*(order-1)*(order-1)+(order-1)*(order-2)+(order-1)*(order-1)*(order-2)/2 << " " << vert_size << endl;
 	//cout << "element type = " << type << endl; 
     vector<int> indices;
+	comp_ordering_map(type, order);
+	vector<int> ind;
     if (type == 1){
-        for (int i=0; i<=order; i++){
+        /*for (int i=0; i<=order; i++){
             for (int j=0; j<=order; j++){
 #ifdef __DEBUG1__
 //            ASSERT((2*j+2*(order+1)*i >= 0) && (2*j+2*(order+1)*i < ind_fine.size()),
@@ -327,33 +458,57 @@ vector<int> saena_object::next_p_level_new(vector<int> ind_fine, int order, int 
 				{
 					if (j==0 || j==1 || j==3 || j==5 || j==7)
 					{
-                		indices.push_back(ind_fine[j+(order+1)*i]);
-						//cout << j+(order+1)*i << endl;
+                		//indices.push_back(ind_fine[j+(order+1)*i]);
+						cout << j+(order+1)*i << endl;
 						
 					}
 				}
             }
         }
+		cout << "*******" << endl;*/
+
+		for (int i=0; i<=order; i++)
+		{
+			for (int j=0; j<=order; j++)
+			{
+				if (i%2 == 0 && j%2 == 0)
+					ind.push_back(ordering_map[(order+1)*i+j]);
+			}
+		}
     }
+
     if (type == 3)
     {
-        for (int i=0; i<=order; i++){
+        /*for (int i=0; i<=order; i++){
             for (int j=0; j<=order; j++){
                 for (int k=0; k<=order; k++){
 					if (i==0 || i==1 || i==3 || i==5 || i==7)
 						if (j==0 || j==1 || j==3 || j==5 || j==7)
 							if (k==0 || k==1 || k==3 || k==5 || k==7)
-                    			indices.push_back(ind_fine[k+(order+1)*j+(order+1)*(order+1)*i]);
+                    			//indices.push_back(ind_fine[k+(order+1)*j+(order+1)*(order+1)*i]);
+								cout << k+(order+1)*j+(order+1)*(order+1)*i << " ";		
                 }
             }
         }
-
+		cout << endl;							
+		cout << "*******" << endl;*/
+		for (int i=0; i<=order; i++)
+		{
+			for (int j=0; j<=order; j++)
+			{
+				for (int k=0; k<=order; k++)
+				{
+					if (i%2 == 0 && j%2 == 0 && k%2 == 0)
+						ind.push_back(ordering_map[(order+1)*(order+1)*i+(order+1)*j+k]);
+				}
+			}
+		}
     }
 
 	// hard coded for now ...
     if (type == 0)
     {
-        if (order == 2)
+        /*if (order == 2)
         {
             indices.push_back(ind_fine[0]);
             indices.push_back(ind_fine[1]);
@@ -385,21 +540,66 @@ vector<int> saena_object::next_p_level_new(vector<int> ind_fine, int order, int 
             indices.push_back(ind_fine[35]);
             indices.push_back(ind_fine[37]);
             indices.push_back(ind_fine[42]);
+		}*/
+		for (int i=0; i<=order; i++)
+		{
+			for (int j=0; j<=order-i; j++)
+			{
+				//cout << (2*order+3-i)*i/2+j << endl;
+				if (i%2 == 0 && j%2 == 0)
+				{
+					ind.push_back(ordering_map[(2*order+3-i)*i/2+j]);
+				}
+			}
 		}
-		
     }
     if (type == 2)
     {
-        if (order == 2)
+        /*if (order == 2)
         {
             indices.push_back(ind_fine[0]);
             indices.push_back(ind_fine[1]);
             indices.push_back(ind_fine[3]);
             indices.push_back(ind_fine[6]);
 		}
-
-    }
-
+        if (order == 4)
+        {
+            indices.push_back(ind_fine[0]);
+            indices.push_back(ind_fine[1]);
+            indices.push_back(ind_fine[3]);
+            indices.push_back(ind_fine[5]);
+            indices.push_back(ind_fine[7]);
+            indices.push_back(ind_fine[12]);
+            indices.push_back(ind_fine[15]);
+            indices.push_back(ind_fine[17]);
+            indices.push_back(ind_fine[22]);
+            indices.push_back(ind_fine[28]);
+		}
+		if (order == 8)
+		{
+		}*/
+		vector<int> ii;
+		ii.push_back(0);
+		for (int i=0; i<=order; i++)
+		{
+			int sum_i = accumulate(ii.begin(), ii.end(), 0); 
+			vector<int> jj;
+			jj.push_back(0);
+			for (int j=0; j<=order-i; j++)
+			{
+				int sum_j = accumulate(jj.begin(), jj.end(), 0); 
+				for (int k=0; k<=order-i-j; k++)
+				{
+					//cout << sum_i+sum_j+k << endl;
+					if (i%2 == 0 && j%2 == 0 && k%2 == 0)
+						ind.push_back(ordering_map[sum_i+sum_j+k]);
+				}
+				jj.push_back(order+1-i-j);
+			}
+			ii.push_back((order+2-i)*(order+1-i)/2);
+		}
+		
+	}
 	if (type == 4)
 	{
 		if (order == 2)
@@ -411,7 +611,17 @@ vector<int> saena_object::next_p_level_new(vector<int> ind_fine, int order, int 
             indices.push_back(ind_fine[9]);
             indices.push_back(ind_fine[11]);
     	}
+        if (order == 4)
+        {
+		}
 	}
+	sort(ind.begin(), ind.end());
+	for (int i=0; i<ind.size();i++)
+	{
+		cout << ind[i] << endl;
+		indices.push_back(ind_fine[ind[i]]);
+	}
+	//exit(0);
 
 	if (type_ != NULL)
 		*type_ = type;
@@ -424,7 +634,7 @@ vector<int> saena_object::coarse_p_node_arr(vector< vector<int> > map, int order
     vector<int> ind;
     for (int i=0; i<total_elem; i++)
     {
-        vector<int> ind_coarse = next_p_level_new(map.at(i), order);
+        vector<int> ind_coarse = next_p_level_new2(map.at(i), order);
         for (int j=0; j<ind_coarse.size(); j++)
         {
             if (!ismember(ind_coarse.at(j), ind))
@@ -435,7 +645,7 @@ vector<int> saena_object::coarse_p_node_arr(vector< vector<int> > map, int order
     return ind;
 } 
 
-void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<cooEntry_row> &P_temp, MPI_Comm comm, vector< vector<int> > &g2u_all){
+void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<cooEntry_row> &P_temp, MPI_Comm comm, vector< vector<int> > &g2u_all, vector< vector< vector<int> > > &map_all){
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
@@ -533,7 +743,7 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
         // for each element extract coraser element indices
         //vector<int> ind_coarse = next_p_level(map.at(i), order);
         int elem_type;
-        vector<int> ind_coarse = next_p_level_new(map.at(i), order, &elem_type);
+        vector<int> ind_coarse = next_p_level_new2(map.at(i), order, &elem_type);
         //vector<int> ind_coarse = next_p_level(map.at(i), order);
 
 		//std::cout << "ind_coarse size: " << ind_coarse.size() << std::endl;
@@ -543,25 +753,45 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
 		std::cout << std::endl;*/
 		//cout << ind_coarse.size() << "\n";
 
+		/*bool flag = true;
+        for (int j=0; j<ind_coarse.size(); j++){
+            // skip bdy node
+            if (ind_coarse.at(j)-1 < bdydof)
+			{
+                flag = false;
+				break;
+			}
+		}*/
+		//cout << i << " " << flag << endl;
+		//flag = true;
         for (int j=0; j<ind_coarse.size(); j++){
             // skip bdy node
             if (ind_coarse.at(j)-1 < bdydof)
                 continue;
-
+			//if (flag)
+				//cout << "======================" << endl;
             // interpolate basis function of j at all other nodes
             // in this element as the values of corresponding P entries
             // TODO only for 2d now upto basis order 8
             //vector<double> val = get_interpolation(j + 1, order, prodim);
-            vector<double> val = get_interpolation_new2(j, order, elem_type);
+            
+			// modal basis no need for interpolation
+			//vector<double> val = get_interpolation_new2(j, order, elem_type, flag);
             //vector<double> val = get_interpolation(j, order);
 
-			// cout << val.size() << "\n";
+			/*if (flag)
+			{
+				for (int i=0; i<val.size(); i++)
+					cout << val[i] << " ";
+
+				cout << endl;
+			}*/
 
             // find coarse_node_ind index (coarser mesh node index) that
             // has the same value (finer mesh node index) as ind_coarse value
             // TODO This is slow, may need smarter way
             int P_col = findloc(coarse_node_ind, ind_coarse.at(j));
-
+			int tmp_col = map_all.at(map_all.size()-1).at(i).at(j);
             /*if (rank == rank_v && ind_coarse[j] == 42)
                 cout << "P_col = " << P_col << std::endl;*/
 
@@ -576,7 +806,8 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
 
 
             // set P entries
-            for (int k=0; k<val.size(); k++){
+			// This is for nodal basis interpolation
+          /*  for (int k=0; k<val.size(); k++){
                 if (map.at(i).at(k)-1 < bdydof)
                     continue;
 
@@ -586,16 +817,21 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
                 // row is universal
                 if(fabs(val[k]) > 1e-14){
 					//cout << "HERE--------------" << endl;
-                    P_temp.emplace_back(g2u_f.at(map.at(i).at(k)-1-bdydof), g2u_c.at(P_col), val[k]);
+					// need a map of k to convert default ordering to modal ordering in nektar
+					int k_new = ordering_map[k];
+                    P_temp.emplace_back(g2u_f.at(map.at(i).at(k_new)-1-bdydof), g2u_c.at(P_col), val[k]);
                     //P_temp.emplace_back(g2u.at(map.at(i).at(k)-1-bdydof), P_col, val[k]);
 					max_row = max(max_row, map.at(i).at(k)-1-bdydof);
 					max_col = max(max_col, P_col);
                 }
 
 //                Pp_loc.at(g2u.at(map.at(i).at(k)-1-bdydof)).at(P_col) = val.at(k);
-                /*if (rank == rank_v && ind_coarse[j] == 42)
-				    cout << "row = " << g2u.at(map.at(i).at(k)-1-bdydof) << ", and value = " << val[k] << "\n";*/
-			}
+                //if (rank == rank_v && ind_coarse[j] == 42)
+				  //  cout << "row = " << g2u.at(map.at(i).at(k)-1-bdydof) << ", and value = " << val[k] << "\n";
+			
+			}*/
+
+			P_temp.emplace_back(g2u_f.at(ind_coarse.at(j)-1-bdydof), g2u_c.at(P_col), 1.0);
             /*if (rank == rank_v && ind_coarse[j] == 42)
                 cout << "\n";*/
             /*if (rank == rank_v)
@@ -604,6 +840,8 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
 			//if (ind_coarse.at(j) < bdydof && !ismember(P_col, skip))
 				//skip.push_back(P_col);
         }
+		//if (flag)
+			//exit(0);
     }
     if (rank == rank_v)
 		cout << "max row and col = " << max_row << " " << max_col << endl;
@@ -1362,9 +1600,16 @@ void saena_object::set_PR_from_p(int order, vector< vector<int> > map, vector< v
 inline vector< std::vector<int> > saena_object::mesh_info(int order, string filename, vector< vector< vector<int> > > &map_all, MPI_Comm comm)
 {
 
+	
 	int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+	if (!rank)
+	{
+		cout << "===============================" << endl;
+		cout << "create mesh info for this level" << endl;
+		cout << "===============================" << endl;
+	}
     vector <vector<int> > map = map_all.at(map_all.size()-1);
     if (map_all.size() == 1) {
         //map = map_all[0];
@@ -1415,7 +1660,7 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, string file
     	vector <vector<int> > map_next(elemno);
         for (int i = 0; i < elemno; ++i){
             vector<int> aline = map.at(i);
-            vector<int> ind_coarse = next_p_level_new(aline, order);
+            vector<int> ind_coarse = next_p_level_new2(aline, order);
             for (int j = 0; j < ind_coarse.size(); ++j){
                 int mapped_val = findloc(coarse_node_ind, ind_coarse.at(j));
                 map_next.at(i).emplace_back(mapped_val+1);
@@ -1437,6 +1682,7 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, string file
     	}
     	if (rank == rank_v){
         	cout << "elem # = " << elemno << endl;
+        	cout << "bdydof = " << bdydof << endl;
         	cout << "current fine node # = " << nodeno_fine << ", and next coarse node # = " << nodeno_coarse << endl;
     	}
 	}
@@ -2179,16 +2425,17 @@ inline double saena_object::phi_P(int type, int p, double z, int q, int r)
             y = (1+z)/2;
         else
         {
-            double jac;
-            jacobiP(1,1,p-2,&z,&jac,1);
-            y = (1-z)/2*(1+z)/2*jac;
+			double x[1]={z};
+            double *jac = jacobiP(p-2,1,1,x);
+            y = (1-z)/2*(1+z)/2*jac[p-2];
+			delete [] jac;
         }
     }
     else 
     {
-        if (p == 0 && q == 0 && r == 1 && type == 1)
+        if (p == 0 && q == 0 && r == 1 && type == 2)
             y = 1;
-        else if (p == 0 && q == 1 && type == 1)
+        else if (p == 0 && q == 1 && type == 2)
             y = 1;
         else if (p == 0 && r == 1 &&  type == 4)
             y = 1;
@@ -2198,9 +2445,10 @@ inline double saena_object::phi_P(int type, int p, double z, int q, int r)
             y = (1+z)/2;
         else
         {
-            double jac;
-            jacobiP(1,1,p-2,&z,&jac,1);
-            y = (1-z)/2*(1+z)/2*jac;
+			double x[1]={z};
+            double *jac = jacobiP(p-2,1,1,x);
+            y = (1-z)/2*(1+z)/2*jac[p-2];
+			delete [] jac;
         }
     }
     return y;
@@ -2211,7 +2459,7 @@ inline double saena_object::phi_Pq(int type, int p, int q, double z, int r)
     double y;
     if (prodim == 3)
     {
-        if (p == 0 && q==0 && r == 1 && type == 1)
+        if (p == 0 && q==0 && r == 1 && type == 2)
             y = 1;
         else if (p == 0)
             y = phi_P(type, q,z);
@@ -2219,9 +2467,10 @@ inline double saena_object::phi_Pq(int type, int p, int q, double z, int r)
             y = pow(((1-z)/2),p);
         else
         {
-            double jac;
-            jacobiP(2*p-1,1,q-1,&z,&jac,1);
-            y = pow(((1-z)/2),p)*(1+z)/2*jac;
+			double x[1]={z};
+            double *jac = jacobiP(q-1,2*p-1,1,x);
+            y = pow(((1-z)/2),p)*(1+z)/2*jac[q-1];
+			delete [] jac;
         }
     }
     else
@@ -2232,9 +2481,10 @@ inline double saena_object::phi_Pq(int type, int p, int q, double z, int r)
             y = pow(((1-z)/2),p);
         else
         {
-            double jac;
-            jacobiP(2*p-1,1,q-1,&z,&jac,1);
-            y = pow(((1-z)/2),p)*(1+z)/2*jac;
+			double x[1]={z};
+            double *jac = jacobiP(q-1,2*p-1,1,x);
+            y = pow(((1-z)/2),p)*(1+z)/2*jac[q-1];
+			delete [] jac;
         }
     }
     return y;
@@ -2251,64 +2501,88 @@ inline double saena_object::phi_Pqr(int type, int p, int q, int r, double z)
         y = pow(((1-z)/2),(p+q));
     else 
     {
-        double jac;
-        jacobiP(2*p+2*q-1,1,r-1,&z,&jac,1);
-        y = pow(((1-z)/2),(p+q))*(1+z)/2*jac;
+		double x[1]={z};
+        double *jac = jacobiP(r-1,2*p+2*q-1,1,x);
+        y = pow(((1-z)/2),(p+q))*(1+z)/2*jac[r-1];
+		delete [] jac;
     }
     return y;
 }
 
-void saena_object::jacobiP(double alpha, double beta, unsigned int N, double *x, double *p , unsigned int np)
+inline double *saena_object::jacobiP(int n, double alpha, double beta, double x[], int m)
 {
+  double c1;
+  double c2;
+  double c3;
+  double c4;
+  int i;
+  int j;
+  double *v;
 
+  if ( alpha <= -1.0 )
+  {
+    cerr << "\n";
+    cerr << "J_POLYNOMIAL - Fatal error!\n";
+    cerr << "  Illegal input value of ALPHA = " << alpha << "\n";
+    cerr << "  But ALPHA must be greater than -1.\n";
+    exit ( 1 );
+  }
 
-        unsigned int  xn = np;
-        double  apb, gamma0, gamma1, isqrtgamma0, isqrtgamma1;
-        double  aold, anew, bnew, h1;
-        double  * pl=new double [(N+1)*xn];
+  if ( beta <= -1.0 )
+  {
+    cerr << "\n";
+    cerr << "J_POLYNOMIAL - Fatal error!\n";
+    cerr << "  Illegal input value of BETA = " << beta << "\n";
+    cerr << "  But BETA must be greater than -1.\n";
+    exit ( 1 );
+  }
 
-        assert(N>=0 && alpha >-1.0 && beta >-1.0);
-        //std::cout<<" xn: "<<xn<<std::endl;
-        apb = alpha + beta;
-        gamma0 = pow (2.0, (apb + 1.0)) / (apb + 1.0)* std::tgamma (alpha + 1.0) * std::tgamma (beta + 1.0) / std::tgamma (apb + 1.0);
-        isqrtgamma0 = 1.0 / sqrt (gamma0);
+  if ( n < 0 )
+  {
+    return NULL;
+  }
 
-        gamma1 = (alpha + 1.0) * (beta + 1.0) / (apb + 3.0) * gamma0;
-        isqrtgamma1 = 1.0 / sqrt (gamma1);
+  v = new double[m*(n+1)];
 
-        for(unsigned int k=0;k<xn;k++) {
-            pl[k] = isqrtgamma0;
-            //std::cout<<"pl[ "<<k<<"]: "<<pl[k]<<std::endl;
-        }
+  for ( i = 0; i < m; i++ )
+  {
+    v[i+0*m] = 1.0;
+  }
 
-        if(N>0) {
-            for (unsigned int k = 0; k < xn; k++) {
-                pl[xn + k] = ((alpha + beta + 2) * (x[k]) / 2.0 + (alpha - beta) / 2.0) / sqrt(gamma1);
-            }
-        }
+  if ( n == 0 )
+  {
+    return v;
+  }
 
-        if (N == 0) {
-           memcpy(p,pl,sizeof(double)*xn);
-        }
-        else if (N == 1) {
-            memcpy(p,pl+xn,sizeof(double)*xn);
-        }
-        else {
-            aold = 2.0/(2.0+alpha+beta)*sqrt((alpha+1.0)*(beta+1.0)/(alpha+beta+3.0));
-            for (unsigned int i = 0; i < N - 1; i++) {
-                h1 = 2.0 *(i+1 )+ apb;
-                anew =2.0/(h1+2.0)*sqrt((i+2)*(i+2+alpha+beta)*(i+2+alpha)*(i+2+beta)/(h1+1.0)/(h1+3.0));
-                bnew = -(alpha * alpha - beta * beta) / h1 / (h1 + 2.0);
-                for (unsigned int k = 0; k < xn; k++)
-                    pl[(i + 2) * xn + k] =1.0 / anew * (-aold * pl[(i) * xn + k] + (x[k] - bnew) * pl[(i + 1) * xn + k]);
+  for ( i = 0; i < m; i++ )
+  {
+    v[i+1*m] = ( 1.0 + 0.5 * ( alpha + beta ) ) * x[i] 
+      + 0.5 * ( alpha - beta );
+  }
 
-                aold=anew;
-            }
-            memcpy(p, pl + N * xn, sizeof(double) * xn);
-         }
-        delete [] pl;
-        return  ;
+  for ( i = 0; i < m; i++ )
+  {
+    for ( j = 2; j <= n; j++ )
+    {
+      c1 = 2.0 * ( double ) ( j ) * ( ( double ) ( j ) + alpha + beta ) 
+        * ( ( double ) ( 2 * j - 2 ) + alpha + beta );
 
+      c2 = ( ( double ) ( 2 * j - 1 ) + alpha + beta ) 
+        * ( ( double ) ( 2 * j ) + alpha + beta ) 
+        * ( ( double ) ( 2 * j - 2 ) + alpha + beta );
+
+      c3 = ( ( double ) ( 2 * j - 1 ) + alpha + beta ) 
+        * ( alpha + beta ) * ( alpha - beta );
+
+      c4 = - ( double ) ( 2 ) * ( ( double ) ( j - 1 ) + alpha ) 
+        * ( ( double ) ( j - 1 ) + beta )  
+        * ( ( double ) ( 2 * j ) + alpha + beta );
+
+      v[i+j*m] = ( ( c3 + c2 * x[i] ) * v[i+(j-1)*m] + c4 * v[i+(j-2)*m] ) / c1;
+    }
+  }
+
+  return v;
 }
 
 std::vector<double> saena_object::gl_1d(int order)
@@ -2340,7 +2614,8 @@ std::vector<double> saena_object::gl_1d(int order)
     exit(0);
 }
 
-std::vector<double> saena_object::get_interpolation_new2(int ind, int order, int type)
+
+std::vector<double> saena_object::get_interpolation_new2(int ind, int order, int type, bool flag1)
 {
     const vector<double> gl = gl_1d(order);
     vector<double> val;//((order+1)*(order+1));
@@ -2371,10 +2646,14 @@ std::vector<double> saena_object::get_interpolation_new2(int ind, int order, int
             {
                 for (int j=0; j<=order-i; j++)
                 {
-                    double endp = gl[order-i];
+                    double endp = -gl[i];
                     double rr = gl[i];
                     double ss = (gl[j]-(-1))/2*(endp-(-1))+(-1);
-                    double aa = 2*(1+rr)/(1-ss)-1;;
+                    double aa;
+					if (fabs(ss-1)<1e-14)
+						aa = -1;
+					else
+						aa  = 2*(1+rr)/(1-ss)-1;
                     double bb = ss;
                     double tmp = phi_P(type,p,aa,q)*phi_Pq(type,p,q,bb);
                     val.push_back(tmp);
@@ -2406,8 +2685,7 @@ std::vector<double> saena_object::get_interpolation_new2(int ind, int order, int
             {
                 for (int j=0; j<=order; j++)
                 {
-                    double tmp = 10000000;//phi_P(type,p,gl[i])*phi_P(type,q,gl[j]);
-					//cout << tmp << endl;
+                    double tmp = phi_P(type,p,gl[i])*phi_P(type,q,gl[j]);
                     val.push_back(tmp);
                 }
             }
@@ -2444,16 +2722,27 @@ std::vector<double> saena_object::get_interpolation_new2(int ind, int order, int
                 {
                     for (int k=0; k<=order-i-j; k++)
                     {    
-                        double endp1 = gl[order-i];
+                        double endp1 = -gl[i];
                         double rr = gl[i];
-                        double ss = (gl[j]-(-1))/2*(endp1-(-1))+(-1);
+                        double ss = (gl[j]-(-1))/2.0*(endp1-(-1))+(-1);
                         double endp2 = endp1-ss-1;
-                        double tt = (gl[k]-(-1))/2*(endp2-(-1))+(-1);
-                        double aa = 2*(1+rr)/(-ss-tt)-1;
-                        double bb = 2*(1+ss)/(1-tt)-1;
+                        double tt = (gl[k]-(-1))/2.0*(endp2-(-1))+(-1);
+						double aa;
+						if (fabs(tt+ss)<1e-14)
+							aa = -1;
+						else
+                        	aa = 2*(1+rr)/(-ss-tt)-1;
+                        double bb;
+						if (fabs(tt-1)<1e-14)
+							bb = -1;
+						else
+							bb = 2*(1+ss)/(1-tt)-1;
                         double cc = tt;
+						//cout << aa << " " << bb << " " << cc << endl;
                         double tmp = phi_P(type,p,aa,q,r)*phi_Pq(type,p,q,bb,r)*phi_Pqr(type,p,q,r,cc);
-                        val.push_back(tmp);
+                        //if (flag1)
+							//cout << phi_P(type,p,aa,q,r) << " " << phi_P(type,p,aa,q,r) << " " << phi_Pqr(type,p,q,r,cc) << endl;
+						val.push_back(tmp);
                     }
                 }
             }
@@ -2532,7 +2821,11 @@ std::vector<double> saena_object::get_interpolation_new2(int ind, int order, int
                         double rr = gl[i];
                         double ss = gl[j];
                         double tt = (gl[k]-(-1))/2*(endp-(-1))+(-1);
-                        double aa = 2*(1+rr)/(1-tt)-1;
+						double aa;
+						if (fabs(tt-1)<1e-14)
+                        	aa = -1;
+						else
+							aa  = 2*(1+rr)/(1-tt)-1;
                         double bb = ss;
                         double cc = tt;
                         double tmp = phi_P(type,p,aa,q,r)*phi_P(type,q,bb,r)*phi_Pq(type,p,r,cc);
@@ -2555,4 +2848,118 @@ std::vector<double> saena_object::get_interpolation_new2(int ind, int order, int
         }
     }
 	return val;
+}
+
+void saena_object::comp_ordering_map(int type, int order)
+{
+	if (type == 0)
+	{
+		//vector<int> ind;
+		int i, i_, j, j_, sum;
+		for (i=0; i<=order; i++)
+		{
+			for (j=0; j<=order-i; j++)
+			{
+				if (i == 0)
+				{
+					
+					if (j==order)
+						j_ = 1;
+					else if (j!=0)
+						j_ = j+1;
+					else
+						j_ = j;
+
+					sum = j_;
+				}
+				else if (i < order)
+				{
+					if (j < order -i)
+					{
+						sum = (2*order+3-i)*i/2+j+order+1-i;
+					}
+					else
+						sum = order+order+1-i;
+				}
+				else 
+				{		
+					sum = order+order+1-i;
+				}
+				ordering_map.push_back(sum);
+				//if (i%2 == 0 && j%2 == 0)
+					//ind.push_back(sum);
+			}
+		}
+		/*sort(ind.begin(), ind.end());
+		for (int i=0; i<ind.size(); i++)
+			cout << ind[i] << endl;
+		*/
+	}
+	if (type == 1)
+	{	
+		int i, i_, j, j_, sum;
+		for (i=0; i<=order; i++)
+		{
+			if (i==order)
+				i_ = 1;
+			else if (j!=0)
+				i_ = i+1;
+			else
+				i_ = i;
+			for (j=0; j<=order; j++)
+			{
+				if (j==order)
+					j_ = 1;
+				else if (j!=0)
+					j_ = j+1;
+				else
+					j_ = j;
+				
+				sum = (order+1)*i_+j_;
+				ordering_map.push_back(sum);
+				
+			}
+		}
+		/*for (int i=0; i<ordering_map.size(); i++)
+		{
+			cout << ordering_map[i] << endl;
+			cout << "********" << endl;
+		}*/
+	}
+	if (type == 3)
+	{	
+		int i, i_, j, j_, k,k_,sum;
+		for (i=0; i<=order; i++)
+		{
+			if (i==order)
+				i_ = 1;
+			else if (j!=0)
+				i_ = i+1;
+			else
+				i_ = i;
+			for (j=0; j<=order; j++)
+			{
+				if (j==order)
+					j_ = 1;
+				else if (j!=0)
+					j_ = j+1;
+				else
+					j_ = j;
+				
+				for (k=0; k<=order; k++)
+				{
+					if (k==order)
+						k_ = 1;
+					else if (k!=0)
+						k_ = k+1;
+					else
+						k_ = k;
+
+					sum = (order+1)*(order+1)*i_+(order+1)*j_+k_;
+					ordering_map.push_back(sum);
+					
+				}
+			}
+		}
+	}
 }
