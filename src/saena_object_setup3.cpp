@@ -365,6 +365,7 @@ vector<int> saena_object::next_p_level_new2(vector<int> ind_fine, int order, int
     }
 
 	// hard coded for now ...
+	//cout << "===============" << endl;
     if (type == 0)
     {
 		for (int i=0; i<=order/2; i++)
@@ -372,10 +373,22 @@ vector<int> saena_object::next_p_level_new2(vector<int> ind_fine, int order, int
 			for (int j=0; j<=order/2-i; j++)
 			{
 				indices.push_back(ind_fine[(2*order+3-i)*i/2+j]);
+				//cout << (2*order+3-i)*i/2+j << endl;
 			}
 		}
-    }
+		/*int counter = 0;
+		for (int i=0; i<=order; i++)
+		{
+			for (int j=0; j<=order-i; j++)
+			{
+				if (i<=order/2 && j<=order/2-i)
+					cout << counter << endl;
 
+				counter ++;
+			}
+		}*/
+    }
+	//cout << "==============" << endl;
     if (type == 2)
     {
 		int counter = 0;
@@ -764,8 +777,8 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
 
 		//std::cout << "ind_coarse size: " << ind_coarse.size() << std::endl;
 		//std::cout << "map.at(i) size: " << map.at(i).size() << std::endl;
-		/*if (order == 2)
-		{
+		//if (order == 2)
+		/*{
 			for (int ii=0; ii<ind_coarse.size(); ii++)
 				std::cout << ind_coarse.at(ii) << " ";
 			std::cout << std::endl;
