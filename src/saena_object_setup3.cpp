@@ -119,9 +119,13 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
 //    vector< vector<double> > Pp;//, Rp;
 	//set_PR_from_p(order, map, prodim, Pp);//, Rp);
     set_P_from_mesh(order, map, P_temp, comm, g2u_all, map_all);//, Rp);
+
+	
 	bdydof = next_bdydof;
+    print_vector(P_temp, -1, "P_temp", comm);
 #ifdef __DEBUG1__
 //    print_vector(P_temp, -1, "P_temp", comm);
+
     if(verbose_coarsen) {
         MPI_Barrier(comm); printf("coarsen: step 3: rank = %d\n", rank); MPI_Barrier(comm);
 //        int row_p = Pp.size();
@@ -176,10 +180,18 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
 
 //    std::sort(P_temp.begin(), P_temp.end(), row_major);
 
+	if (!rank)
+	{
+		cout<< "\n===============" << endl;
+		cout << "Start SampleSort" << endl;
+		cout<< "===============" << endl;
+	}
+
     vector<cooEntry_row> Pent;
 //    P->entry.clear();
     par::sampleSort(P_temp, Pent, P->split, comm);
-
+	if (!rank)
+		cout << "Finish SampleSort" << endl;
 	//Pent = P_temp;
 	//print_vector(P_temp, -1, "P_temp", comm);
     // remove duplicates
@@ -195,7 +207,6 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     }
 
     std::sort(P->entry.begin(), P->entry.end());
-
 #ifdef __DEBUG1__
 //    std::sort(A->entry.begin(), A->entry.end(), row_major);
 //    print_vector(A->entry, -1, "A", comm);
@@ -210,8 +221,10 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     if(rank == nprocs - 1){
         P->Nbig = P->entry.back().col + 1;
     }
+	cout << "bbbbbbbb" << endl;
 
     MPI_Bcast(&P->Nbig, 1, par::Mpi_datatype<index_t>::value(), nprocs-1, comm);
+	cout << "ccccccccc" << endl;
 
     P->splitNew.resize(nprocs+1);
     P->splitNew[0]      = 0;
@@ -731,7 +744,6 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
     // coarse_node_ind value is finer mesh node index
 
     sort(coarse_node_ind.begin(), coarse_node_ind.end());
-
 	//cout << map.size() << " " << map.at(0).size() << "\n";
     //skip bdy node
 	//vector<int> skip;
@@ -748,9 +760,12 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
 
 		//std::cout << "ind_coarse size: " << ind_coarse.size() << std::endl;
 		//std::cout << "map.at(i) size: " << map.at(i).size() << std::endl;
-		/*for (int ii=0; ii<ind_coarse.size(); ii++)
-			std::cout << ind_coarse.at(ii) << " ";
-		std::cout << std::endl;*/
+		/*if (order == 2)
+		{
+			for (int ii=0; ii<ind_coarse.size(); ii++)
+				std::cout << ind_coarse.at(ii) << " ";
+			std::cout << std::endl;
+		}*/
 		//cout << ind_coarse.size() << "\n";
 
 		/*bool flag = true;
@@ -790,11 +805,12 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
             // find coarse_node_ind index (coarser mesh node index) that
             // has the same value (finer mesh node index) as ind_coarse value
             // TODO This is slow, may need smarter way
-            int P_col = findloc(coarse_node_ind, ind_coarse.at(j));
-			int tmp_col = map_all.at(map_all.size()-1).at(i).at(j);
+            //int P_col = findloc(coarse_node_ind, ind_coarse.at(j));
+			int P_col = map_all.at(map_all.size()-1).at(i).at(j)-1-next_bdydof;
             /*if (rank == rank_v && ind_coarse[j] == 42)
                 cout << "P_col = " << P_col << std::endl;*/
 
+			//cout << P_col << " " << tmp_col-1-next_bdydof<< endl;
             // index corase level dof
             // value universal value at this level
 			//g2u_map.at(P_col) = g2u[ind_coarse.at(j)-1-bdydof];
@@ -831,6 +847,7 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
 			
 			}*/
 
+			//cout << ind_coarse.at(j)-1-bdydof << " " << P_col << endl;
 			P_temp.emplace_back(g2u_f.at(ind_coarse.at(j)-1-bdydof), g2u_c.at(P_col), 1.0);
             /*if (rank == rank_v && ind_coarse[j] == 42)
                 cout << "\n";*/
@@ -843,15 +860,14 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
 		//if (flag)
 			//exit(0);
     }
-    if (rank == rank_v)
-		cout << "max row and col = " << max_row << " " << max_col << endl;
+    //if (rank == rank_v)
+		//cout << "max row and col = " << max_row << " " << max_col << endl;
     std::sort(P_temp.begin(), P_temp.end());
     P_temp.erase( unique( P_temp.begin(), P_temp.end() ), P_temp.end() );
 
 //    print_vector(P_temp, -1, "P_temp", comm);
 
-
-
+	
 
 #if 0
     // this is different as the allgather at begining of the function
@@ -1606,7 +1622,7 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, string file
     MPI_Comm_rank(comm, &rank);
 	if (!rank)
 	{
-		cout << "===============================" << endl;
+		cout << "\n===============================" << endl;
 		cout << "create mesh info for this level" << endl;
 		cout << "===============================" << endl;
 	}
@@ -1701,6 +1717,15 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, string file
 void saena_object::g2umap(int order, string filename, vector< vector<int> > &g2u_all, vector< vector< vector<int> > > &map_all, MPI_Comm comm)
 {
 
+        int nprocs, rank;
+        MPI_Comm_size(comm, &nprocs);
+        MPI_Comm_rank(comm, &rank);
+		if (!rank)
+		{
+			cout << "\n===============================" << endl;
+			cout << "create g2u for this level" << endl;
+			cout << "===============================" << endl;
+		}
     //if (g2u_all.size() == 1) {
 
         // assume pure quad elememt for now
@@ -1754,9 +1779,6 @@ void saena_object::g2umap(int order, string filename, vector< vector<int> > &g2u
         }
         // now fill mapping from global to universal in next level
         // need communication
-        int nprocs, rank;
-        MPI_Comm_size(comm, &nprocs);
-        MPI_Comm_rank(comm, &rank);
         int g2u_univ_size;
         int glb_size = g2u_next_fine_node.size();
         MPI_Allreduce(&glb_size, &g2u_univ_size, 1, MPI_INT, MPI_SUM, comm);
@@ -1816,6 +1838,8 @@ void saena_object::g2umap(int order, string filename, vector< vector<int> > &g2u
 				int loc = findloc(g2u_univ, uni);
 				//cout << loc << endl;
 				g2u_next_coarse_node.at(ind-1-next_bdydof) = loc;
+				//if (!rank)
+					//cout << ind-1-next_bdydof << " " << loc << endl;
 			}
 		
 		}
@@ -2963,3 +2987,4 @@ void saena_object::comp_ordering_map(int type, int order)
 		}
 	}
 }
+
