@@ -12,7 +12,7 @@
 #include <cstdlib>
 #include <fstream>
 #include <mpi.h>
-
+using namespace std;
 // use this to store number of iterations for the lazy-update experiment.
 std::vector<int> iter_num_lazy;
 

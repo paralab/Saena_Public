@@ -322,6 +322,7 @@ vector<int> saena_object::next_p_level_new2(vector<int> ind_fine, int order, int
             std::cout << "element type is not implemented!" << std::endl;
     }
 
+	//cout << "type: " << type << endl;
     //cout << 6+9*(order-1)+3*(order-1)*(order-1)+(order-1)*(order-2)+(order-1)*(order-1)*(order-2)/2 << " " << vert_size << endl;
     //cout << "element type = " << type << endl;
     vector<int> indices;
@@ -370,19 +371,6 @@ vector<int> saena_object::next_p_level_new2(vector<int> ind_fine, int order, int
 			{
 				if (i<=order/2 && j<=order/2-i)
 					cout << counter << endl;
-=======
-    // hard coded for now ...
-    if (type == 0)
-    {
-        for (int i=0; i<=order/2; i++)
-        {
-            for (int j=0; j<=order/2-i; j++)
-            {
-                indices.push_back(ind_fine[(2*order+3-i)*i/2+j]);
-            }
-        }
-    }
->>>>>>> 0b757b0d87163d5470ae558317d55fa3749cdef7
 
 				counter ++;
 			}
@@ -400,7 +388,7 @@ vector<int> saena_object::next_p_level_new2(vector<int> ind_fine, int order, int
                 {
                     //cout << sum_i+sum_j+k << endl;
                     if (i<=order/2 && j<=order/2-i && k<= order/2-i-j)
-                        indices.push_back(indices[counter]);
+                        indices.push_back(ind_fine[counter]);
 
                     counter ++;
                 }
@@ -419,7 +407,7 @@ vector<int> saena_object::next_p_level_new2(vector<int> ind_fine, int order, int
                 {
                     //cout << sum_i+sum_j+k << endl;
                     if (i<=order/2 && j<=order/2 && k<= order/2-i)
-                        indices.push_back(indices[counter]);
+                        indices.push_back(ind_fine[counter]);
 
                     counter ++;
                 }
@@ -660,6 +648,7 @@ vector<int> saena_object::coarse_p_node_arr(vector< vector<int> > map, int order
     vector<int> ind;
     for (int i=0; i<total_elem; i++)
     {
+		//cout << i << endl;
         vector<int> ind_coarse = next_p_level_new2(map.at(i), order);
         for (int j=0; j<ind_coarse.size(); j++)
         {
@@ -1689,6 +1678,7 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, string file
         vector <vector<int> > map_next(elemno);
         for (int i = 0; i < elemno; ++i){
             vector<int> aline = map.at(i);
+			//cout << i << endl;
             vector<int> ind_coarse = next_p_level_new2(aline, order);
             for (int j = 0; j < ind_coarse.size(); ++j){
                 int mapped_val = findloc(coarse_node_ind, ind_coarse.at(j));
