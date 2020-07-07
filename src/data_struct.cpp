@@ -180,13 +180,6 @@ int CSCMat::compress_prep_compute(const index_t *v, index_t v_sz, GR_sz &comp_sz
                 // check if dif is larger than the maximum value for that many bits, move to higher number of bits.
                 dif = v[i] - v[i - 1];
 
-
-//            if(rank == 0){
-                dif = INT32_MAX;
-//            }
-
-
-
                 if (dif > dif_range_max) {
                     skip = true;
                     break;

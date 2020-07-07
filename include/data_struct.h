@@ -20,7 +20,7 @@
 #include <omp.h>
 
 //#include "dollar.hpp"
-#include "combblas_functions.h"
+//#include "combblas_functions.h"
 
 using namespace std;
 
@@ -29,7 +29,7 @@ typedef long          nnz_t;   // Saena nonzero type
 typedef double        value_t; // Saena value type
 typedef unsigned char uchar;
 
-#define ALMOST_ZERO 1e-14
+//#define ALMOST_ZERO 1e-14
 
 //the following are UBUNTU/LINUX, and MacOS ONLY terminal color codes.
 #define COLORRESET  "\033[0m"
