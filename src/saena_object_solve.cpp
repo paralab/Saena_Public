@@ -1130,8 +1130,10 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
         if(direct_solver == "CG")
             solve_coarsest_CG(grid->A, u, rhs);
-        else if(direct_solver == "SuperLU")
+        else if(direct_solver == "SuperLU"){
+	   		//std::cout << "using superLU" << std::endl;
             solve_coarsest_SuperLU(grid->A, u, rhs);
+		}
         else {
             if (rank == 0) printf("Error: Unknown direct solver! \n");
             exit(EXIT_FAILURE);
@@ -1448,6 +1450,8 @@ int saena_object::solve(std::vector<value_t>& u){
 //    saena_matrix *A_coarsest = &grids.back().Ac;
 
     if(A_coarsest->active) {
+		//if (rank == 0)
+			//std::cout << "using superLu" << std::endl;
         setup_SuperLU();
     }
 
@@ -1980,6 +1984,7 @@ int saena_object::pGMRES(std::vector<double> &u){
     // GMRES proconditioned with AMG
 //    Preconditioner &M, Matrix &H;
 
+	cout << "checking using pGMRES" << endl;
     saena_matrix *A = grids[0].A; // todo: double-check
 
 //    MPI_Comm comm = MPI_COMM_WORLD; //todo

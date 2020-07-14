@@ -120,6 +120,7 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
 
     bdydof = next_bdydof;
 
+    //print_vector(P_temp, -1, "P_temp", comm);
 #ifdef __DEBUG1__
 //    print_vector(P_temp, -1, "P_temp", comm);
 
@@ -1711,6 +1712,15 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, string file
         }
     }
     //std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
+	
+    /*for(int i=0; i<map.size();i++)
+    {
+		for(int j=0; j<map[i].size();j++)
+        {
+			std::cout << map[i][j] << " ";
+		}
+		cout << endl;
+    }*/
 
     return map;
 
@@ -1855,6 +1865,14 @@ void saena_object::g2umap(int order, string filename, vector< vector<int> > &g2u
     }
     //std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
 
+	/*if (rank == rank_v)
+	{
+    	for (int i=0; i<g2u_all.at(g2u_all.size()-1).size(); i++)
+    	{
+        	cout << g2u_all.at(g2u_all.size()-1).at(i) << endl;
+		}
+    }*/
+	
 }
 
 // TODO hard coded
