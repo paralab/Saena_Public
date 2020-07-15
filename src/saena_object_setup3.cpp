@@ -28,8 +28,24 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     saena_matrix   *A  = grid->A;
     prolong_matrix *P  = &grid->P;
     saena_matrix   *Ac = &grid->Ac;
+    
+	MPI_Comm comm = A->comm;
+    int nprocs, rank;
+    MPI_Comm_size(comm, &nprocs);
+    MPI_Comm_rank(comm, &rank);
 
-    Ac->set_p_order(A->p_order / 2);
+    int order = A->p_order;
+    prodim    = A->prodim;
+	// assume divided by 2
+    //Ac->set_p_order(A->p_order / 2);
+	// assume substract by a constant
+	int order_diff[3] = {2, 1, 2};
+	next_order = A->p_order - order_diff[grid->currentLevel];
+	//cout << " current level: " << grid->currentLevel << endl;
+    if (next_order < 1)
+		next_order = 1;
+
+	Ac->set_p_order(next_order);
 
     // A parameters:
     // A.entry[i]: to access entry i of A, which is local to this processor.
@@ -47,10 +63,6 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     // P.Nbig: the colume size of P
     // P->entry[i] = cooEntry(i, j, val);
 
-    MPI_Comm comm = A->comm;
-    int nprocs, rank;
-    MPI_Comm_size(comm, &nprocs);
-    MPI_Comm_rank(comm, &rank);
 
 #ifdef __DEBUG1__
     if(verbose_coarsen) {
@@ -58,9 +70,6 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     }
 #endif
 
-    //cout << "set up P" << endl;
-    int order = A->p_order;
-    prodim    = A->prodim;
 
     //std::cout << "problem dim = " << prodim << endl;
 
@@ -285,6 +294,139 @@ vector<int> saena_object::next_p_level(vector<int> ind_fine, int order){
     /*vector<int> indices;
     for (int i=0; i<4; i++)
         indices.push_back(ind_fine[i]);*/
+
+    return indices;
+}
+
+vector<int> saena_object::next_p_level_random(vector<int> ind_fine, int order, int *type_){
+    // assuming the elemental ordering is like
+    // 7--8--9
+    // |  |  |
+    // 4--5--6
+    // |  |  |
+    // 1--2--3
+
+    // check element type
+    // 0: tri
+    // 1: quad
+    // 2: tet
+    // 3: hex
+    // 4: prism
+    int rank;
+    MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+    int type;
+    int vert_size = ind_fine.size();
+    if (vert_size == (order+1)*(order+1))
+        type = 1;
+    else if (vert_size == (order+1)*(order+1)*(order+1))
+        type = 3;
+    else if (vert_size == (order+1)*(order+2)/2)
+        type = 0;
+    else if (vert_size == (order*order*order+11*order)/6+order*order+1)
+        type = 2;
+    else if ( vert_size == 6+9*(order-1)+3*(order-1)*(order-1)+(order-1)*(order-2)+(order-1)*(order-1)*(order-2)/2 )
+        type = 4;
+    else
+    {
+        if (rank == rank_v)
+            std::cout << "element type is not implemented!" << std::endl;
+    }
+
+	//cout << "type: " << type << endl;
+    //cout << 6+9*(order-1)+3*(order-1)*(order-1)+(order-1)*(order-2)+(order-1)*(order-1)*(order-2)/2 << " " << vert_size << endl;
+    //cout << "element type = " << type << endl;
+    vector<int> indices;
+    if (type == 1)
+    {
+
+        for (int i=0; i<=next_order; i++)
+        {
+            for (int j=0; j<=next_order; j++)
+            {
+                indices.push_back(ind_fine[(order+1)*i+j]);
+            }
+        }
+    }
+
+    if (type == 3)
+    {
+        for (int i=0; i<=order/2; i++)
+        {
+            for (int j=0; j<=order/2; j++)
+            {
+                for (int k=0; k<=order/2; k++)
+                {
+                    indices.push_back(ind_fine[(order+1)*(order+1)*i+(order+1)*j+k]);
+                }
+            }
+        }
+    }
+
+	// hard coded for now ...
+	//cout << "===============" << endl;
+    if (type == 0)
+    {
+		for (int i=0; i<=order/2; i++)
+		{
+			for (int j=0; j<=order/2-i; j++)
+			{
+				indices.push_back(ind_fine[(2*order+3-i)*i/2+j]);
+				//cout << (2*order+3-i)*i/2+j << endl;
+			}
+		}
+		/*int counter = 0;
+		for (int i=0; i<=order; i++)
+		{
+			for (int j=0; j<=order-i; j++)
+			{
+				if (i<=order/2 && j<=order/2-i)
+					cout << counter << endl;
+
+				counter ++;
+			}
+		}*/
+    }
+	//cout << "==============" << endl;
+    if (type == 2)
+    {
+        int counter = 0;
+        for (int i=0; i<=order; i++)
+        {
+            for (int j=0; j<=order-i; j++)
+            {
+                for (int k=0; k<=order-i-j; k++)
+                {
+                    //cout << sum_i+sum_j+k << endl;
+                    if (i<=order/2 && j<=order/2-i && k<= order/2-i-j)
+                        indices.push_back(ind_fine[counter]);
+
+                    counter ++;
+                }
+            }
+        }
+    }
+
+    if (type == 4)
+    {
+        int counter = 0;
+        for (int i=0; i<=order; i++)
+        {
+            for (int j=0; j<=order; j++)
+            {
+                for (int k=0; k<=order-i; k++)
+                {
+                    //cout << sum_i+sum_j+k << endl;
+                    if (i<=order/2 && j<=order/2 && k<= order/2-i)
+                        indices.push_back(ind_fine[counter]);
+
+                    counter ++;
+                }
+            }
+        }
+    }
+
+    if (type_ != NULL)
+        *type_ = type;
 
     return indices;
 }
@@ -650,7 +792,8 @@ vector<int> saena_object::coarse_p_node_arr(vector< vector<int> > map, int order
     for (int i=0; i<total_elem; i++)
     {
 		//cout << i << endl;
-        vector<int> ind_coarse = next_p_level_new2(map.at(i), order);
+        //vector<int> ind_coarse = next_p_level_new2(map.at(i), order);
+        vector<int> ind_coarse = next_p_level_random(map.at(i), order);
         for (int j=0; j<ind_coarse.size(); j++)
         {
             if (!ismember(ind_coarse.at(j), ind))
@@ -721,12 +864,12 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
         }
     }
 
-    if (rank == rank_v)
-    {
-        cout << "order = " << order << endl;
-        cout << "bdy node # = " << bdydof << endl;
-        cout << "next bdy node # = " << next_bdydof << endl;
-    }
+    //if (rank == rank_v)
+    //{
+        //cout << "order = " << order << endl;
+        //cout << "bdy node # = " << bdydof << endl;
+        //cout << "next bdy node # = " << next_bdydof << endl;
+    //}
     // col is global
     // row is universal
     // nodeno_coarse is the local coarse level size without boundary nodes
@@ -758,7 +901,8 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
         // for each element extract coraser element indices
         //vector<int> ind_coarse = next_p_level(map.at(i), order);
         int elem_type;
-        vector<int> ind_coarse = next_p_level_new2(map.at(i), order, &elem_type);
+        //vector<int> ind_coarse = next_p_level_new2(map.at(i), order, &elem_type);
+        vector<int> ind_coarse = next_p_level_random(map.at(i), order, &elem_type);
         //vector<int> ind_coarse = next_p_level(map.at(i), order);
 
         //std::cout << "ind_coarse size: " << ind_coarse.size() << std::endl;
@@ -1680,7 +1824,8 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, string file
         for (int i = 0; i < elemno; ++i){
             vector<int> aline = map.at(i);
 			//cout << i << endl;
-            vector<int> ind_coarse = next_p_level_new2(aline, order);
+            //vector<int> ind_coarse = next_p_level_new2(aline, order);
+            vector<int> ind_coarse = next_p_level_random(aline, order);
             for (int j = 0; j < ind_coarse.size(); ++j){
                 int mapped_val = findloc(coarse_node_ind, ind_coarse.at(j));
                 map_next.at(i).emplace_back(mapped_val+1);
@@ -1701,16 +1846,17 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, string file
             nodeno_fine = std::max(*max_element(map[i].begin(), map[i].end()), nodeno_fine);
         }
         if (rank == rank_v){
+			cout << "order = " << order << endl;
             cout << "elem # = " << elemno << endl;
-            cout << "bdydof = " << bdydof << endl;
+            cout << "bdydof # = " << bdydof << endl;
             cout << "current fine node # = " << nodeno_fine << ", and next coarse node # = " << nodeno_coarse << endl;
         }
     }
-    else {
-        if (rank == rank_v){
-            cout << "This is the p = 1 level, and NO next coarse p level is computed" << endl;
-        }
-    }
+    //else {
+    //    if (rank == rank_v){
+    //        cout << "This is the p = 1 level, and NO next coarse p level is computed" << endl;
+    //    }
+    //}
     //std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
 	
     /*for(int i=0; i<map.size();i++)
@@ -1864,6 +2010,9 @@ void saena_object::g2umap(int order, string filename, vector< vector<int> > &g2u
         g2u_all.at(g2u_all.size()-1).push_back(g2u_next_coarse_node.at(i));
     }
     //std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
+
+	if (rank == rank_v)
+        cout << "next bdy node # = " << next_bdydof << endl;
 
 	/*if (rank == rank_v)
 	{
