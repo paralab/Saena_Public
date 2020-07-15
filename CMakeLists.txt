@@ -219,7 +219,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/saena_object.cpp
         src/saena_object_setup1.cpp
         src/saena_object_setup2.cpp
-        src/saena_object_setup3.cpp
+        src/saena_object_pcoarsen_modal.cpp
         src/saena_object_setup_matmat.cpp
         src/saena_object_solve.cpp
         src/saena_object_lazy.cpp
