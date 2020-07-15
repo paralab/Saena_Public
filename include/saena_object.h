@@ -413,6 +413,10 @@ public:
         return 0;
     }
 
+    // *****************
+    // pcoarsen functions
+    // **********************************************
+
     std::vector<int> next_p_level(std::vector<int> ind_fine, int order);
     std::vector<int> next_p_level_new(std::vector<int> ind_fine, int order, int *type = NULL);
     std::vector<int> next_p_level_new2(std::vector<int> ind_fine, int order, int *type = NULL);
@@ -427,19 +431,19 @@ public:
 
     std::vector<int> coarse_p_node_arr(std::vector< std::vector<int> > map, int order);
     inline int findloc(std::vector<int> arr, int a);
-	//inline std::vector< std::vector<double> > transp(std::vector< std::vector<double> > M);
-	inline bool ismember(int a, std::vector<int> arr);
-	//inline std::vector< std::vector<int> > connect(int order, int a_elemno, int prodim);
+    //inline std::vector< std::vector<double> > transp(std::vector< std::vector<double> > M);
+    inline bool ismember(int a, std::vector<int> arr);
+    //inline std::vector< std::vector<int> > connect(int order, int a_elemno, int prodim);
     inline int factorial(int n);
     inline std::vector<double> comp_L(int i, int order);
-	inline std::vector< std::vector<double> > eighth_order(int order);
+    inline std::vector< std::vector<double> > eighth_order(int order);
     // replace above one after testing
     inline std::vector< std::vector<double> > one_interp_P(int order);
 
-	inline std::vector< std::vector<int> > mesh_info(int order, std::string filename, std::vector< std::vector< std::vector<int> > > &map_all, MPI_Comm comm);
-	void g2umap(int order, std::string filename, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map, MPI_Comm comm);
-	int bdydof;
-	int next_bdydof;
+    inline std::vector< std::vector<int> > mesh_info(int order, std::vector< std::vector< std::vector<int> > > &map_all, MPI_Comm comm);
+    void g2umap(int order, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map, MPI_Comm comm);
+    int bdydof;
+    int next_bdydof;
     int elemno;
     int nodeno_fine;
     int nodeno_coarse;
@@ -453,7 +457,7 @@ public:
     int prodim;
     std::vector<int> ordering_map;
     void comp_ordering_map(int type, int order);
-	int next_order;
+    int next_order;
 };
 
 #endif //SAENA_SAENA_OBJECT_H
