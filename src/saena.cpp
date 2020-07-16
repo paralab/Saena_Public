@@ -1,18 +1,10 @@
 #include "saena.hpp"
 #include "saena_matrix.h"
-//#include "saena_matrix_dense.h"
 #include "saena_vector.h"
 #include "saena_object.h"
-//#include "pugixml.hpp"
-#include "dollar.hpp"
+#include "grid.h"
 #include "parUtils.h"
-
-#include <vector>
-#include <string>
-#include <mpi.h>
-#include <random>
-#include <cmath>
-#include <grid.h>
+//#include "pugixml.hpp"
 
 # define PETSC_PI 3.14159265358979323846
 
@@ -129,6 +121,7 @@ void saena::matrix::set_prodim(int _prodim){
     m_pImpl->set_prodim(_prodim);
 }
 
+
 int saena::matrix::assemble(bool scale /*= true*/) {
     m_pImpl->assemble(scale);
     return 0;
@@ -189,8 +182,9 @@ int saena::matrix::print(int ran, std::string name){
     return 0;
 }
 
-int saena::matrix::enable_shrink(bool val){
-    m_pImpl->enable_shrink = val;
+int saena::matrix::set_shrink(bool val){
+    m_pImpl->enable_shrink   = val;
+    m_pImpl->enable_shrink_c = val;
     return 0;
 }
 
@@ -453,17 +447,12 @@ int saena::amg::set_matrix(saena::matrix* A, saena::options* opts){
     return 0;
 }
 
-int saena::amg::set_matrix(saena::matrix* A, saena::options* opts, std::vector<std::vector<int>> &m_l2g, std::vector<int> &m_g2u, int m_bdydof){
+int saena::amg::set_matrix(saena::matrix* A, saena::options* opts, std::vector<std::vector<int>> &m_l2g, std::vector<int> &m_g2u, int m_bdydof, std::vector<int> &order_dif){
     m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
-    m_pImpl->setup(A->get_internal_matrix(), m_l2g, m_g2u, m_bdydof);
+    m_pImpl->setup(A->get_internal_matrix(), m_l2g, m_g2u, m_bdydof, order_dif);
     return 0;
 }
-
-//int saena::amg::set_rhs(std::vector<double> rhs){
-//    m_pImpl->set_repartition_rhs(rhs);
-//    return 0;
-//}
 
 int saena::amg::set_rhs(saena::vector &rhs){
     m_pImpl->set_repartition_rhs(rhs.get_internal_vector());

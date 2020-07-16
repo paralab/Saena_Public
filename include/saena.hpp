@@ -2,10 +2,6 @@
 
 #include "data_struct.h"
 
-#include <vector>
-#include <string>
-#include <mpi.h>
-
 class saena_matrix;
 class saena_vector;
 class saena_matrix_dense;
@@ -53,7 +49,7 @@ namespace saena {
 
         int print(int ran, std::string name = "");
 
-        int enable_shrink(bool val);
+        int set_shrink(bool val);
 
         int erase();
         int erase_lazy_update();
@@ -148,8 +144,9 @@ namespace saena {
     public:
         amg();
         ~amg();
+
         int set_matrix(saena::matrix* A, saena::options* opts);
-        int set_matrix(saena::matrix* A, saena::options* opts, std::vector<std::vector<int>> &l2g, std::vector<int> &g2u, int m_bdydof); // for Nektar++
+        int set_matrix(saena::matrix* A, saena::options* opts, std::vector<std::vector<int>> &l2g, std::vector<int> &g2u, int m_bdydof, std::vector<int> &order_dif); // for Nektar++
 //        int set_rhs(std::vector<value_t> rhs); // note: this function copies the rhs.
         int set_rhs(saena::vector &rhs); // note: this function copies the rhs.
 

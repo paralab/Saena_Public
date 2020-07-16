@@ -2,11 +2,7 @@
 #include "saena_matrix.h"
 #include "parUtils.h"
 
-#include <iostream>
-#include <random>
-#include <cmath>
-#include <sys/stat.h>
-#include <iomanip>
+#define PETSC_PI 3.14159265358979323846
 
 class saena_matrix;
 
@@ -242,8 +238,6 @@ int generate_rhs(std::vector<value_t>& rhs, index_t mx, index_t my, index_t mz, 
     double    Hx,Hy,Hz;
 //    double    ***array;
     index_t node;
-
-#define PETSC_PI 3.14159265358979323846
 
     Hx   = 1.0 / (double)(mx);
     Hy   = 1.0 / (double)(my);

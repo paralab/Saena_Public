@@ -22,9 +22,9 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 #    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
 #ENDIF()
 
-#IF(CMAKE_BUILD_TYPE STREQUAL Debug)
-#    add_definitions(-D__DEBUG1__)
-#ENDIF()
+IF(CMAKE_BUILD_TYPE STREQUAL Debug)
+    add_definitions(-D__DEBUG1__)
+ENDIF()
 
 # -----------------------------------------------------------------------
 # OpenMP
