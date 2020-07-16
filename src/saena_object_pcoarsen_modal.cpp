@@ -246,39 +246,29 @@ vector<int> saena_object::next_p_level_random(vector<int> ind_fine, int order, i
     //cout << 6+9*(order-1)+3*(order-1)*(order-1)+(order-1)*(order-2)+(order-1)*(order-1)*(order-2)/2 << " " << vert_size << endl;
     //cout << "element type = " << type << endl;
     vector<int> indices;
-    if (type == 1)
-    {
-        for (int i=0; i<=next_order; i++)
-        {
-            for (int j=0; j<=next_order; j++)
-            {
-                indices.push_back(ind_fine[(order+1)*i+j]);
+    if (type == 1) {
+        for (int i = 0; i <= next_order; ++i) {
+            for (int j = 0; j <= next_order; ++j) {
+                indices.emplace_back(ind_fine[(order+1)*i+j]);
             }
         }
     }
 
-    if (type == 3)
-    {
-        for (int i=0; i<=next_order; i++)
-        {
-            for (int j=0; j<=next_order; j++)
-            {
-                for (int k=0; k<=next_order; k++)
-                {
-                    indices.push_back(ind_fine[(order+1)*(order+1)*i+(order+1)*j+k]);
+    if (type == 3) {
+        for (int i = 0; i <= next_order; ++i) {
+            for (int j = 0; j <= next_order; ++j) {
+                for (int k = 0; k <= next_order; ++k) {
+                    indices.emplace_back(ind_fine[(order+1)*(order+1)*i + (order+1)*j + k]);
                 }
             }
         }
     }
 
     //cout << "===============" << endl;
-    if (type == 0)
-    {
-        for (int i=0; i<=next_order; i++)
-        {
-            for (int j=0; j<=next_order-i; j++)
-            {
-                indices.push_back(ind_fine[(2*order+3-i)*i/2+j]);
+    if (type == 0) {
+        for (int i = 0; i <= next_order; ++i) {
+            for (int j = 0; j <= next_order-i; ++j) {
+                indices.emplace_back(ind_fine[(2 * order + 3 - i) * i / 2 + j]);
                 //cout << (2*order+3-i)*i/2+j << endl;
             }
         }
@@ -296,38 +286,30 @@ vector<int> saena_object::next_p_level_random(vector<int> ind_fine, int order, i
     }
 
     //cout << "==============" << endl;
-    if (type == 2)
-    {
+    if (type == 2) {
         int counter = 0;
-        for (int i=0; i<=order; i++)
-        {
-            for (int j=0; j<=order-i; j++)
-            {
-                for (int k=0; k <= order-i-j; k++)
-                {
+        for (int i = 0; i <= order; ++i) {
+            for (int j = 0; j <= order-i; ++j) {
+                for (int k = 0; k <= order-i-j; ++k) {
                     //cout << sum_i+sum_j+k << endl;
-                    if (i <= next_order && j <= next_order-i && k <= next_order-i-j)
-                        indices.push_back(ind_fine[counter]);
-
+                    if (i <= next_order && j <= next_order-i && k <= next_order-i-j){
+                        indices.emplace_back(ind_fine[counter]);
+                    }
                     ++counter;
                 }
             }
         }
     }
 
-    if (type == 4)
-    {
+    if (type == 4) {
         int counter = 0;
-        for (int i=0; i<=order; i++)
-        {
-            for (int j=0; j<=order; j++)
-            {
-                for (int k=0; k<=order-i; k++)
-                {
+        for (int i = 0; i <= order; ++i) {
+            for (int j = 0; j <= order; ++j) {
+                for (int k = 0; k <= order-i; ++k) {
                     //cout << sum_i+sum_j+k << endl;
-                    if (i<=next_order && j<=next_order && k<= next_order-i)
-                        indices.push_back(ind_fine[counter]);
-
+                    if (i<=next_order && j<=next_order && k<= next_order-i){
+                        indices.emplace_back(ind_fine[counter]);
+                    }
                     ++counter;
                 }
             }
@@ -365,8 +347,11 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+    assert(g2u_all.size() >= 2);
+
     vector<int> g2u_f = g2u_all.at(g2u_all.size()-2);
     vector<int> g2u_c = g2u_all.at(g2u_all.size()-1);
+
     // get universal number of dof
     // any other better way?
     int g2u_f_univ_size = 0;
@@ -552,7 +537,7 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, vector< vec
 
         map_all.emplace_back(vector< vector<int> >());
         for (int i = 0; i < elemno; ++i){
-            map_all.at(map_all.size()-1).push_back(vector<int>());
+            map_all.at(map_all.size()-1).emplace_back(vector<int>());
             for (int j = 0; j < map_next.at(i).size(); ++j){
                 map_all.at(map_all.size()-1).at(i).emplace_back(map_next.at(i).at(j));
             }
@@ -636,7 +621,7 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
         if (coarse_node_ind.at(i)-1 < bdydof)
             ++next_bdydof;
         else
-            g2u_next_fine_node.push_back(g2u_all.at(g2u_all.size()-1).at(coarse_node_ind.at(i)-1-bdydof));
+            g2u_next_fine_node.emplace_back(g2u_all.at(g2u_all.size()-1).at(coarse_node_ind.at(i)-1-bdydof));
     }
 
 #ifdef __DEBUG1__
@@ -707,9 +692,9 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
     }
 #endif
 
-    g2u_all.push_back( vector<int> ());
+    g2u_all.emplace_back( vector<int> ());
     for (int i = 0; i < g2u_next_coarse_node.size(); ++i) {
-        g2u_all.at(g2u_all.size()-1).push_back(g2u_next_coarse_node.at(i));
+        g2u_all.at(g2u_all.size()-1).emplace_back(g2u_next_coarse_node.at(i));
     }
     //std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
 
