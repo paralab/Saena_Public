@@ -1897,10 +1897,10 @@ int saena_object::pGMRES(std::vector<double> &u){
 
     // initialize the Hessenberg matrix H
     // **********************************
-    saena_matrix_dense H(m, m, comm); // todo: passed Mbig instead of Nbig.
+    saena_matrix_dense H(m + 1, m + 1, comm); // todo: passed Mbig instead of Nbig.
 //    #pragma omp parallel for // todo: set default
     for(i = 0; i < m; i++){
-        std::fill(&H.entry[i][0], &H.entry[i][m], 0);
+        std::fill(&H.entry[i][0], &H.entry[i][m + 1], 0);
 //        for(j = 0; j < A->Mbig; j++) {
 //            H.set(i, j, 0);
 //        }
