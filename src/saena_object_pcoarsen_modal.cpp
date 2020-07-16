@@ -588,8 +588,7 @@ inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &m
 
 
 //this is the function as mesh info for test for now
-void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vector< vector<int> > > &map_all, MPI_Comm comm)
-{
+void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vector< vector<int> > > &map_all, MPI_Comm comm) {
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
@@ -600,15 +599,14 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
     }
 #endif
 
-    assert(map_all.size() >= 2);
-
     // entry value is based on finer node
     vector <int> g2u_next_fine_node;
 
     // coarse_node_ind index is coraser mesh node index
     // coarse_node_ind value is finer mesh node index
-    vector< vector<int> > map   = map_all.at(map_all.size()-2);
-    vector< vector<int> > map_c = map_all.at(map_all.size()-1);
+    assert(map_all.size() >= 2);
+    vector< vector<int> > &map   = map_all.at(map_all.size()-2);
+    vector< vector<int> > &map_c = map_all.at(map_all.size()-1);
 
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
@@ -654,7 +652,7 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
 
     vector<int> displs(nprocs);
     displs[0] = 0;
-    for (int i=1; i<nprocs;i++)
+    for (int i = 1; i < nprocs; ++i)
         displs[i] = displs[i-1]+count_arr[i-1];
 
     vector<int> g2u_univ(g2u_univ_size);
@@ -694,10 +692,10 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
 
     vector <int> g2u_next_coarse_node(nodeno_coarse - next_bdydof);
 
-    const int OFST = next_bdydof + 1;
-
     //cout << g2u_next_coarse_node.size() << endl;
     //cout << g2u_next_fine_node.size() << endl;
+
+    const int OFST = next_bdydof + 1;
     for (int el = 0; el < elemno; ++el) {
         for (int i = 0; i < map_c[el].size(); ++i) {
             int ind = map_c[el][i];
