@@ -406,12 +406,11 @@ public:
     // for debugging
     int rank_v = 0;
 
-    int  next_p_level_random(std::vector<int> ind_fine, int order, vector<int> &ind, int *type = NULL);
-    void set_P_from_mesh(int order, std::vector< std::vector<int> > &map, std::vector<cooEntry_row> &P_temp, MPI_Comm comm, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map_all);
+    int  next_p_level_random(const std::vector<int>& ind_fine, int order, vector<int> &ind, int *type = NULL);
+    void set_P_from_mesh(int order, std::vector<cooEntry_row> &P_temp, MPI_Comm comm, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map_all);
     int  coarse_p_node_arr(std::vector< std::vector<int> > &map, int order, vector<int> &ind);
     inline int findloc(std::vector<int> &arr, int a);
-
-    inline std::vector< std::vector<int> > mesh_info(int order, std::vector< std::vector< std::vector<int> > > &map_all, MPI_Comm comm);
+    inline int mesh_info(int order, std::vector< std::vector< std::vector<int> > > &map_all, MPI_Comm comm);
     void g2umap(int order, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map, MPI_Comm comm);
 };
 

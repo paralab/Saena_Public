@@ -56,7 +56,7 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
 
     Ac->set_p_order(next_order);
 
-    vector< vector<int> > map = mesh_info(order, map_all, comm);
+    mesh_info(order, map_all, comm);
 
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
@@ -94,7 +94,7 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
 #endif
 
     vector<cooEntry_row> P_temp;
-    set_P_from_mesh(order, map, P_temp, comm, g2u_all, map_all);//, Rp);
+    set_P_from_mesh(order, P_temp, comm, g2u_all, map_all);
 
     bdydof = next_bdydof;
 
@@ -206,7 +206,7 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
 }
 
 
-int saena_object::next_p_level_random(vector<int> ind_fine, int order, vector<int> &ind, int *type_){
+int saena_object::next_p_level_random(const vector<int> &ind_fine, int order, vector<int> &ind, int *type_){
     // assuming the elemental ordering is like
     // 7--8--9
     // |  |  |
@@ -340,13 +340,15 @@ int saena_object::coarse_p_node_arr(vector< vector<int> > &map, int order, vecto
 }
 
 
-void saena_object::set_P_from_mesh(int order, vector<vector<int>> &map, vector<cooEntry_row> &P_temp, MPI_Comm comm, vector< vector<int> > &g2u_all, vector< vector< vector<int> > > &map_all){
+void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_Comm comm, vector< vector<int> > &g2u_all, vector< vector< vector<int> > > &map_all){
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    assert(g2u_all.size() >= 2);
+    assert(map_all.size() >= 2);
+    vector<vector<int>> &map = map_all[map_all.size() - 2];
 
+    assert(g2u_all.size() >= 2);
     vector<int> g2u_f = g2u_all.at(g2u_all.size()-2);
     vector<int> g2u_c = g2u_all.at(g2u_all.size()-1);
 
@@ -418,6 +420,7 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> &map, vector<c
     // coarse_node_ind index is coraser mesh node index
     // coarse_node_ind value is finer mesh node index
 
+    // TODO: is this needed?
     sort(coarse_node_ind.begin(), coarse_node_ind.end());
 
     //cout << map.size() << " " << map.at(0).size() << "\n";
@@ -426,17 +429,17 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> &map, vector<c
 
     // loop over all elements
     // elemno is the local element number
-    int max_col = 0;
-    int max_row = 0;
+//    int max_col = 0;
+//    int max_row = 0;
     for (int i = 0; i < elemno; ++i){
         // for each element extract coarser element indices
         int elem_type;
         vector<int> ind_coarse;
-        next_p_level_random(map.at(i), order, ind_coarse, &elem_type);
+        next_p_level_random(map[i], order, ind_coarse, &elem_type);
 
         //cout << i << " " << flag << endl;
         //flag = true;
-        for (int j=0; j<ind_coarse.size(); j++){
+        for (int j = 0; j < ind_coarse.size(); ++j){
             // skip bdy node
             if (ind_coarse.at(j)-1 < bdydof)
                 continue;
@@ -477,8 +480,7 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> &map, vector<c
 
 
 //this is the function as mesh info for test for now
-inline vector< std::vector<int> > saena_object::mesh_info(int order, vector< vector< vector<int> > > &map_all, MPI_Comm comm)
-{
+inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &map_all, MPI_Comm comm) {
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
@@ -492,7 +494,7 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, vector< vec
     assert(!map_all.empty());
 
     // TODO: avoid copying
-    vector <vector<int> > map = map_all.back();
+    vector <vector<int> > &map = map_all.back();
 
     if (map_all.size() == 1) {
         elemno = map_all[0].size();
@@ -506,12 +508,21 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, vector< vec
         }
 #endif
 
+        // get fine number of nodes in this P level
+        nodeno_fine = 0;
+        for (int i = 0; i < map.size(); ++i){
+            nodeno_fine = std::max(*max_element(map[i].begin(), map[i].end()), nodeno_fine);
+        }
+
         // coarse_node_ind index is coarser mesh node index
         // coarse_node_ind value is finer mesh node index
 
         vector<int> coarse_node_ind;
         coarse_p_node_arr(map_all.back(), order, coarse_node_ind);
 //        sort(coarse_node_ind.begin(), coarse_node_ind.end());
+
+        // get coarse number of nodes in this P level
+        nodeno_coarse = coarse_node_ind.size();
 
 #ifdef __DEBUG1__
         if(verbose_pcoarsen) {
@@ -528,13 +539,9 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, vector< vec
         vector <vector<int> > map_next(elemno);
         vector<int> ind_coarse;
         for (int i = 0; i < elemno; ++i){
-            vector<int> aline = map[i];
-            //cout << i << endl;
-            //vector<int> ind_coarse = next_p_level_new2(aline, order);
             ind_coarse.clear();
-            next_p_level_random(aline, order, ind_coarse);
+            next_p_level_random(map[i], order, ind_coarse);
             for (int j = 0; j < ind_coarse.size(); ++j){
-//                int mapped_val = findloc(coarse_node_ind, ind_coarse[j]);
                 map_next[i].emplace_back(hash[ind_coarse[j]] + 1);
             }
         }
@@ -554,12 +561,6 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, vector< vec
             }
         }
 
-        // get fine and corase number of nodes in this P level
-        nodeno_coarse = coarse_node_ind.size();
-        nodeno_fine = 0;
-        for (int i = 0; i < map.size(); ++i){
-            nodeno_fine = std::max(*max_element(map[i].begin(), map[i].end()), nodeno_fine);
-        }
 
 #ifdef __DEBUG1__
         if(verbose_pcoarsen) {
@@ -582,7 +583,7 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, vector< vec
     }
 #endif
 
-    return map;
+    return 0;
 }
 
 
