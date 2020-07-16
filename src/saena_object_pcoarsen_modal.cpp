@@ -257,11 +257,11 @@ vector<int> saena_object::next_p_level_random(vector<int> ind_fine, int order, i
 
     if (type == 3)
     {
-        for (int i=0; i<=order/2; i++)
+        for (int i=0; i<=next_order; i++)
         {
-            for (int j=0; j<=order/2; j++)
+            for (int j=0; j<=next_order; j++)
             {
-                for (int k=0; k<=order/2; k++)
+                for (int k=0; k<=next_order; k++)
                 {
                     indices.push_back(ind_fine[(order+1)*(order+1)*i+(order+1)*j+k]);
                 }
@@ -269,13 +269,12 @@ vector<int> saena_object::next_p_level_random(vector<int> ind_fine, int order, i
         }
     }
 
-    // hard coded for now ...
     //cout << "===============" << endl;
     if (type == 0)
     {
-		for (int i=0; i<=order/2; i++)
+		for (int i=0; i<=next_order; i++)
 		{
-			for (int j=0; j<=order/2-i; j++)
+			for (int j=0; j<=next_order-i; j++)
 			{
 				indices.push_back(ind_fine[(2*order+3-i)*i/2+j]);
 				//cout << (2*order+3-i)*i/2+j << endl;
@@ -305,7 +304,7 @@ vector<int> saena_object::next_p_level_random(vector<int> ind_fine, int order, i
                 for (int k=0; k <= order-i-j; k++)
                 {
                     //cout << sum_i+sum_j+k << endl;
-                    if (i <= order/2 && j <= order/2-i && k <= order/2-i-j)
+                    if (i <= next_order && j <= next_order-i && k <= next_order-i-j)
                         indices.push_back(ind_fine[counter]);
 
                     ++counter;
@@ -324,7 +323,7 @@ vector<int> saena_object::next_p_level_random(vector<int> ind_fine, int order, i
                 for (int k=0; k<=order-i; k++)
                 {
                     //cout << sum_i+sum_j+k << endl;
-                    if (i<=order/2 && j<=order/2 && k<= order/2-i)
+                    if (i<=next_order && j<=next_order && k<= next_order-i)
                         indices.push_back(ind_fine[counter]);
 
                     ++counter;
