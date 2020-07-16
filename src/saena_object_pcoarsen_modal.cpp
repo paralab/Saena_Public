@@ -198,6 +198,19 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
 
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
+        MPI_Barrier(comm); if (!rank) printf("coarsen: step 7\n\n"); MPI_Barrier(comm);
+    }
+#endif
+
+    if(next_order == 1){
+        map_all.clear();
+        g2u_all.clear();
+        map_all.shrink_to_fit();
+        g2u_all.shrink_to_fit();
+    }
+
+#ifdef __DEBUG1__
+    if(verbose_pcoarsen) {
         MPI_Barrier(comm); if (!rank) printf("coarsen: end\n\n"); MPI_Barrier(comm);
     }
 #endif
@@ -227,11 +240,13 @@ int saena_object::next_p_level_random(const vector<int> &ind_fine, int order, ve
     int type = -1;
     int vert_size = ind_fine.size();
 
-    if (vert_size == (order+1)*(order+1))
+    int op1 = order + 1;
+
+    if (vert_size == op1*op1)
         type = 1;
-    else if (vert_size == (order+1)*(order+1)*(order+1))
+    else if (vert_size == op1*op1*op1)
         type = 3;
-    else if (vert_size == (order+1)*(order+2)/2)
+    else if (vert_size == op1*(order+2)/2)
         type = 0;
     else if (vert_size == (order*order*order+11*order)/6+order*order+1)
         type = 2;
@@ -250,7 +265,7 @@ int saena_object::next_p_level_random(const vector<int> &ind_fine, int order, ve
     if (type == 1) {
         for (int i = 0; i <= next_order; ++i) {
             for (int j = 0; j <= next_order; ++j) {
-                ind.emplace_back(ind_fine[(order+1)*i+j]);
+                ind.emplace_back(ind_fine[op1 * i + j]);
             }
         }
     }
@@ -259,7 +274,7 @@ int saena_object::next_p_level_random(const vector<int> &ind_fine, int order, ve
         for (int i = 0; i <= next_order; ++i) {
             for (int j = 0; j <= next_order; ++j) {
                 for (int k = 0; k <= next_order; ++k) {
-                    ind.emplace_back(ind_fine[(order+1)*(order+1)*i + (order+1)*j + k]);
+                    ind.emplace_back(ind_fine[op1 * op1 * i + op1 * j + k]);
                 }
             }
         }
