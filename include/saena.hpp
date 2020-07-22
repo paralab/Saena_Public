@@ -160,9 +160,11 @@ namespace saena {
         double get_dense_threshold();
         MPI_Comm get_orig_comm();
 
+
         // before calling solve function, vector "u" is the initial guess.
         // After calling solve, it will be the solution.
         int solve(std::vector<value_t>& u, saena::options* opts);
+        int solve_smoother(std::vector<value_t>& u, saena::options* opts);
         int solve_pcg(std::vector<value_t>& u, saena::options* opts);
         // if solver is made based of a matrix, let's call it A, and there is an updated version of A, let's call it B,
         // and one wants to solve B*x = rhs instead of A*x = rhs, then solve_pcg_update can be used and B can be passed as the third argument.
