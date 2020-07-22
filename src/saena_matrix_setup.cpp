@@ -1,15 +1,4 @@
 #include "saena_matrix.h"
-#include "parUtils.h"
-#include "dollar.hpp"
-
-#include <fstream>
-#include <cstring>
-#include <algorithm>
-//#include <sys/stat.h>
-#include <omp.h>
-//#include <printf.h>
-#include "mpi.h"
-
 
 int saena_matrix::assemble(bool scale /*= true*/) {
 
@@ -47,8 +36,7 @@ int saena_matrix::setup_initial_data(){
     // read this: https://stackoverflow.com/questions/5034211/c-copy-set-to-vector
     data_unsorted.resize(data_coo.size());
     for(it = data_coo.begin(); it != data_coo.end(); ++it){
-        data_unsorted[iter] = *it;
-        ++iter;
+        data_unsorted[iter++] = *it;
 
         temp = *it;
         if(temp.col > Mbig_local)
@@ -72,7 +60,10 @@ int saena_matrix::setup_initial_data(){
 
     initial_nnz_l = data.size();
     MPI_Allreduce(&initial_nnz_l, &nnz_g, 1, par::Mpi_datatype<nnz_t>::value(), MPI_SUM, comm);
-//    MPI_Barrier(comm); printf("rank = %d, Mbig = %u, nnz_g = %u, initial_nnz_l = %u \n", rank, Mbig, nnz_g, initial_nnz_l); MPI_Barrier(comm);
+
+//    MPI_Barrier(comm);
+//    printf("rank = %d, Mbig = %u, nnz_g = %ld, initial_nnz_l = %ld \n", rank, Mbig, nnz_g, initial_nnz_l);
+//    MPI_Barrier(comm);
 
     return 0;
 }
@@ -95,8 +86,7 @@ int saena_matrix::setup_initial_data2(){
 
     data_unsorted.resize(data_coo.size());
     for(it = data_coo.begin(); it != data_coo.end(); ++it){
-        data_unsorted[iter] = *it;
-        ++iter;
+        data_unsorted[iter++] = *it;
     }
 
     remove_duplicates();
@@ -166,52 +156,60 @@ int saena_matrix::remove_duplicates() {
 
     // size of data may be smaller because of duplicates. In that case its size will be reduced after finding the exact size.
     data.resize(data_sorted.size());
+
     // put the first element of data_unsorted to data.
+    value_t tmp     = 0.0;
     nnz_t data_size = 0;
-    if(!data_sorted.empty()){
-        data[0] = data_sorted[0];
-        data_size++;
-    }
+    nnz_t sz        = data_sorted.size();
+
     if(add_duplicates){
-        for(nnz_t i = 1; i < data_sorted.size(); i++) {
-            if (data_sorted[i] == data_sorted[i - 1]) {
-                data[data_size - 1].val += data_sorted[i].val;
-            } else {
-                data[data_size] = data_sorted[i];
-                data_size++;
+        for(nnz_t i = 0; i < sz; ++i) {
+//            cout << data_sorted[i] << endl;
+            tmp = data_sorted[i].val;
+            while(i + 1 < sz && data_sorted[i + 1] == data_sorted[i]){
+                tmp += data_sorted[++i].val;
+            }
+
+            if (fabs(tmp) > ALMOST_ZERO) {
+                data[data_size++] = cooEntry(data_sorted[i].row, data_sorted[i].col, tmp);
             }
         }
     } else {
-        for(nnz_t i = 1; i < data_sorted.size(); i++){
-            if(data_sorted[i] == data_sorted[i - 1]){
-                data[data_size - 1] = data_sorted[i];
-            }else{
-                data[data_size] = data_sorted[i];
-                data_size++;
+        for(nnz_t i = 0; i < sz; ++i) {
+            while(i + 1 < sz && data_sorted[i + 1] == data_sorted[i]){
+                ++i;
+            }
+            if (fabs(data_sorted[i].val) > ALMOST_ZERO) {
+                data[data_size++] = data_sorted[i];
             }
         }
     }
-    data.resize(data_size);
-    data.shrink_to_fit();
+
+    if(data_size != data_sorted.size()){
+        data.resize(data_size);
+        data.shrink_to_fit();
+    }
 
     // todo: replace the previous part with this
-//    nnz_t data_sorted_size_minus1 = data_sorted.size()-1;
-//    if(add_duplicates){
-//        for(nnz_t i = 0; i < data_sorted.size(); i++){
-//            data.emplace_back(data_sorted[i]);
-//            while(i < data_sorted_size_minus1 && data_sorted[i] == data_sorted[i+1]){ // values of entries with the same row should be added.
-//                //            std::cout << data_sorted[i] << "\t" << data_sorted[i+1] << std::endl;
-//                data.back().val += data_sorted[++i].val;
-//            }
-//        }
-//    } else {
-//        for(nnz_t i = 0; i < data_sorted.size(); i++){
-//            data.emplace_back(data_sorted[i]);
-//            while(i < data_sorted_size_minus1 && data_sorted[i] == data_sorted[i+1]){ // values of entries with the same row should be added.
-//                ++i;
-//            }
-//        }
-//    }
+#if 0
+    nnz_t data_sorted_size_minus1 = data_sorted.size()-1;
+    if(add_duplicates){
+        for(nnz_t i = 0; i < data_sorted.size(); i++){
+            data.emplace_back(data_sorted[i]);
+            while(i < data_sorted_size_minus1 && data_sorted[i] == data_sorted[i+1]){ // values of entries with the same row should be added.
+                std::cout << data_sorted[i] << "\t" << data_sorted[i+1] << std::endl;
+                data.back().val += data_sorted[++i].val;
+            }
+        }
+    } else {
+        for(nnz_t i = 0; i < data_sorted.size(); i++){
+            data.emplace_back(data_sorted[i]);
+            while(i < data_sorted_size_minus1 && data_sorted[i] == data_sorted[i+1]){ // values of entries with the same row should be added.
+                ++i;
+            }
+        }
+    }
+#endif
 
     // check for dupliactes on boundary points of the processors
     // ---------------------------------------------------------
@@ -546,91 +544,64 @@ int saena_matrix::set_off_on_diagonal(){
             MPI_Barrier(comm);
             printf("matrix_setup: rank = %d, local remote1 \n", rank);
             MPI_Barrier(comm);
+//            print_entry(-1);
         }
 
-//        print_entry(-1);
-
+        nnz_l_local     = 0;
+        nnz_l_remote    = 0;
         col_remote_size = 0;
-        nnz_l_local = 0;
-        nnz_l_remote = 0;
         recvCount.assign(nprocs, 0);
         nnzPerRow_local.assign(M, 0);
         if(nprocs > 1){
             nnzPerRow_remote.assign(M, 0);
         }
-//        nnzPerRow.assign(M,0);
-//        nnzPerCol_local.assign(Mbig,0); // Nbig = Mbig, assuming A is symmetric.
-//        nnzPerCol_remote.assign(M,0);
-//        std::vector<index_t> nnzPerCol(Mbig, 0);
-        nnzPerColScan.assign(Mbig + 1, 0);
-        index_t *nnzPerCol = &nnzPerColScan[1];
 
         // take care of the first element here, since there is "col[i-1]" in the for loop below, so "i" cannot start from 0.
-//        nnzPerRow[row[0]-split[rank]]++;
-        long procNum;
-        if(!entry.empty()){
-            if (entry[0].col >= split[rank] && entry[0].col < split[rank + 1]) {
-                nnzPerRow_local[entry[0].row - split[rank]]++;
-//                nnzPerCol_local[col[0]]++;
-                nnz_l_local++;
-                values_local.emplace_back(entry[0].val);
-                row_local.emplace_back(entry[0].row - split[rank]);
-                col_local.emplace_back(entry[0].col);
-            } else {
-                nnz_l_remote++;
-                nnzPerRow_remote[entry[0].row - split[rank]]++;
-                values_remote.emplace_back(entry[0].val);
-                row_remote.emplace_back(entry[0].row - split[rank]);
-                col_remote_size++;
-                col_remote.emplace_back(col_remote_size - 1);
-                col_remote2.emplace_back(entry[0].col);
-                nnzPerCol_remote.emplace_back(1);
-                vElement_remote.emplace_back(entry[0].col);
-                recvCount[lower_bound2(&split[0], &split[nprocs], entry[0].col)] = 1;
-            }
-            nnzPerCol[entry[0].col]++;
-        }
+        index_t procNum, procNumTmp;
+        nnz_t tmp = 0;
+        nnzPerProcScan.assign(nprocs + 1, 0);
+        auto *nnzProc_p = &nnzPerProcScan[1];
 
-        if(entry.size() >= 2){
-            for (nnz_t i = 1; i < nnz_l; i++) {
-//                nnzPerRow[row[i]-split[rank]]++;
-//                if(rank==0) std::cout << entry[i] << std::endl;
-                if (entry[i].col >= split[rank] && entry[i].col < split[rank + 1]) {
-                    nnz_l_local++;
-//                    nnzPerCol_local[col[i]]++;
-                    nnzPerRow_local[entry[i].row - split[rank]]++;
-                    values_local.emplace_back(entry[i].val);
+        nnz_t i = 0;
+        while(i < nnz_l) {
+            procNum = lower_bound2(&split[0], &split[nprocs], entry[i].col);
+//            if(rank==0) printf("col = %u \tprocNum = %d \n", entry[i].col, procNum);
+
+            if(procNum == rank){ // local
+                while(i < nnz_l && entry[i].col < split[procNum + 1]) {
+                    ++nnzPerRow_local[entry[i].row - split[rank]];
                     row_local.emplace_back(entry[i].row - split[rank]);
                     col_local.emplace_back(entry[i].col);
-
-//                    if (entry[i].col != entry[i - 1].col)
-//                        vElementRep_local.emplace_back(1);
-//                    else
-//                        vElementRep_local.back()++;
-                } else {
-                    nnz_l_remote++;
-                    nnzPerRow_remote[entry[i].row - split[rank]]++;
-                    values_remote.emplace_back(entry[i].val);
-                    row_remote.emplace_back(entry[i].row - split[rank]);
-                    // col_remote2 is the original col value and will be used in making strength matrix. col_remote will be used for matevec.
-                    col_remote2.emplace_back(entry[i].col);
-
-                    if (entry[i].col != entry[i - 1].col) {
-                        col_remote_size++;
-                        vElement_remote.emplace_back(entry[i].col);
-                        procNum = lower_bound2(&split[0], &split[nprocs], entry[i].col);
-//                        if(rank==1) printf("col = %u \tprocNum = %ld \n", entry[i].col, procNum);
-                        recvCount[procNum]++;
-                        nnzPerCol_remote.emplace_back(1);
-                    } else {
-                        nnzPerCol_remote.back()++;
-                    }
-                    // the original col values are not being used. the ordering starts from 0, and goes up by 1.
-                    col_remote.emplace_back(col_remote_size - 1);
+                    values_local.emplace_back(entry[i].val);
+                    ++i;
                 }
-                nnzPerCol[entry[i].col]++;
-            } // for i
-        }
+
+            }else{ // remote
+                tmp = i;
+                while(i < nnz_l && entry[i].col < split[procNum + 1]) {
+
+                    vElement_remote.emplace_back(entry[i].col);
+                    ++recvCount[procNum];
+                    nnzPerCol_remote.emplace_back(0);
+
+                    do{
+                        // the original col values are not being used in matvec. the ordering starts from 0, and goes up by 1.
+                        // col_remote2 is the original col value and will be used in making strength matrix.
+                        col_remote.emplace_back(vElement_remote.size() - 1);
+                        col_remote2.emplace_back(entry[i].col);
+                        row_remote.emplace_back(entry[i].row - split[rank]);
+                        values_remote.emplace_back(entry[i].val);
+                        ++nnzPerRow_remote[entry[i].row - split[rank]];
+                        ++nnzPerCol_remote.back();
+                    }while(++i < nnz_l && entry[i].col == entry[i - 1].col);
+                }
+                nnzProc_p[procNum] = i - tmp;
+            }
+        } // for i
+
+        nnz_l_local     = row_local.size();
+        nnz_l_remote    = row_remote.size();
+        col_remote_size = vElement_remote.size();
 
         if(verbose_matrix_setup) {
             MPI_Barrier(comm);
@@ -638,47 +609,47 @@ int saena_matrix::set_off_on_diagonal(){
             MPI_Barrier(comm);
         }
 
-//        nnzPerColScan.resize(Mbig + 1);
-//        nnzPerColScan[0] = 0;
-        for(nnz_t i = 1; i < Mbig+1; i++){
-            nnzPerColScan[i] += nnzPerColScan[i-1];
-        }
-//        nnzPerCol.clear();
-
         // don't receive anything from yourself
         recvCount[rank] = 0;
 
 //        print_vector(recvCount, 0, "recvCount", comm);
 
         if(nprocs != 1){
+
+            for (i = 1; i < nprocs + 1; ++i){
+                nnzPerProcScan[i] += nnzPerProcScan[i - 1];
+            }
+
+//            print_vector(nnzPerProcScan, 0, "nnzPerProcScan", comm);
+
             sendCount.resize(nprocs);
             MPI_Alltoall(&recvCount[0], 1, MPI_INT, &sendCount[0], 1, MPI_INT, comm);
 
 //            print_vector(sendCount, 0, "sendCount", comm);
 
-            recvCountScan.resize(nprocs);
-            sendCountScan.resize(nprocs);
+            recvCountScan.resize(nprocs + 1);
+            sendCountScan.resize(nprocs + 1);
             recvCountScan[0] = 0;
             sendCountScan[0] = 0;
-            for (index_t i = 1; i < nprocs; i++){
+            for (i = 1; i < nprocs + 1; ++i){
                 recvCountScan[i] = recvCountScan[i-1] + recvCount[i-1];
                 sendCountScan[i] = sendCountScan[i-1] + sendCount[i-1];
             }
 
-            numRecvProc = 0;
-            numSendProc = 0;
-            for (int i = 0; i < nprocs; i++) {
+            for (i = 0; i < nprocs; ++i) {
                 if (recvCount[i] != 0) {
-                    numRecvProc++;
                     recvProcRank.emplace_back(i);
                     recvProcCount.emplace_back(recvCount[i]);
                 }
                 if (sendCount[i] != 0) {
-                    numSendProc++;
                     sendProcRank.emplace_back(i);
                     sendProcCount.emplace_back(sendCount[i]);
                 }
             }
+
+            numRecvProc = recvProcRank.size();
+            numSendProc = sendProcRank.size();
+
 //            if (rank==0) std::cout << "rank=" << rank << ", numRecvProc=" << numRecvProc << ", numSendProc=" << numSendProc << std::endl;
 
             if(verbose_matrix_setup) {
@@ -692,18 +663,21 @@ int saena_matrix::set_off_on_diagonal(){
             vdispls[0] = 0;
             rdispls[0] = 0;
 
-            for (int i = 1; i < nprocs; i++) {
+            for (i = 1; i < nprocs; ++i) {
                 vdispls[i] = vdispls[i - 1] + sendCount[i - 1];
                 rdispls[i] = rdispls[i - 1] + recvCount[i - 1];
             }
             vIndexSize = vdispls[nprocs - 1] + sendCount[nprocs - 1];
-            recvSize = rdispls[nprocs - 1] + recvCount[nprocs - 1];
+            recvSize   = rdispls[nprocs - 1] + recvCount[nprocs - 1];
 
             vIndex.resize(vIndexSize);
             MPI_Alltoallv(&vElement_remote[0], &recvCount[0], &rdispls[0], par::Mpi_datatype<index_t>::value(),
                           &vIndex[0],          &sendCount[0], &vdispls[0], par::Mpi_datatype<index_t>::value(), comm);
 
 //            print_vector(vIndex, -1, "vIndex", comm);
+
+            vElement_remote.clear();
+            vElement_remote.shrink_to_fit();
 
             if(verbose_matrix_setup) {
                 MPI_Barrier(comm);
@@ -713,7 +687,7 @@ int saena_matrix::set_off_on_diagonal(){
 
             // change the indices from global to local
 #pragma omp parallel for
-            for (index_t i = 0; i < vIndexSize; i++){
+            for (i = 0; i < vIndexSize; i++){
                 vIndex[i] -= split[rank];
             }
 
@@ -721,7 +695,9 @@ int saena_matrix::set_off_on_diagonal(){
             // vecValues = vector values to be received from other procs
             // These will be used in matvec and they are set here to reduce the time of matvec.
             vSend.resize(vIndexSize);
+            vSend2.resize(vIndexSize);
             vecValues.resize(recvSize);
+            vecValues2.resize(recvSize);
 
 //            printf("rank %d: vIndexSize = %d, recvSize = %d, send_bufsize = %d, recv_bufsize = %d \n",
 //               rank, vIndexSize, recvSize, send_bufsize, recv_bufsize);
@@ -734,7 +710,7 @@ int saena_matrix::set_off_on_diagonal(){
         // compute M_max
 //        MPI_Allreduce(&M, &M_max, 1, MPI_UNSIGNED, MPI_MAX, comm);
         M_max = 0;
-        for(index_t i = 0; i < nprocs; i++){
+        for(i = 0; i < nprocs; ++i){
             if(split[i+1] - split[i] > M_max){
                 M_max = split[i+1] - split[i];
             }
@@ -892,6 +868,7 @@ int saena_matrix::openmp_setup() {
 
         // setup variables for another matvec implementation
         // -------------------------------------------------
+/*
         iter_local_array2.resize(num_threads+1);
         iter_local_array2[0] = 0;
         iter_local_array2[num_threads] = iter_local_array[num_threads];
@@ -926,6 +903,7 @@ int saena_matrix::openmp_setup() {
             }
 
         } // end of omp parallel
+*/
 
 //        if(rank==0){
 //            printf("\niter_local_array and iter_local_array2: \n");

@@ -8,8 +8,6 @@
 #include "saena_matrix_dense.h"
 
 #include <memory>
-#include <vector>
-#include <string>
 #include <unordered_map>
 #include <bitset>
 
@@ -20,27 +18,11 @@
 // number of update steps for lazy-update
 #define ITER_LAZY 20
 
-const double ALMOST_ZERO = 1e-16;
-
 class strength_matrix;
 class saena_matrix;
 class prolong_matrix;
 class restrict_matrix;
 class Grid;
-
-
-#ifndef NDEBUG
-#   define ASSERT(condition, message) \
-    do { \
-        if (! (condition)) { \
-            std::cerr << "Assertion `" #condition "` failed in " << __FILE__ \
-                      << " line " << __LINE__ << ": " << message << std::endl; \
-            std::terminate(); \
-        } \
-    } while (false)
-#else
-#   define ASSERT(condition, message) do { } while (false)
-#endif
 
 
 class saena_object {
@@ -60,7 +42,6 @@ public:
     bool repartition         = false; // this parameter will be set to true if the partition of input matrix changed. it will be decided in set_repartition_rhs().
     bool dynamic_levels      = false;
     bool adaptive_coarsening = false;
-//    bool shrink_cpu          = true;
 
     bool scale = true;
 
@@ -70,10 +51,10 @@ public:
     // matmat
     // *****************
 
-    std::string          coarsen_method = "recursive"; // 1-basic, 2-recursive, 3-no_overlap
-    const int            matmat_thre1 = 10000000;   // split until (A_row * B_col < matmat_thre1)
-    index_t              matmat_thre2 = 0;          // split until (B.col_sz < matmat_thre2). It will be set as ceil(sqrt(matmat_thre1))
-    static const index_t matmat_thre3 = 40;         // split until (case2_iter + case3_iter == matmat_thre3)
+    std::string          coarsen_method  = "recursive"; // 1-basic, 2-recursive, 3-no_overlap
+    const int            matmat_thre1    = 10000000;   // split until (A_row * B_col < matmat_thre1)
+    index_t              matmat_thre2    = 0;          // split until (B.col_sz < matmat_thre2). It will be set as ceil(sqrt(matmat_thre1))
+    static const index_t matmat_thre3    = 40;         // split until (case2_iter + case3_iter == matmat_thre3)
     const index_t        matmat_nnz_thre = 200;     //default 200
 
 //    std::bitset<matmat_size_thre2> mapbit; // todo: is it possible to clear memory for this (after setup phase)?
@@ -147,25 +128,23 @@ public:
 
     int         preSmooth     = 3;
     int         postSmooth    = 3;
-    std::string smoother      = "chebyshev"; // choices: "jacobi", "chebyshev"
-    std::string direct_solver = "SuperLU"; // options: 1- CG, 2- SuperLU
-    float       connStrength  = 0.2; // connection strength parameter: control coarsening aggressiveness
+    std::string smoother      = "chebyshev";    // choices: "jacobi", "chebyshev"
+    std::string direct_solver = "SuperLU";      // choices: "CG", "SuperLU"
+    float       connStrength  = 0.2;            // connection strength parameter: control coarsening aggressiveness
 
     // ****************
     // SuperLU
     // ****************
 
-    SuperMatrix A_SLU2; // save matrix in SuperLU format to be used in solve_coarsest_SuperLU()
-    gridinfo_t  superlu_grid;
-//    int_t  *rowptr;
-//    double *nzval_loc;
-//    int_t  *colind;
-    bool   first_solve = TRUE;
-    index_t fst_row;
-    ScalePermstruct_t ScalePermstruct;
-    LUstruct_t LUstruct;
-    SOLVEstruct_t SOLVEstruct;
-    superlu_dist_options_t options;
+    SuperMatrix             A_SLU2;         // save matrix in SuperLU format to be used in solve_coarsest_SuperLU()
+    gridinfo_t              superlu_grid;
+    index_t                 fst_row;
+    ScalePermstruct_t       ScalePermstruct;
+    LUstruct_t              LUstruct;
+    SOLVEstruct_t           SOLVEstruct;
+    superlu_dist_options_t  options;
+
+    bool first_solve    = TRUE;
     bool superlu_active = TRUE;
 
     // **********************************************
@@ -190,8 +169,8 @@ public:
     bool verbose                  = false;
     bool verbose_setup            = true;
     bool verbose_setup_steps      = false;
-    bool verbose_level_setup      = false;
     bool verbose_coarsen          = false;
+    bool verbose_pcoarsen         = true;
     bool verbose_compute_coarsen  = false;
     bool verbose_triple_mat_mult  = false;
     bool verbose_matmat           = false;
@@ -200,7 +179,7 @@ public:
     bool verbose_matmat_A         = false;
     bool verbose_matmat_B         = false;
     bool verbose_matmat_assemble  = false;
-    bool verbose_solve            = true;
+    bool verbose_solve            = false;
     bool verbose_vcycle           = false;
     bool verbose_vcycle_residuals = false;
     bool verbose_solve_coarse     = false;
@@ -222,10 +201,10 @@ public:
     void set_parameters(int vcycle_num, double relative_tolerance, std::string smoother, int preSmooth, int postSmooth);
 
     int setup(saena_matrix* A);
-    int setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, std::vector<int> &m_g2u, int m_bdydof);
-    int coarsen(Grid *grid,std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all);
+    int setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, std::vector<int> &m_g2u, int m_bdydof, std::vector<int> &order_dif);
+    int coarsen(Grid *grid,std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all, std::vector<int> &order_dif);
     int SA(Grid *grid);
-    int pcoarsen(Grid *grid, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all);
+    int pcoarsen(Grid *grid, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all, std::vector<int> &order_dif);
     int compute_coarsen(Grid *grid);
     int compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff);
     int triple_mat_mult(Grid *grid);
@@ -256,7 +235,7 @@ public:
     int aggregation_1_dist(strength_matrix *S, std::vector<index_t> &aggregate, std::vector<index_t> &aggArray);
     int aggregation_2_dist(strength_matrix *S, std::vector<unsigned long> &aggregate, std::vector<unsigned long> &aggArray);
     int aggregate_index_update(strength_matrix* S, std::vector<index_t>& aggregate, std::vector<index_t>& aggArray, std::vector<index_t>& splitNew);
-    int create_prolongation(Grid *gird, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all);
+    int create_prolongation(Grid *gird, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all, std::vector<int> &order_dif);
 
     int set_repartition_rhs(saena_vector *rhs);
 
@@ -269,16 +248,15 @@ public:
     int repartition_u_shrink_prepare(Grid *grid);
     int repartition_u_shrink(std::vector<value_t> &u, Grid &grid);
     int repartition_back_u_shrink(std::vector<value_t> &u, Grid &grid);
-    int repartition_u_shrink_coarsest_prepare(Grid *grid);
 
     // if minor shrinking happens, u and rhs should be shrunk too.
 //    int repartition_u_shrink_minor_prepare(Grid *grid);
 //    int repartition_u_shrink_minor(std::vector<value_t> &u, Grid &grid);
 //    int repartition_back_u_shrink_minor(std::vector<value_t> &u, Grid &grid);
 
-    int shrink_cpu_A(saena_matrix* Ac, std::vector<index_t>& P_splitNew);
-    int shrink_u_rhs(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
-    int unshrink_u(Grid* grid, std::vector<value_t>& u);
+//    int shrink_cpu_A(saena_matrix* Ac, std::vector<index_t>& P_splitNew);
+//    int shrink_u_rhs(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
+//    int unshrink_u(Grid* grid, std::vector<value_t>& u);
 
     int find_eig(saena_matrix& A);
 //    int find_eig_Elemental(saena_matrix& A);
@@ -417,47 +395,23 @@ public:
     // pcoarsen functions
     // **********************************************
 
-    std::vector<int> next_p_level(std::vector<int> ind_fine, int order);
-    std::vector<int> next_p_level_new(std::vector<int> ind_fine, int order, int *type = NULL);
-    std::vector<int> next_p_level_new2(std::vector<int> ind_fine, int order, int *type = NULL);
-    std::vector<int> next_p_level_random(std::vector<int> ind_fine, int order, int *type = NULL);
-    void set_PR_from_p(int order, std::vector< std::vector<int> > map, std::vector< std::vector<double> > &Pp);//, std::vector< std::vector<double> > &Rp);
-    void set_P_from_mesh(int order, std::vector< std::vector<int> > map, std::vector<cooEntry_row> &P_temp, MPI_Comm comm, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map_all);
-    
-    std::vector<double> get_interpolation(int ind, int orderm);
-    // replace above one after testing
-    std::vector<double> get_interpolation_new(int ind, int order, int type);
-    std::vector<double> get_interpolation_new2(int ind, int order, int type, bool flag);
-
-    std::vector<int> coarse_p_node_arr(std::vector< std::vector<int> > map, int order);
-    inline int findloc(std::vector<int> arr, int a);
-    //inline std::vector< std::vector<double> > transp(std::vector< std::vector<double> > M);
-    inline bool ismember(int a, std::vector<int> arr);
-    //inline std::vector< std::vector<int> > connect(int order, int a_elemno, int prodim);
-    inline int factorial(int n);
-    inline std::vector<double> comp_L(int i, int order);
-    inline std::vector< std::vector<double> > eighth_order(int order);
-    // replace above one after testing
-    inline std::vector< std::vector<double> > one_interp_P(int order);
-
-    inline std::vector< std::vector<int> > mesh_info(int order, std::vector< std::vector< std::vector<int> > > &map_all, MPI_Comm comm);
-    void g2umap(int order, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map, MPI_Comm comm);
     int bdydof;
     int next_bdydof;
     int elemno;
     int nodeno_fine;
     int nodeno_coarse;
+    int next_order;
+    int prodim;
+
     // for debugging
     int rank_v = 0;
-    inline std::vector<double> gl_1d(int order);
-    inline double phi_P(int type, int p, double z, int q = 0, int r = 0);
-    inline double phi_Pq(int type, int p, int q, double z, int r = 0);
-    inline double phi_Pqr(int type, int p, int q, int r, double z);
-    inline double *jacobiP(int n, double alpha, double beta, double x[], int m=1);
-    int prodim;
-    std::vector<int> ordering_map;
-    void comp_ordering_map(int type, int order);
-    int next_order;
+
+    int  next_p_level_random(const std::vector<int>& ind_fine, int order, vector<int> &ind, int *type = NULL);
+    void set_P_from_mesh(int order, std::vector<cooEntry_row> &P_temp, MPI_Comm comm, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map_all);
+    int  coarse_p_node_arr(std::vector< std::vector<int> > &map, int order, vector<int> &ind);
+    inline int findloc(std::vector<int> &arr, int a);
+    inline int mesh_info(int order, std::vector< std::vector< std::vector<int> > > &map_all, MPI_Comm comm);
+    void g2umap(int order, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map, MPI_Comm comm);
 };
 
 #endif //SAENA_SAENA_OBJECT_H

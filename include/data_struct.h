@@ -20,7 +20,7 @@
 #include <omp.h>
 
 //#include "dollar.hpp"
-//#include "combblas_functions.h"
+#include "combblas_functions.h"
 
 using namespace std;
 
@@ -29,7 +29,7 @@ typedef long          nnz_t;   // Saena nonzero type
 typedef double        value_t; // Saena value type
 typedef unsigned char uchar;
 
-//#define ALMOST_ZERO 1e-14
+#define ALMOST_ZERO 1e-14
 
 //the following are UBUNTU/LINUX, and MacOS ONLY terminal color codes.
 #define COLORRESET  "\033[0m"
@@ -550,8 +550,6 @@ public:
 };
 
 class CSCMat{
-private:
-
 public:
 
     MPI_Comm comm = MPI_COMM_WORLD;
@@ -591,10 +589,7 @@ public:
 
 
 class CSCMat_mm{
-private:
-
 public:
-
     index_t row_sz, row_offset, col_sz, col_offset;
     nnz_t   nnz;
 
@@ -652,8 +647,6 @@ public:
 
 
 class CSRMat{
-private:
-
 public:
     index_t *col      = nullptr;
     value_t *val      = nullptr;
@@ -669,5 +662,51 @@ public:
     CSRMat() = default;
 };
 
+
+class saena_mesh{
+public:
+    std::vector<std::vector<int>> l2g;
+    std::vector<int> g2u;
+    std::vector<int> order_dif;
+    int bdydof = 0;
+
+    saena_mesh() = default;
+
+    saena_mesh(std::vector<std::vector<int>> &&_l2g, std::vector<int> &&_g2u, std::vector<int> &&_order_dif, int _bdydof) :
+            l2g(std::move(_l2g)), g2u(std::move(_g2u)), order_dif(std::move(_order_dif)), bdydof(_bdydof) {}
+
+    ~saena_mesh() {
+        l2g.clear();
+        g2u.clear();
+        order_dif.clear();
+    }
+
+    void clear(){
+        l2g.clear();
+        g2u.clear();
+        order_dif.clear();
+    }
+
+    void printf_l2g(){
+        for(auto const &r : l2g){
+            for(auto const &c : r){
+                cout << c << " ";
+            }
+            cout << endl;
+        }
+    }
+
+    void printf_g2u(){
+        for(auto const &i : g2u){
+            cout << i << endl;
+        }
+    }
+
+    void printf_order_dif(){
+        for(auto const &i : order_dif){
+            cout << i << endl;
+        }
+    }
+};
 
 #endif //SAENA_DATA_STRUCT_H
