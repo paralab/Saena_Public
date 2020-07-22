@@ -37,7 +37,7 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     // assume divided by 2
     //Ac->set_p_order(A->p_order / 2);
     // assume substract by a constant
-    int order_diff[4] = {2, 1, 2, 2};
+    int order_diff[4] = {1, 1, 1, 1};
     next_order = A->p_order - order_diff[grid->currentLevel];
     //cout << " current level: " << grid->currentLevel << endl;
     if (next_order < 1)
@@ -362,8 +362,25 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+    if (!rank)
+    {
+        cout << "\n===============================" << endl;
+        cout << "start set_P_from_mesh" << endl;
+        cout << "===============================" << endl;
+    }
+
     vector<int> g2u_f = g2u_all.at(g2u_all.size()-2);
     vector<int> g2u_c = g2u_all.at(g2u_all.size()-1);
+
+
+	
+    if (!rank)
+    {
+        cout << "\n===============================" << endl;
+        cout << "get universal number of dof" << endl;
+        cout << "===============================" << endl;
+    }
+	double t1 = omp_get_wtime();
     // get universal number of dof
     // any other better way?
     int g2u_f_univ_size = 0;
@@ -393,8 +410,22 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
     int univ_nodeno_fine = g2u_univ_map_tmp.size();
     g2u_univ_map_tmp.clear();
 
+	double t2 = omp_get_wtime();
+	print_time(t1, t2, "univ dof", comm);
+    if (!rank)
+    {
+        cout << "\n===============================" << endl;
+        cout << "finish universal number of dof" << endl;
+        cout << "===============================" << endl;
+    }
     // ======================================
 
+    if (!rank)
+    {
+        cout << "\n===============================" << endl;
+        cout << "strat bdy node" << endl;
+        cout << "===============================" << endl;
+    }
     // find bdydof next level
     vector<int> coarse_node_ind = coarse_p_node_arr(map, order); // get coarse level matrix (local)
 
@@ -408,16 +439,25 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
         }
     }
 
+    if (!rank)
+    {
+        cout << "\n===============================" << endl;
+        cout << "finish bdy node" << endl;
+        cout << "===============================" << endl;
+    }
     // col is global
     // row is universal
     // nodeno_coarse is the local coarse level size without boundary nodes
+
+	/*cout << "nodeno_coarse" << nodeno_coarse << endl;
+	cout << "univ_nodeno_fine" << univ_nodeno_fine << endl;
     vector< vector<double> > Pp_loc(univ_nodeno_fine);
     for (int i = 0; i < univ_nodeno_fine; i++)
         Pp_loc.at(i).resize(nodeno_coarse, 0);
 
     if (rank == rank_v)
         std::cout << "Pp_loc has row (universal) = " << Pp_loc.size() << ", and col(global) = " << Pp_loc[0].size() << endl;
-
+	*/
     // next level g2u
     // index next level node index
     // value this level g2u value
@@ -431,6 +471,12 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
     //vector<int> skip;
     // loop over all elements
     // elemno is the local element number
+    if (!rank)
+    {
+        cout << "\n===============================" << endl;
+        cout << "start for loop" << endl;
+        cout << "===============================" << endl;
+    }
     int max_col = 0;
     int max_row = 0;
     for (int i=0; i<elemno; i++){
@@ -473,6 +519,12 @@ void saena_object::set_P_from_mesh(int order, vector<vector<int>> map, vector<co
             P_temp.emplace_back(g2u_f.at(ind_coarse.at(j)-1-bdydof), g2u_c.at(P_col), 1.0);
         }
     }
+    if (!rank)
+    {
+        cout << "\n===============================" << endl;
+        cout << "finish for loop" << endl;
+        cout << "===============================" << endl;
+    }
     //if (rank == rank_v)
     //cout << "max row and col = " << max_row << " " << max_col << endl;
     std::sort(P_temp.begin(), P_temp.end());
@@ -493,6 +545,7 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, vector< vec
         cout << "===============================" << endl;
     }
 
+	double t1 = omp_get_wtime();
     vector <vector<int> > map = map_all.at(map_all.size()-1);
 
     if (map_all.size() == 1) {
@@ -539,6 +592,15 @@ inline vector< std::vector<int> > saena_object::mesh_info(int order, vector< vec
             cout << "bdydof # = " << bdydof << endl;
             cout << "current fine node # = " << nodeno_fine << ", and next coarse node # = " << nodeno_coarse << endl;
         }
+
+		double t2 = omp_get_wtime();
+		print_time(t1, t2, "map", comm);
+    	if (!rank)
+    	{
+        	cout << "\n===============================" << endl;
+        	cout << "finish mesh info for this level" << endl;
+        	cout << "===============================" << endl;
+    	}
     }
 
     return map;
@@ -557,7 +619,8 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
         cout << "create g2u for this level" << endl;
         cout << "===============================" << endl;
     }
-
+	
+	double t1 = omp_get_wtime();
     // entry value is based on finer node
     vector <int> g2u_next_fine_node;
     // coarse_node_ind index is coraser mesh node index
@@ -632,6 +695,15 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
 
     if (rank == rank_v)
         cout << "next bdy node # = " << next_bdydof << endl;
+    
+	double t2 = omp_get_wtime();
+	print_time(t1, t2, "g2u", comm);
+	if (!rank)
+    {
+        cout << "\n===============================" << endl;
+        cout << "finish g2u for this level" << endl;
+        cout << "===============================" << endl;
+    }
 
 }
 
