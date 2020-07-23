@@ -146,6 +146,7 @@ public:
 
     bool first_solve    = TRUE;
     bool superlu_active = TRUE;
+    bool lu_created     = FALSE;
 
     // **********************************************
 
@@ -170,7 +171,7 @@ public:
     bool verbose_setup            = true;
     bool verbose_setup_steps      = false;
     bool verbose_coarsen          = false;
-    bool verbose_pcoarsen         = true;
+    bool verbose_pcoarsen         = false;
     bool verbose_compute_coarsen  = false;
     bool verbose_triple_mat_mult  = false;
     bool verbose_matmat           = false;
@@ -281,7 +282,8 @@ public:
 
     int solve(std::vector<value_t>& u);
     int solve_smoother(std::vector<value_t>& u);
-    int solve_pcg(std::vector<value_t>& u);
+    int solve_CG(std::vector<value_t>& u);
+    int solve_pCG(std::vector<value_t>& u);
     int vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
     int smooth(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs, int iter);
 
@@ -289,6 +291,7 @@ public:
     // GMRES functions
     // *****************
 
+    int  GMRES(std::vector<double> &u);
     int  pGMRES(std::vector<double> &u);
     void GMRES_update(std::vector<double> &x, index_t k, saena_matrix_dense &h, std::vector<double> &s, std::vector<std::vector<double>> &v);
     void GeneratePlaneRotation(double &dx, double &dy, double &cs, double &sn);

@@ -160,17 +160,18 @@ namespace saena {
         double get_dense_threshold();
         MPI_Comm get_orig_comm();
 
-
         // before calling solve function, vector "u" is the initial guess.
         // After calling solve, it will be the solution.
         int solve(std::vector<value_t>& u, saena::options* opts);
         int solve_smoother(std::vector<value_t>& u, saena::options* opts);
-        int solve_pcg(std::vector<value_t>& u, saena::options* opts);
+        int solve_CG(std::vector<value_t>& u, saena::options* opts);
+        int solve_pCG(std::vector<value_t>& u, saena::options* opts);
         // if solver is made based of a matrix, let's call it A, and there is an updated version of A, let's call it B,
         // and one wants to solve B*x = rhs instead of A*x = rhs, then solve_pcg_update can be used and B can be passed as the third argument.
 //        int solve_pcg_update(std::vector<value_t>& u, saena::options* opts, saena::matrix* A_new);
         // similar to solve_pcg_update, but updates the LHS with A_new.
 
+        int solve_GMRES(std::vector<value_t>& u, saena::options* opts);
         int solve_pGMRES(std::vector<value_t>& u, saena::options* opts);
 
         int update1(saena::matrix* A_ne); // only update the finest level A, which is the input matrix.
