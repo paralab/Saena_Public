@@ -381,7 +381,7 @@ int saena_object::triple_mat_mult(Grid *grid){
 //        std::cout << i << "\t" << R->entry[i] << std::endl;
         assert( (R->entry[i].row >= 0) && (R->entry[i].row < R->M) );
         assert( (R->entry[i].col >= 0) && (R->entry[i].col < R->Nbig) );
-//        ASSERT( fabs(R->entry[i].val) > ALMOST_ZERO, i << "\t" << R->entry[i] );
+//        ASSERT( fabs(R->entry[i].val) > ALMOST_ZERO, "rank " << rank << ": " << i << "\t" << R->entry[i] );
     }
 #endif
 
@@ -448,7 +448,7 @@ int saena_object::triple_mat_mult(Grid *grid){
     for(nnz_t i = 0; i < A->nnz_l; i++){
         assert( (A->entry[i].row - A->split[rank] >= 0) && (A->entry[i].row - A->split[rank] < A->M) );
         assert( (A->entry[i].col >= 0) && (A->entry[i].col < A->Mbig) );
-//        ASSERT( fabs(A->entry[i].val) > ALMOST_ZERO, i << A->entry[i] );
+//        ASSERT( fabs(A->entry[i].val) > ALMOST_ZERO, "rank " << rank << ": " << i << "\t" << A->entry[i] );
     }
 #endif
 
@@ -851,7 +851,7 @@ int saena_object::reorder_split(vecEntry *arr, index_t left, index_t right, inde
         for (index_t i = A.col_scan[j] - 1; i < A.col_scan[j + 1] - 1; ++i) {
             assert( A.r[i] > 0 );
             assert( A.r[i] <= A.row_sz );
-            ASSERT(fabs(A.v[i]) > ALMOST_ZERO, "rank: " << rank << ", A.v[i]: " << A.v[i]);
+//            ASSERT(fabs(A.v[i]) > ALMOST_ZERO, "rank: " << rank << ", A.v[i]: " << A.v[i]);
 //            std::cout << std::setprecision(4) << i << "\t" << A.r[i] << "\t" << j+A.col_offset+1 << "\t" << A.v[i] << std::endl;
         }
     }

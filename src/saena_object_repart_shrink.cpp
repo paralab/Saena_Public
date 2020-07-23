@@ -162,6 +162,13 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nprocs);
 
+#ifdef __DEBUG1__
+    if (verbose_set_rhs) {
+        MPI_Barrier(comm); if (!rank) printf("\nset_repartition_rhs: start\n"); MPI_Barrier(comm);
+    }
+//    print_vector(grids[0].A->split, 0, "split", comm);
+#endif
+
     // ************** set variables **************
 
     grids[0].rhs_orig = rhs1; // use this for returning solution to the original order, based on the input rhs.
@@ -170,7 +177,6 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
     std::vector<double> rhs0;
     rhs1->get_vec(rhs0);
 
-//    print_vector(grids[0].A->split, 0, "split", comm);
 //    print_vector(rhs0, -1, "rhs0", comm);
 
     // ************** check rhs size **************
@@ -183,6 +189,12 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
         MPI_Finalize();
         return -1;
     }
+
+#ifdef __DEBUG1__
+    if (verbose_set_rhs) {
+        MPI_Barrier(comm); if (!rank) printf("\nset_repartition_rhs: step 1\n"); MPI_Barrier(comm);
+    }
+#endif
 
     // ************** repartition rhs, based on A.split **************
 
@@ -231,7 +243,13 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
         return -1;
     }
 
+#ifdef __DEBUG1__
 //    print_vector(grids[0].rcount, -1, "grids[0].rcount", comm);
+    if (verbose_set_rhs) {
+        MPI_Barrier(comm); if (!rank) printf("\nset_repartition_rhs: step 2\n"); MPI_Barrier(comm);
+    }
+#endif
+
 
     start = init_partition_scan[rank];
     end   = init_partition_scan[rank+1];
@@ -259,7 +277,12 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
         return -1;
     }
 
+#ifdef __DEBUG1__
 //    print_vector(grids[0].scount, -1, "grids[0].scount", comm);
+    if (verbose_set_rhs) {
+        MPI_Barrier(comm); if (!rank) printf("\nset_repartition_rhs: step 3\n"); MPI_Barrier(comm);
+    }
+#endif
 
 //    std::vector<int> rdispls(nprocs);
     grids[0].rdispls.resize(nprocs);
@@ -284,6 +307,12 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
     MPI_Allreduce(&repartition_local, &repartition, 1, MPI_CXX_BOOL, MPI_LOR, comm);
 //    printf("rank = %d, repartition_local = %d, repartition = %d \n", rank, repartition_local, repartition);
 
+#ifdef __DEBUG1__
+    if (verbose_set_rhs) {
+        MPI_Barrier(comm); if (!rank) printf("\nset_repartition_rhs: step 4\n"); MPI_Barrier(comm);
+    }
+#endif
+
     // todo: replace Alltoall with a for loop of send and recv.
     if(repartition){
         grids[0].rhs.resize(grids[0].A->split[rank+1] - grids[0].A->split[rank]);
@@ -300,6 +329,12 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
     if(scale){
         scale_vector(grids[0].rhs, grids[0].A->inv_sq_diag);
     }
+
+#ifdef __DEBUG1__
+    if (verbose_set_rhs) {
+        MPI_Barrier(comm); if (!rank) printf("\nset_repartition_rhs: done\n\n"); MPI_Barrier(comm);
+    }
+#endif
 
     return 0;
 }
