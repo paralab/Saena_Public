@@ -1919,6 +1919,8 @@ int saena_object::pGMRES(std::vector<double> &u){
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+    
+	if(rank == 0) printf("\nstart GMRES solver\n");
 
 #ifdef __DEBUG1__
     if(verbose_solve){
@@ -1928,7 +1930,7 @@ int saena_object::pGMRES(std::vector<double> &u){
     }
 #endif
 
-    int     m        = 100; // todo: decide when to restart.
+    int     m        = 200; // todo: decide when to restart.
     index_t size     = A->M;
     double  tol      = solver_tol;
     int     max_iter = solver_max_iter;
@@ -1953,8 +1955,9 @@ int saena_object::pGMRES(std::vector<double> &u){
     std::vector<double> res(size), r(size);
     u.assign(size, 0); // initial guess // todo: decide where to do this.
     A->residual_negative(u, grids[0].rhs, res);
-    vcycle(&grids[0], r, res); //todo: M should be used here.
-
+    //vcycle(&grids[0], r, res); //todo: M should be used here.
+	for (int ii=0; ii<res.size(); ii++)
+		r[ii] = res[ii];	
     // *************************
 
 //    Vector *v = new Vector[m+1];
@@ -2034,8 +2037,9 @@ int saena_object::pGMRES(std::vector<double> &u){
             // w = M.solve(A * v[i]);
             A->matvec(v[i], temp);
             std::fill(w.begin(), w.end(), 0); // todo
-            vcycle(&grids[0], w, temp); //todo: M should be used here.
-
+            //vcycle(&grids[0], w, temp); //todo: M should be used here.
+			for (int ii=0; ii<temp.size(); ii++)
+				w[ii] = temp[ii];
 #ifdef __DEBUG1__
             if (verbose_solve) {
                 MPI_Barrier(comm);
@@ -2129,8 +2133,9 @@ int saena_object::pGMRES(std::vector<double> &u){
 
         // r = M.solve(rhs - A * u);
         A->residual_negative(u, grids[0].rhs, res);
-        vcycle(&grids[0], r, res); //todo: M should be used here.
-
+        //vcycle(&grids[0], r, res); //todo: M should be used here.
+		for (int ii=0; ii<res.size(); ii++)
+			r[ii] = res[ii];
         beta  = pnorm(r, comm);
         resid = beta / normb;
 

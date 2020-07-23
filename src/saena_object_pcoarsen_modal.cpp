@@ -22,6 +22,9 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+	
+	if (!rank) printf("---------------\npcoarsen: start\n---------------\n");
+	double t1 = omp_get_wtime();
 
 #ifdef __DEBUG1__
 //    int rank_v = 0;
@@ -49,8 +52,11 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
 
     // assume divided by 2
 //    Ac->set_p_order(A->p_order / 2);
+	if (order_dif.size() <= grid->currentLevel)
+		next_order = 1;
+	else
+    	next_order = A->p_order - order_dif[grid->currentLevel];
 
-    next_order = A->p_order - order_dif[grid->currentLevel];
     if (next_order < 1)
         next_order = 1;
 
@@ -215,7 +221,11 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     }
 #endif
 
-    return 0;
+	double t2 = omp_get_wtime();
+	print_time(t1, t2, "pcoarsen", comm);
+	if (!rank) printf("---------------\npcoarsen: end\n---------------\n");
+    
+	return 0;
 }
 
 
@@ -495,6 +505,8 @@ inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &m
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+	if (!rank) printf("---------------\nmesh_info: start\n---------------\n");
+	double t1 = omp_get_wtime();
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
         MPI_Barrier(comm); if (!rank) printf("\nmesh_info: start\n"); MPI_Barrier(comm);
@@ -593,7 +605,11 @@ inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &m
     }
 #endif
 
-    return 0;
+	double t2 = omp_get_wtime();
+	print_time(t1, t2, "mesh_info", comm);
+	if (!rank) printf("---------------\nmesh_info: end\n---------------\n");
+    
+	return 0;
 }
 
 
@@ -603,6 +619,8 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+	if (!rank) printf("---------------\ng2umap: start\n---------------\n");
+	double t1 = omp_get_wtime();
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
         MPI_Barrier(comm); if (!rank) printf("\ng2umap: start\n"); MPI_Barrier(comm);
@@ -747,7 +765,9 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
         MPI_Barrier(comm);
     }
 #endif
-
+	double t2 = omp_get_wtime();
+	print_time(t1, t2, "g2u", comm);
+	if (!rank) printf("---------------\ng2umap: end\n---------------\n");
 }
 
 
