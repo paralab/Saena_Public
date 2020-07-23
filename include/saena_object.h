@@ -170,6 +170,7 @@ public:
     bool verbose                  = false;
     bool verbose_setup            = true;
     bool verbose_setup_steps      = false;
+    bool verbose_setup_superlu    = false;
     bool verbose_coarsen          = false;
     bool verbose_pcoarsen         = false;
     bool verbose_compute_coarsen  = false;

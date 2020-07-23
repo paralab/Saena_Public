@@ -186,7 +186,7 @@ int saena_object::setup_SuperLU() {
     // ------------------------------------------------------------
 
 #ifdef __DEBUG1__
-    if (verbose_solve_coarse) {
+    if (verbose_setup_superlu) {
         MPI_Barrier(*comm_coarsest);
         if (rank_coarsest == 0) {
             printf("setup_SuperLU: start. \n");
@@ -210,7 +210,7 @@ int saena_object::setup_SuperLU() {
     }
 
 #ifdef __DEBUG1__
-    if (verbose_solve_coarse) {
+    if (verbose_setup_superlu) {
         MPI_Barrier(*comm_coarsest);
         if (!iam) {
             int v_major, v_minor, v_bugfix;
@@ -241,14 +241,6 @@ int saena_object::setup_SuperLU() {
 //                                   nzval_loc, colind, rowptr,
 //                                   SLU_NR_loc, SLU_D, SLU_GE);
 
-#ifdef __DEBUG1__
-    if (verbose_solve_coarse) {
-        MPI_Barrier(*comm_coarsest);
-        if (rank_coarsest == 0) printf("PASS THE MATRIX FROM SAENA. \n");
-        MPI_Barrier(*comm_coarsest);
-    }
-#endif
-
     m       = A_coarsest->Mbig;
     m_loc   = A_coarsest->M;
     n       = m;
@@ -256,11 +248,13 @@ int saena_object::setup_SuperLU() {
     ldb     = m_loc;
 
 #ifdef __DEBUG1__
-    if (verbose_solve_coarse) {
+    if (verbose_setup_superlu) {
         MPI_Barrier(*comm_coarsest);
-        if (rank_coarsest == 0)
+        if (rank_coarsest == 0){
+            printf("PASS THE MATRIX FROM SAENA. \n");
             printf("m = %d, m_loc = %d, n = %d, nnz_g = %ld, nnz_loc = %d, ldb = %d \n",
                    m, m_loc, n, A_coarsest->nnz_g, nnz_loc, ldb);
+        }
         MPI_Barrier(*comm_coarsest);
     }
 #endif
@@ -388,7 +382,7 @@ int saena_object::setup_SuperLU() {
     LUstructInit(n, &LUstruct);
 
 #ifdef __DEBUG1__
-    if (verbose_solve_coarse) {
+    if (verbose_setup_superlu) {
         options.PrintStat = YES;
         MPI_Barrier(*comm_coarsest);
         if (rank_coarsest == 0) printf("setup_SuperLU: done. \n");
