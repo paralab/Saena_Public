@@ -345,7 +345,7 @@ saena_matrix::~saena_matrix(){
 };
 
 
-int saena_matrix::set(const index_t &row, const index_t &col, const value_t &val){
+int saena_matrix::set(index_t row, index_t col, value_t val){
 
     cooEntry_row temp_new = cooEntry_row(row, col, val);
     std::pair<std::set<cooEntry_row>::iterator, bool> p = data_coo.insert(temp_new);
@@ -355,12 +355,12 @@ int saena_matrix::set(const index_t &row, const index_t &col, const value_t &val
         hint++;
         data_coo.erase(p.first);
         // in the case of duplicate, if the new value is zero, remove the older one and don't insert the zero.
-        if(fabs(val) > ALMOST_ZERO)
+        if(!almost_zero(val))
             data_coo.insert(hint, temp_new);
     }
 
     // if the entry is zero and it was not a duplicate, just erase it.
-    if(p.second && (fabs(val) < ALMOST_ZERO))
+    if(p.second && almost_zero(val))
         data_coo.erase(p.first);
 
     return 0;

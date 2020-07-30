@@ -219,7 +219,7 @@ public:
 
     // The difference between set and set2 is that if there is a duplicate, set will erase the previous one
     // and insert the new one, but in set2, the values of those entries will be added together.
-    int set(const index_t &row, const index_t &col, const value_t &val);
+    int set(index_t row, index_t col, value_t val);
     int set(index_t* row, index_t* col, value_t* val, nnz_t nnz_local);
     int set2(index_t row, index_t col, value_t val);
     int set2(index_t* row, index_t* col, value_t* val, nnz_t nnz_local);

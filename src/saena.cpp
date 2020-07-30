@@ -519,7 +519,6 @@ int saena::amg::solve_smoother(std::vector<value_t>& u, saena::options* opts){
     return 0;
 }
 
-
 int saena::amg::solve(std::vector<value_t>& u, saena::options* opts){
     m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());

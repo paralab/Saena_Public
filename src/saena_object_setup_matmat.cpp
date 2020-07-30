@@ -180,19 +180,17 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 
 #ifdef __DEBUG1__
         if (rank == verbose_rank && (verbose_fastmm || verbose_matmat_recursive)) {
-            printf("fast_mm: case 1: start \n");
+            printf("fast_mm: case 1\n");
         }
 //        ++case1_iter;
 #endif
 
-        double t1 = MPI_Wtime();
         ++case1_iter;
 
-
-        if(use_dcsrmultcsr) {
+//        if(use_dcsrmultcsr) {
             // C_mk = A_mn * B_nk = (BT_kn * AT_nm) = CT_km = C_mk
 
-            t1 = MPI_Wtime();
+            double t1 = MPI_Wtime();
 
             MKL_INT m = B.col_sz;
             MKL_INT n = B.row_sz;
@@ -211,9 +209,9 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 #endif
 
             mkl_dcsrmultcsr("n", &request, &sort, &m, &n, &k,
-                            B.v, (int *) B.r, (int *) B.col_scan,
-                            A.v, (int *) A.r, (int *) A.col_scan,
-                            Cmkl_v, (int *) Cmkl_r, (int *) Cmkl_c_scan,
+                            B.v, B.r, B.col_scan,
+                            A.v, A.r, A.col_scan,
+                            Cmkl_v, Cmkl_r, Cmkl_c_scan,
                             &matmat_thre1, &info);
 
 #ifdef __INTEL_COMPILER
@@ -233,26 +231,28 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 //            index_t *Cmkl_r_p = &Cmkl_r[0] - 1;
 //            value_t *Cmkl_v_p = &Cmkl_v[0] - 1;
             int B_c_sz = B.col_sz;
+            const int ATHRSHLD = A.row_offset - 1;
+            const int BTHRSHLD = B.col_offset;
 
             for (j = 0; j < B_c_sz; ++j) {
 //                if(rank == 0) printf("col %3d: (%3d , %3d)\n", j, Cmkl_c_scan[j], Cmkl_c_scan[j+1]); fflush(nullptr);
-                for (i = Cmkl_c_scan[j]; i < Cmkl_c_scan[j+1]; ++i) {
+                for (i = Cmkl_c_scan[j]; i < Cmkl_c_scan[j+1]; ++i, ++ii) {
 //                    C.emplace_back(Cmkl_r_p[i] + A.row_offset - 1, j + B.col_offset, Cmkl_v_p[i]);
-                    C.emplace_back(Cmkl_r[ii] + A.row_offset - 1, j + B.col_offset, Cmkl_v[ii]);
+                    C.emplace_back(Cmkl_r[ii] + ATHRSHLD, j + BTHRSHLD, Cmkl_v[ii]);
 //                    if(rank == 0) printf("\n%3d: (%3d , %3d) = %8f\n", i, Cmkl_r[i] + 1, j + B.col_offset, Cmkl_v[i]); fflush(nullptr);
 //                    if(rank == 0) printf("%3d: (%3d , %3d) = %8f\n", ii, Cmkl_r[ii] + 1, j + B.col_offset, Cmkl_v[ii+1]); fflush(nullptr);
-                    ++ii;
                 }
             }
 
             t1 = MPI_Wtime() - t1;
             case1 += t1;
 
+#if 0
         }else {
 
             sparse_matrix_t Amkl = nullptr;
-            mkl_sparse_d_create_csc(&Amkl, SPARSE_INDEX_BASE_ZERO, A.row_sz, A.col_sz, (int *) A.col_scan,
-                                    (int *) (A.col_scan + 1), (int *) A.r, A.v);
+            mkl_sparse_d_create_csc(&Amkl, SPARSE_INDEX_BASE_ZERO, A.row_sz, A.col_sz, A.col_scan,
+                                    (A.col_scan + 1), A.r, A.v);
 
             // export and print A from the MKL data structure
 /*
@@ -278,8 +278,8 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 */
 
             sparse_matrix_t Bmkl = nullptr;
-            mkl_sparse_d_create_csc(&Bmkl, SPARSE_INDEX_BASE_ZERO, B.row_sz, B.col_sz, (int *) B.col_scan,
-                                    (int *) (B.col_scan + 1), (int *) B.r, B.v);
+            mkl_sparse_d_create_csc(&Bmkl, SPARSE_INDEX_BASE_ZERO, B.row_sz, B.col_sz, B.col_scan,
+                                    (B.col_scan + 1), B.r, B.v);
 
 #ifdef __DEBUG1__
             {
@@ -397,11 +397,8 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 
             t1 = MPI_Wtime() - t1;
             case1 += t1;
-
-//        MPI_Barrier(comm);
-//        if(rank==1) printf("rank %d: DONE\n", rank); fflush(nullptr);
-//        MPI_Barrier(comm);
         }
+#endif
 
         return;
     }
@@ -2296,7 +2293,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
 //#if 0
     if(!AB_temp.empty()) {
         auto tmp = cooEntry(0, 0, 0.0);
-        nnz_t sz_m1 = AB_temp.size() - 1;
+        const nnz_t SZ_M1 = AB_temp.size() - 1;
 
         if(trans){
             std::sort(AB_temp.begin(), AB_temp.end(), row_major);
@@ -2304,7 +2301,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
             for (long i = 0; i < AB_temp.size(); ++i) {
                 tmp = cooEntry(AB_temp[i].col, AB_temp[i].row, AB_temp[i].val);
 //                std::cout << "tmp = " << tmp << std::endl;
-                while (i < sz_m1 && AB_temp[i] == AB_temp[i + 1]) { // values of entries with the same row and col should be added.
+                while (i < SZ_M1 && AB_temp[i] == AB_temp[i + 1]) { // values of entries with the same row and col should be added.
 //                    std::cout << AB_temp[i] << "\t" << AB_temp[i+1] << std::endl;
                     tmp.val += AB_temp[++i].val;
                 }
@@ -2318,7 +2315,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
 
             for (long i = 0; i < AB_temp.size(); ++i) {
                 tmp = AB_temp[i];
-                while (i < sz_m1 && AB_temp[i] == AB_temp[i + 1]) { // values of entries with the same row and col should be added.
+                while (i < SZ_M1 && AB_temp[i] == AB_temp[i + 1]) { // values of entries with the same row and col should be added.
 //                    std::cout << AB_temp[i] << "\t" << AB_temp[i+1] << std::endl;
                     tmp.val += AB_temp[++i].val;
                 }
