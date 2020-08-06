@@ -27,6 +27,17 @@ IF(CMAKE_BUILD_TYPE STREQUAL Debug)
 ENDIF()
 
 # -----------------------------------------------------------------------
+# BOOST
+
+#find_package(BOOST REQUIRED)
+#message(STATUS BOOST found: ${BOOST_LIBRARIES})
+#include_directories(${Boost_INCLUDE_DIRS})
+
+# first: module load boost
+#set(BOOST_INC_DIR $ENV{TACC_BOOST_INC})
+#include_directories(${BOOST_INC_DIR})
+
+# -----------------------------------------------------------------------
 # OpenMP
 
 find_package(OpenMP)
