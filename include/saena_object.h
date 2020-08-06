@@ -68,7 +68,7 @@ public:
     long   zfp_orig_sz = 0l;   // the original size of array that was compressed with zfp
     long   zfp_comp_sz = 0l;   // the size of the compressed array as the output of zfp
     double zfp_rate    = 0.0;  // = zfp_comp_sz / zfp_orig_sz
-    double zfp_thrshld = 0.0; // if (zfp_rate < zfp_thrshld) zfp_perform = true;
+    double zfp_thrshld = 0.0;  // if (zfp_rate < zfp_thrshld) zfp_perform = true;
                                // set zfp_thrshld = 0 to disable zfp compression
     bool   zfp_perform = true;
 
@@ -150,9 +150,10 @@ public:
     SOLVEstruct_t           SOLVEstruct;
     superlu_dist_options_t  options;
 
-    bool first_solve    = TRUE;
-    bool superlu_active = TRUE;
-    bool lu_created     = FALSE;
+    bool first_solve       = true;
+    bool superlu_active    = true;
+    bool superlu_allocated = false;
+    bool lu_created        = false;
 
     // **********************************************
 
@@ -186,13 +187,14 @@ public:
     bool verbose_matmat_A         = false;
     bool verbose_matmat_B         = false;
     bool verbose_matmat_assemble  = false;
+    bool verbose_setup_coarse     = false;
+    bool verbose_set_rhs          = false;
+
     bool verbose_solve            = false;
     bool verbose_vcycle           = false;
     bool verbose_vcycle_residuals = false;
     bool verbose_solve_coarse     = false;
     bool verbose_update           = false;
-
-//    bool verbose_triple_mat_mult_test = false;
 
     // **********************************************
     // setup functions
@@ -201,6 +203,7 @@ public:
     saena_object()  = default;
     ~saena_object() = default;
     int destroy(){
+        destroy_SuperLU();
         return 0;
     }
 
@@ -240,7 +243,7 @@ public:
     int find_aggregation(saena_matrix* A, std::vector<index_t>& aggregate, std::vector<index_t>& splitNew);
     int create_strength_matrix(saena_matrix* A, strength_matrix* S);
     int aggregation_1_dist(strength_matrix *S, std::vector<index_t> &aggregate, std::vector<index_t> &aggArray);
-    int aggregation_2_dist(strength_matrix *S, std::vector<unsigned long> &aggregate, std::vector<unsigned long> &aggArray);
+//    int aggregation_2_dist(strength_matrix *S, std::vector<unsigned long> &aggregate, std::vector<unsigned long> &aggArray);
     int aggregate_index_update(strength_matrix* S, std::vector<index_t>& aggregate, std::vector<index_t>& aggArray, std::vector<index_t>& splitNew);
     int create_prolongation(Grid *gird, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all, std::vector<int> &order_dif);
 
