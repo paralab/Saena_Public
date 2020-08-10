@@ -1109,9 +1109,20 @@ int saena_matrix::residual(std::vector<value_t>& u, std::vector<value_t>& rhs, s
 }
 #endif
 
+// Vector res = rhs - A*u
+// The result of this functon is the negative of residual().
 int saena_matrix::residual_negative(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res){
-    // Vector res = rhs - A*u
-    // The result of this functon is the negative of residual().
+    matvec(u, res);
+#pragma omp parallel for
+    for(index_t i = 0; i < M; i++){
+        res[i] = rhs[i] - res[i];
+    }
+    return 0;
+}
+
+// with allreduce
+#if 0
+int saena_matrix::residual_negative(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res){
 
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
@@ -1147,7 +1158,7 @@ int saena_matrix::residual_negative(std::vector<value_t>& u, std::vector<value_t
 
     return 0;
 }
-
+#endif
 
 int saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp) {
 
@@ -1181,16 +1192,14 @@ int saena_matrix::chebyshev(int iter, std::vector<value_t>& u, std::vector<value
 //    int rank;
 //    MPI_Comm_rank(comm, &rank);
 
-//    eig_max_of_invdiagXA *= 10;
-
-    double alpha = 0.25 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
-    double beta = eig_max_of_invdiagXA;
-    double delta = (beta - alpha) / 2;
-    double theta = (beta + alpha) / 2;
-    double s1 = theta/delta;
-    double twos1 = 2 * s1; // to avoid the multiplication in the "for loop.
-    double rhok = 1/s1;
-    double rhokp1, two_rhokp1, d1, d2;
+    const double alpha = 0.25 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
+    const double beta = eig_max_of_invdiagXA;
+    const double delta = (beta - alpha) / 2;
+    const double theta = (beta + alpha) / 2;
+    const double s1 = theta / delta;
+    const double twos1 = 2 * s1;     // to avoid the multiplication in the "for loop.
+    double       rhok = 1 / s1;
+    double       rhokp1 = 0.0, two_rhokp1 = 0.0, d1 = 0.0, d2 = 0.0;
 
     // first loop
     residual(u, rhs, res);
@@ -1229,7 +1238,7 @@ int saena_matrix::print_entry(int ran, const std::string name){
     // otherwise print the matrix entries on all processors in order. (first on proc 0, then proc 1 and so on.)
 
     if(active) {
-        int rank, nprocs;
+        int rank = 0, nprocs = 0;
         MPI_Comm_size(comm, &nprocs);
         MPI_Comm_rank(comm, &rank);
 
@@ -1269,7 +1278,7 @@ int saena_matrix::print_info(int ran, const std::string name) {
     // if ran >= 0 print the matrix info on proc with rank = ran
     // otherwise print the matrix info on all processors in order. (first on proc 0, then proc 1 and so on.)
 
-    int rank, nprocs;
+    int rank = 0, nprocs = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
@@ -1297,9 +1306,7 @@ int saena_matrix::print_info(int ran, const std::string name) {
 int saena_matrix::writeMatrixToFile(){
     // the matrix file will be written in the HOME directory.
 
-//    int nprocs;
-//    MPI_Comm_size(comm, &nprocs);
-    int rank;
+    int rank = 0;
     MPI_Comm_rank(comm, &rank);
     if(rank==0) printf("The matrix file will be written in the HOME directory. \n");
     writeMatrixToFile("");
@@ -1314,7 +1321,7 @@ int saena_matrix::writeMatrixToFile(const char *folder_name){
     // write the files inside ${HOME}/folder_name
     // this is the default case for the sorting which is column-major.
 
-    int nprocs, rank;
+    int nprocs = 0, rank = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
