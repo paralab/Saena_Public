@@ -17,14 +17,25 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 
 #message(--\ Saena:\ CMAKE_BUILD_TYPE:\ ${CMAKE_BUILD_TYPE})
 
-#IF(CMAKE_BUILD_TYPE STREQUAL Release)
-#    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
-#ENDIF()
+IF(CMAKE_BUILD_TYPE STREQUAL Release)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+ENDIF()
 
-#IF(CMAKE_BUILD_TYPE STREQUAL Debug)
-#    add_definitions(-D__DEBUG1__)
-#ENDIF()
+IF(CMAKE_BUILD_TYPE STREQUAL Debug)
+    add_definitions(-D__DEBUG1__)
+ENDIF()
+
+# -----------------------------------------------------------------------
+# BOOST
+
+#find_package(BOOST REQUIRED)
+#message(STATUS BOOST found: ${BOOST_LIBRARIES})
+#include_directories(${Boost_INCLUDE_DIRS})
+
+# first: module load boost
+#set(BOOST_INC_DIR $ENV{TACC_BOOST_INC})
+#include_directories(${BOOST_INC_DIR})
 
 # -----------------------------------------------------------------------
 # OpenMP
@@ -219,7 +230,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
         src/saena_object.cpp
         src/saena_object_setup1.cpp
         src/saena_object_setup2.cpp
-        src/saena_object_setup3.cpp
+        src/saena_object_pcoarsen_modal.cpp
         src/saena_object_setup_matmat.cpp
         src/saena_object_solve.cpp
         src/saena_object_lazy.cpp

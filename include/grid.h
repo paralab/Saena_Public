@@ -7,9 +7,6 @@
 #include "saena_matrix.h"
 #include "saena_vector.h"
 
-#include <vector>
-#include <mpi.h>
-
 
 class Grid{
 public:
@@ -25,10 +22,9 @@ public:
     std::vector<value_t> rhs;
     saena_vector         *rhs_orig = nullptr;
 
-    Grid* coarseGrid        = nullptr;
-    int   currentLevel      = 0;
-    float row_reduction_min = 0;
-    bool  active            = false;
+    Grid* coarseGrid = nullptr;
+    int   level      = 0;
+    bool  active     = false;
 
     std::vector<int> rcount;
     std::vector<int> scount;
@@ -40,12 +36,18 @@ public:
     std::vector<int> rdispls2;
     std::vector<int> sdispls2;
 
+    std::vector<value_t> res;
+    std::vector<value_t> uCorr;
+//    std::vector<value_t> res_coarse;
+//    std::vector<value_t> uCorrCoarse;
+
     Grid() = default;
-    Grid(saena_matrix* A1, int currentLev){
-        A            = A1;
-        currentLevel = currentLev;
-        active       = A1->active;
+
+    Grid(saena_matrix* A1, int lev){
+        A     = A1;
+        level = lev;
     }
+
     ~Grid() = default;
 };
 

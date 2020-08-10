@@ -1,18 +1,10 @@
 #include "saena.hpp"
 #include "saena_matrix.h"
-//#include "saena_matrix_dense.h"
 #include "saena_vector.h"
 #include "saena_object.h"
-//#include "pugixml.hpp"
-#include "dollar.hpp"
+#include "grid.h"
 #include "parUtils.h"
-
-#include <vector>
-#include <string>
-#include <mpi.h>
-#include <random>
-#include <cmath>
-#include <grid.h>
+//#include "pugixml.hpp"
 
 # define PETSC_PI 3.14159265358979323846
 
@@ -129,6 +121,7 @@ void saena::matrix::set_prodim(int _prodim){
     m_pImpl->set_prodim(_prodim);
 }
 
+
 int saena::matrix::assemble(bool scale /*= true*/) {
     m_pImpl->assemble(scale);
     return 0;
@@ -189,8 +182,9 @@ int saena::matrix::print(int ran, std::string name){
     return 0;
 }
 
-int saena::matrix::enable_shrink(bool val){
-    m_pImpl->enable_shrink = val;
+int saena::matrix::set_shrink(bool val){
+    m_pImpl->enable_shrink   = val;
+    m_pImpl->enable_shrink_c = val;
     return 0;
 }
 
@@ -453,17 +447,12 @@ int saena::amg::set_matrix(saena::matrix* A, saena::options* opts){
     return 0;
 }
 
-int saena::amg::set_matrix(saena::matrix* A, saena::options* opts, std::vector<std::vector<int>> &m_l2g, std::vector<int> &m_g2u, int m_bdydof){
+int saena::amg::set_matrix(saena::matrix* A, saena::options* opts, std::vector<std::vector<int>> &m_l2g, std::vector<int> &m_g2u, int m_bdydof, std::vector<int> &order_dif){
     m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
-    m_pImpl->setup(A->get_internal_matrix(), m_l2g, m_g2u, m_bdydof);
+    m_pImpl->setup(A->get_internal_matrix(), m_l2g, m_g2u, m_bdydof, order_dif);
     return 0;
 }
-
-//int saena::amg::set_rhs(std::vector<double> rhs){
-//    m_pImpl->set_repartition_rhs(rhs);
-//    return 0;
-//}
 
 int saena::amg::set_rhs(saena::vector &rhs){
     m_pImpl->set_repartition_rhs(rhs.get_internal_vector());
@@ -521,6 +510,15 @@ MPI_Comm saena::amg::get_orig_comm(){
 }
 
 
+int saena::amg::solve_smoother(std::vector<value_t>& u, saena::options* opts){
+    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
+                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
+    m_pImpl->solve_smoother(u);
+    Grid *g = &m_pImpl->grids[0];
+    g->rhs_orig->return_vec(u);
+    return 0;
+}
+
 int saena::amg::solve(std::vector<value_t>& u, saena::options* opts){
     m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
@@ -531,13 +529,32 @@ int saena::amg::solve(std::vector<value_t>& u, saena::options* opts){
 }
 
 
-int saena::amg::solve_pcg(std::vector<value_t>& u, saena::options* opts){
+int saena::amg::solve_CG(std::vector<value_t>& u, saena::options* opts){
     m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
-    m_pImpl->solve_pcg(u);
+    m_pImpl->solve_CG(u);
     Grid *g = &m_pImpl->grids[0];
     g->rhs_orig->return_vec(u);
-//    print_vector(u, -1, "u", g->rhs_orig->comm);
+    return 0;
+}
+
+
+int saena::amg::solve_pCG(std::vector<value_t>& u, saena::options* opts){
+    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
+                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
+    m_pImpl->solve_pCG(u);
+    Grid *g = &m_pImpl->grids[0];
+    g->rhs_orig->return_vec(u);
+    return 0;
+}
+
+
+int saena::amg::solve_GMRES(std::vector<value_t>& u, saena::options* opts){
+    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
+                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
+    m_pImpl->GMRES(u);
+    Grid *g = &m_pImpl->grids[0];
+    g->rhs_orig->return_vec(u);
     return 0;
 }
 
@@ -548,7 +565,6 @@ int saena::amg::solve_pGMRES(std::vector<value_t>& u, saena::options* opts){
     m_pImpl->pGMRES(u);
     Grid *g = &m_pImpl->grids[0];
     g->rhs_orig->return_vec(u);
-//    print_vector(u, -1, "u", g->rhs_orig->comm);
     return 0;
 }
 
@@ -598,7 +614,7 @@ int saena::amg::solve_pcg_update3(std::vector<value_t>& u, saena::options* opts)
 
 
 void saena::amg::destroy(){
-    // will add later.
+    m_pImpl->destroy();
 }
 
 

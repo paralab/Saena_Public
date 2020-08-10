@@ -2,11 +2,7 @@
 #include "saena_matrix.h"
 #include "parUtils.h"
 
-#include <iostream>
-#include <random>
-#include <cmath>
-#include <sys/stat.h>
-#include <iomanip>
+#define PETSC_PI 3.14159265358979323846
 
 class saena_matrix;
 
@@ -55,9 +51,9 @@ void setIJV(char* file_name, index_t *I, index_t *J, value_t *V, nnz_t nnz_g, nn
 int dotProduct(std::vector<value_t>& r, std::vector<value_t>& s, value_t* dot, MPI_Comm comm){
 
     double dot_l = 0;
-    for(index_t i=0; i<r.size(); i++)
+    for(index_t i = 0; i < r.size(); i++)
         dot_l += r[i] * s[i];
-    MPI_Allreduce(&dot_l, dot, 1, MPI_DOUBLE, MPI_SUM, comm);
+    MPI_Allreduce(&dot_l, dot, 1, par::Mpi_datatype<value_t>::value(), MPI_SUM, comm);
 
     return 0;
 }
@@ -67,9 +63,9 @@ int dotProduct(std::vector<value_t>& r, std::vector<value_t>& s, value_t* dot, M
 int pnorm(std::vector<value_t>& r, value_t &norm, MPI_Comm comm){
 
     double dot_l = 0;
-    for(index_t i=0; i<r.size(); i++)
-        dot_l += r[i] * r[i];
-    MPI_Allreduce(&dot_l, &norm, 1, MPI_DOUBLE, MPI_SUM, comm);
+    for(auto &i : r)
+        dot_l += i * i;
+    MPI_Allreduce(&dot_l, &norm, 1, par::Mpi_datatype<value_t>::value(), MPI_SUM, comm);
     norm = std::sqrt(norm);
 
     return 0;
@@ -78,12 +74,10 @@ int pnorm(std::vector<value_t>& r, value_t &norm, MPI_Comm comm){
 // parallel norm
 value_t pnorm(std::vector<value_t>& r, MPI_Comm comm){
 
-    double dot_l = 0, norm;
-    for(index_t i=0; i<r.size(); i++)
-        dot_l += r[i] * r[i];
-    MPI_Allreduce(&dot_l, &norm, 1, MPI_DOUBLE, MPI_SUM, comm);
-
-//    std::cout << std::sqrt(norm) << std::endl;
+    double dot_l = 0.0, norm = 0.0;
+    for(auto &i : r)
+        dot_l += i * i;
+    MPI_Allreduce(&dot_l, &norm, 1, par::Mpi_datatype<value_t>::value(), MPI_SUM, comm);
 
     return std::sqrt(norm);
 }
@@ -173,7 +167,7 @@ double average_time(double t_dif, MPI_Comm comm){
     MPI_Comm_size(comm, &nprocs);
 
     double average;
-    MPI_Reduce(&t_dif, &average, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+    MPI_Reduce(&t_dif, &average, 1, par::Mpi_datatype<value_t>::value(), MPI_SUM, 0, comm);
     return average/nprocs;
 }
 
@@ -243,8 +237,6 @@ int generate_rhs(std::vector<value_t>& rhs, index_t mx, index_t my, index_t mz, 
 //    double    ***array;
     index_t node;
 
-#define PETSC_PI 3.14159265358979323846
-
     Hx   = 1.0 / (double)(mx);
     Hy   = 1.0 / (double)(my);
     Hz   = 1.0 / (double)(mz);
@@ -312,9 +304,20 @@ int generate_rhs_old(std::vector<value_t>& rhs){
 
 int read_from_file_rhs(std::vector<value_t>& v, saena_matrix *A, char *file, MPI_Comm comm){
 
-    int rank, nprocs;
+    int rank = 0, nprocs = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+
+    MPI_Status status;
+    MPI_File fh;
+    MPI_Offset offset;
+
+    int mpiopen = MPI_File_open(comm, file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+    if(mpiopen){
+        if (rank==0) std::cout << "Unable to open the rhs vector file!" << std::endl;
+        MPI_Finalize();
+        return -1;
+    }
 
     // check if the size of rhs match the number of rows of A
     struct stat st;
@@ -327,20 +330,8 @@ int read_from_file_rhs(std::vector<value_t>& v, saena_matrix *A, char *file, MPI
             printf("Size of RHS = %d\n", rhs_size);
         }
         MPI_Barrier(comm);
-        exit(EXIT_FAILURE);
-//        MPI_Finalize();
-//        return -1;
-    }
-
-    MPI_Status status;
-    MPI_File fh;
-    MPI_Offset offset;
-
-    int mpiopen = MPI_File_open(comm, file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
-    if(mpiopen){
-        if (rank==0) std::cout << "Unable to open the rhs vector file!" << std::endl;
         MPI_Finalize();
-        return -1;
+        exit(EXIT_FAILURE);
     }
 
     // define the size of v as the local number of rows on each process

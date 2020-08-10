@@ -2,33 +2,74 @@
 #define SAENA_DATA_STRUCT_H
 
 #include <iostream>
+#include <cstdio>
+#include <cstdlib>
+#include <sstream>
+#include <fstream>
+#include <sys/stat.h>
+#include <iomanip>
+
+#include <string>
 #include <vector>
+#include <set>
 #include <cmath>
+#include <algorithm>
+#include <random>
+
 #include "mpi.h"
+#include <omp.h>
+
+//#include "dollar.hpp"
+#include "combblas_functions.h"
+
+using namespace std;
 
 typedef int           index_t; // Saena index type
 typedef long          nnz_t;   // Saena nonzero type
 typedef double        value_t; // Saena value type
 typedef unsigned char uchar;
 
+#define ALMOST_ZERO 1e-14
+
 //the following are UBUNTU/LINUX, and MacOS ONLY terminal color codes.
-#define COLORRESET   "\033[0m"
-#define BLACK   "\033[30m"      /* Black */
-#define RED     "\033[31m"      /* Red */
-#define GREEN   "\033[32m"      /* Green */
-#define YELLOW  "\033[33m"      /* Yellow */
-#define BLUE    "\033[34m"      /* Blue */
-#define MAGENTA "\033[35m"      /* Magenta */
-#define CYAN    "\033[36m"      /* Cyan */
-#define WHITE   "\033[37m"      /* White */
-#define BOLDBLACK   "\033[1m\033[30m"      /* Bold Black */
-#define BOLDRED     "\033[1m\033[31m"      /* Bold Red */
-#define BOLDGREEN   "\033[1m\033[32m"      /* Bold Green */
-#define BOLDYELLOW  "\033[1m\033[33m"      /* Bold Yellow */
-#define BOLDBLUE    "\033[1m\033[34m"      /* Bold Blue */
-#define BOLDMAGENTA "\033[1m\033[35m"      /* Bold Magenta */
-#define BOLDCYAN    "\033[1m\033[36m"      /* Bold Cyan */
-#define BOLDWHITE   "\033[1m\033[37m"      /* Bold White */
+#define COLORRESET  "\033[0m"
+#define BLACK       "\033[30m"          /* Black */
+#define RED         "\033[31m"          /* Red */
+#define GREEN       "\033[32m"          /* Green */
+#define YELLOW      "\033[33m"          /* Yellow */
+#define BLUE        "\033[34m"          /* Blue */
+#define MAGENTA     "\033[35m"          /* Magenta */
+#define CYAN        "\033[36m"          /* Cyan */
+#define WHITE       "\033[37m"          /* White */
+#define BOLDBLACK   "\033[1m\033[30m"   /* Bold Black */
+#define BOLDRED     "\033[1m\033[31m"   /* Bold Red */
+#define BOLDGREEN   "\033[1m\033[32m"   /* Bold Green */
+#define BOLDYELLOW  "\033[1m\033[33m"   /* Bold Yellow */
+#define BOLDBLUE    "\033[1m\033[34m"   /* Bold Blue */
+#define BOLDMAGENTA "\033[1m\033[35m"   /* Bold Magenta */
+#define BOLDCYAN    "\033[1m\033[36m"   /* Bold Cyan */
+#define BOLDWHITE   "\033[1m\033[37m"   /* Bold White */
+
+
+#ifndef NDEBUG
+#   define ASSERT(condition, message) \
+    do { \
+        if (! (condition)) { \
+            std::cerr << "Assertion `" #condition "` failed in " << __FILE__ \
+                      << " line " << __LINE__ << ": " << message << std::endl; \
+            std::terminate(); \
+        } \
+    } while (false)
+#else
+#   define ASSERT(condition, message) do { } while (false)
+#endif
+
+
+void inline print_sep(){
+    std::stringstream buf;
+    buf << MAGENTA << "\n******************************************************\n" << COLORRESET;
+    std::cout << buf.str();
+}
 
 
 inline index_t rem_sz(index_t sz, unsigned int k){
@@ -37,7 +78,8 @@ inline index_t rem_sz(index_t sz, unsigned int k){
 
 inline index_t tot_sz(index_t sz, unsigned int k, int q){
 //    printf("r_sz: %u, \tq: %d, \tsizeof(short): %ld, tot: %ld\n", rem_sz(sz, k), q, sizeof(short), rem_sz(sz, k) + q * sizeof(short));
-    return rem_sz(sz, k) + q * sizeof(short);
+//    return rem_sz(sz, k) + q * sizeof(short);
+    return (k > 0) ? ( rem_sz(sz, k) + q * sizeof(short) ) : ( sz * sizeof(index_t) );
 }
 
 
@@ -56,49 +98,40 @@ public:
         val = v;
     }
 
-    bool operator == (const cooEntry& node2) const
-    {
+    bool operator == (const cooEntry& node2) const {
         return (row == node2.row && col == node2.col);
     }
 
-    bool operator < (const cooEntry& node2) const
-    {
-        if(col < node2.col)
-            return (true);
-        else if(col == node2.col)
-            return(row < node2.row);
-        else
-            return false;
+    bool operator < (const cooEntry& node2) const {
+        if(col == node2.col){
+            return row < node2.row;
+        } else {
+            return col < node2.col;
+        }
     }
 
-    bool operator <= (const cooEntry& node2) const
-    {
-        if(col < node2.col)
-            return (true);
-        else if(col == node2.col)
-            return(row <= node2.row);
-        else
-            return false;
+    bool operator <= (const cooEntry& node2) const {
+        if(col == node2.col){
+            return row <= node2.row;
+        } else {
+            return col < node2.col;
+        }
     }
 
-    bool operator > (const cooEntry& node2) const
-    {
-        if(col > node2.col)
-            return (true);
-        else if(col == node2.col)
-            return(row > node2.row);
-        else
-            return false;
+    bool operator > (const cooEntry& node2) const {
+        if(col == node2.col){
+            return row > node2.row;
+        } else {
+            return col > node2.col;
+        }
     }
 
-    bool operator >= (const cooEntry& node2) const
-    {
-        if(col > node2.col)
-            return (true);
-        else if(col == node2.col)
-            return(row >= node2.row);
-        else
-            return false;
+    bool operator >= (const cooEntry& node2) const {
+        if(col == node2.col){
+            return row <= node2.row;
+        } else {
+            return col < node2.col;
+        }
     }
 
     cooEntry operator + (const cooEntry& node2) const
@@ -126,23 +159,20 @@ public:
     }
 
     // Define prefix decrement operator.
-    cooEntry& operator -- ()
-    {
+    cooEntry& operator -- () {
         --row;
         --col;
         return *this;
     }
 
     // Define postfix decrement operator.
-    cooEntry operator -- (int)
-    {
+    cooEntry operator -- (int) {
         cooEntry tmp = *this;
         --*this;
         return tmp;
     }
 
-    value_t get_val() const
-    {
+    value_t get_val() const {
         return val;
     }
 
@@ -151,8 +181,7 @@ public:
 //        return val * val;
 //    }
 
-    value_t get_val_sq() const
-    {
+    value_t get_val_sq() const {
         if(row == col){
             return 10000000;
         } else{
@@ -160,8 +189,7 @@ public:
         }
     }
 
-    static MPI_Datatype mpi_datatype()
-    {
+    static MPI_Datatype mpi_datatype() {
         static bool         first = true;
         static MPI_Datatype datatype;
 
@@ -198,49 +226,40 @@ public:
         val = v;
     }
 
-    bool operator == (const cooEntry_row& node2) const
-    {
+    bool operator == (const cooEntry_row& node2) const {
         return (row == node2.row && col == node2.col);
     }
 
-    bool operator < (const cooEntry_row& node2) const
-    {
-        if(row < node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col < node2.col);
-        else
-            return false;
+    bool operator < (const cooEntry_row& node2) const {
+        if(row == node2.row){
+            return col < node2.col;
+        } else {
+            return row < node2.row;
+        }
     }
 
-    bool operator <= (const cooEntry_row& node2) const
-    {
-        if(row < node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col <= node2.col);
-        else
-            return false;
+    bool operator <= (const cooEntry_row& node2) const {
+        if(row == node2.row){
+            return col <= node2.col;
+        } else {
+            return row < node2.row;
+        }
     }
 
-    bool operator > (const cooEntry_row& node2) const
-    {
-        if(row > node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col > node2.col);
-        else
-            return false;
+    bool operator > (const cooEntry_row& node2) const {
+        if(row == node2.row){
+            return col > node2.col;
+        } else {
+            return row > node2.row;
+        }
     }
 
-    bool operator >= (const cooEntry_row& node2) const
-    {
-        if(row > node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col >= node2.col);
-        else
-            return false;
+    bool operator >= (const cooEntry_row& node2) const {
+        if(row == node2.row){
+            return col >= node2.col;
+        } else {
+            return row > node2.row;
+        }
     }
 
     cooEntry_row operator + (const cooEntry_row& node2) const
@@ -252,39 +271,34 @@ public:
     }
 
     // Define prefix increment operator.
-    cooEntry_row& operator ++ ()
-    {
+    cooEntry_row& operator ++ () {
         ++row;
         ++col;
         return *this;
     }
 
     // Define postfix increment operator.
-    cooEntry_row operator ++ (int)
-    {
+    cooEntry_row operator ++ (int) {
         cooEntry_row tmp = *this;
         ++*this;
         return tmp;
     }
 
     // Define prefix decrement operator.
-    cooEntry_row& operator -- ()
-    {
+    cooEntry_row& operator -- () {
         --row;
         --col;
         return *this;
     }
 
     // Define postfix decrement operator.
-    cooEntry_row operator -- (int)
-    {
+    cooEntry_row operator -- (int) {
         cooEntry_row tmp = *this;
         --*this;
         return tmp;
     }
 
-    static MPI_Datatype mpi_datatype()
-    {
+    static MPI_Datatype mpi_datatype() {
         static bool         first = true;
         static MPI_Datatype datatype;
 
@@ -508,8 +522,6 @@ public:
 };
 
 class CSCMat{
-private:
-
 public:
 
     MPI_Comm comm = MPI_COMM_WORLD;
@@ -531,12 +543,13 @@ public:
     // compresseion parameters
     // =======================
 
-    bool verbose_prep_compute = false;
-    bool verbose_prep         = false;
     unsigned long max_comp_sz = 0; // in bytes (char)
 
     GR_sz comp_row;
     GR_sz comp_col;
+
+    bool verbose_prep_compute = false;
+    bool verbose_prep         = false;
 
     // =======================
 
@@ -548,10 +561,7 @@ public:
 
 
 class CSCMat_mm{
-private:
-
 public:
-
     index_t row_sz, row_offset, col_sz, col_offset;
     nnz_t   nnz;
 
@@ -609,8 +619,6 @@ public:
 
 
 class CSRMat{
-private:
-
 public:
     index_t *col      = nullptr;
     value_t *val      = nullptr;
@@ -626,5 +634,51 @@ public:
     CSRMat() = default;
 };
 
+
+class saena_mesh{
+public:
+    std::vector<std::vector<int>> l2g;
+    std::vector<int> g2u;
+    std::vector<int> order_dif;
+    int bdydof = 0;
+
+    saena_mesh() = default;
+
+    saena_mesh(std::vector<std::vector<int>> &&_l2g, std::vector<int> &&_g2u, std::vector<int> &&_order_dif, int _bdydof) :
+            l2g(std::move(_l2g)), g2u(std::move(_g2u)), order_dif(std::move(_order_dif)), bdydof(_bdydof) {}
+
+    ~saena_mesh() {
+        l2g.clear();
+        g2u.clear();
+        order_dif.clear();
+    }
+
+    void clear(){
+        l2g.clear();
+        g2u.clear();
+        order_dif.clear();
+    }
+
+    void printf_l2g(){
+        for(auto const &r : l2g){
+            for(auto const &c : r){
+                cout << c << " ";
+            }
+            cout << endl;
+        }
+    }
+
+    void printf_g2u(){
+        for(auto const &i : g2u){
+            cout << i << endl;
+        }
+    }
+
+    void printf_order_dif(){
+        for(auto const &i : order_dif){
+            cout << i << endl;
+        }
+    }
+};
 
 #endif //SAENA_DATA_STRUCT_H

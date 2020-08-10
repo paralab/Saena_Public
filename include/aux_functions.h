@@ -1,16 +1,7 @@
 #ifndef SAENA_AUXFUNCTIONS_H
 #define SAENA_AUXFUNCTIONS_H
 
-#include <data_struct.h>
-
-#include <iostream>
-#include <string>
-#include <vector>
-#include <cmath>
-#include <mpi.h>
-#include <fstream>
-#include <sstream>
-
+#include "data_struct.h"
 
 class strength_matrix;
 class saena_matrix;
@@ -157,7 +148,6 @@ int print_vector(const std::vector<T> &v, const int ran, const std::string &name
                 buffer << iter << "\t" << i;
                 std::cout << buffer.str() << std::endl;
                 buffer.str("");
-//                std::cout << iter << "\t" << i << std::endl;
                 iter++;
             }
             printf("\n");
@@ -171,7 +161,6 @@ int print_vector(const std::vector<T> &v, const int ran, const std::string &name
                     buffer << iter << "\t" << i;
                     std::cout << buffer.str() << std::endl;
                     buffer.str("");
-//                    std::cout << iter << "\t" << i << std::endl;
                     iter++;
                 }
                 printf("\n");
