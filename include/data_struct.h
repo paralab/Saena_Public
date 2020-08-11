@@ -98,49 +98,40 @@ public:
         val = v;
     }
 
-    bool operator == (const cooEntry& node2) const
-    {
+    bool operator == (const cooEntry& node2) const {
         return (row == node2.row && col == node2.col);
     }
 
-    bool operator < (const cooEntry& node2) const
-    {
-        if(col < node2.col)
-            return (true);
-        else if(col == node2.col)
-            return(row < node2.row);
-        else
-            return false;
+    bool operator < (const cooEntry& node2) const {
+        if(col == node2.col){
+            return row < node2.row;
+        } else {
+            return col < node2.col;
+        }
     }
 
-    bool operator <= (const cooEntry& node2) const
-    {
-        if(col < node2.col)
-            return (true);
-        else if(col == node2.col)
-            return(row <= node2.row);
-        else
-            return false;
+    bool operator <= (const cooEntry& node2) const {
+        if(col == node2.col){
+            return row <= node2.row;
+        } else {
+            return col < node2.col;
+        }
     }
 
-    bool operator > (const cooEntry& node2) const
-    {
-        if(col > node2.col)
-            return (true);
-        else if(col == node2.col)
-            return(row > node2.row);
-        else
-            return false;
+    bool operator > (const cooEntry& node2) const {
+        if(col == node2.col){
+            return row > node2.row;
+        } else {
+            return col > node2.col;
+        }
     }
 
-    bool operator >= (const cooEntry& node2) const
-    {
-        if(col > node2.col)
-            return (true);
-        else if(col == node2.col)
-            return(row >= node2.row);
-        else
-            return false;
+    bool operator >= (const cooEntry& node2) const {
+        if(col == node2.col){
+            return row <= node2.row;
+        } else {
+            return col < node2.col;
+        }
     }
 
     cooEntry operator + (const cooEntry& node2) const
@@ -168,23 +159,20 @@ public:
     }
 
     // Define prefix decrement operator.
-    cooEntry& operator -- ()
-    {
+    cooEntry& operator -- () {
         --row;
         --col;
         return *this;
     }
 
     // Define postfix decrement operator.
-    cooEntry operator -- (int)
-    {
+    cooEntry operator -- (int) {
         cooEntry tmp = *this;
         --*this;
         return tmp;
     }
 
-    value_t get_val() const
-    {
+    value_t get_val() const {
         return val;
     }
 
@@ -193,8 +181,7 @@ public:
 //        return val * val;
 //    }
 
-    value_t get_val_sq() const
-    {
+    value_t get_val_sq() const {
         if(row == col){
             return 10000000;
         } else{
@@ -202,8 +189,7 @@ public:
         }
     }
 
-    static MPI_Datatype mpi_datatype()
-    {
+    static MPI_Datatype mpi_datatype() {
         static bool         first = true;
         static MPI_Datatype datatype;
 
@@ -240,49 +226,40 @@ public:
         val = v;
     }
 
-    bool operator == (const cooEntry_row& node2) const
-    {
+    bool operator == (const cooEntry_row& node2) const {
         return (row == node2.row && col == node2.col);
     }
 
-    bool operator < (const cooEntry_row& node2) const
-    {
-        if(row < node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col < node2.col);
-        else
-            return false;
+    bool operator < (const cooEntry_row& node2) const {
+        if(row == node2.row){
+            return col < node2.col;
+        } else {
+            return row < node2.row;
+        }
     }
 
-    bool operator <= (const cooEntry_row& node2) const
-    {
-        if(row < node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col <= node2.col);
-        else
-            return false;
+    bool operator <= (const cooEntry_row& node2) const {
+        if(row == node2.row){
+            return col <= node2.col;
+        } else {
+            return row < node2.row;
+        }
     }
 
-    bool operator > (const cooEntry_row& node2) const
-    {
-        if(row > node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col > node2.col);
-        else
-            return false;
+    bool operator > (const cooEntry_row& node2) const {
+        if(row == node2.row){
+            return col > node2.col;
+        } else {
+            return row > node2.row;
+        }
     }
 
-    bool operator >= (const cooEntry_row& node2) const
-    {
-        if(row > node2.row)
-            return (true);
-        else if(row == node2.row)
-            return( col >= node2.col);
-        else
-            return false;
+    bool operator >= (const cooEntry_row& node2) const {
+        if(row == node2.row){
+            return col >= node2.col;
+        } else {
+            return row > node2.row;
+        }
     }
 
     cooEntry_row operator + (const cooEntry_row& node2) const
@@ -294,39 +271,34 @@ public:
     }
 
     // Define prefix increment operator.
-    cooEntry_row& operator ++ ()
-    {
+    cooEntry_row& operator ++ () {
         ++row;
         ++col;
         return *this;
     }
 
     // Define postfix increment operator.
-    cooEntry_row operator ++ (int)
-    {
+    cooEntry_row operator ++ (int) {
         cooEntry_row tmp = *this;
         ++*this;
         return tmp;
     }
 
     // Define prefix decrement operator.
-    cooEntry_row& operator -- ()
-    {
+    cooEntry_row& operator -- () {
         --row;
         --col;
         return *this;
     }
 
     // Define postfix decrement operator.
-    cooEntry_row operator -- (int)
-    {
+    cooEntry_row operator -- (int) {
         cooEntry_row tmp = *this;
         --*this;
         return tmp;
     }
 
-    static MPI_Datatype mpi_datatype()
-    {
+    static MPI_Datatype mpi_datatype() {
         static bool         first = true;
         static MPI_Datatype datatype;
 

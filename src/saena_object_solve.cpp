@@ -130,6 +130,8 @@ int saena_object::setup_SuperLU() {
     MPI_Comm_size(*comm_coarsest, &nprocs_coarsest);
     MPI_Comm_rank(*comm_coarsest, &rank_coarsest);
 
+    superlu_allocated = true;
+
     int m, n, m_loc, nnz_loc;
     int nprow, npcol;
     int iam, ldb;
@@ -186,7 +188,7 @@ int saena_object::setup_SuperLU() {
     // ------------------------------------------------------------
 
 #ifdef __DEBUG1__
-    if (verbose_solve_coarse) {
+    if (verbose_setup_coarse) {
         MPI_Barrier(*comm_coarsest);
         if (rank_coarsest == 0) {
             printf("setup_SuperLU: start. \n");
@@ -204,13 +206,13 @@ int saena_object::setup_SuperLU() {
 
     // tag for quitting processors that don't belong to the SuperLU's process grid.
     if ( iam >= nprow * npcol ){
-        superlu_active = FALSE;
+        superlu_active = false;
         superlu_gridexit(&superlu_grid);
         return 0;
     }
 
 #ifdef __DEBUG1__
-    if (verbose_solve_coarse) {
+    if (verbose_setup_coarse) {
         MPI_Barrier(*comm_coarsest);
         if (!iam) {
             int v_major, v_minor, v_bugfix;
@@ -242,7 +244,7 @@ int saena_object::setup_SuperLU() {
 //                                   SLU_NR_loc, SLU_D, SLU_GE);
 
 #ifdef __DEBUG1__
-    if (verbose_solve_coarse) {
+    if (verbose_setup_coarse) {
         MPI_Barrier(*comm_coarsest);
         if (rank_coarsest == 0) printf("PASS THE MATRIX FROM SAENA. \n");
         MPI_Barrier(*comm_coarsest);
@@ -256,7 +258,7 @@ int saena_object::setup_SuperLU() {
     ldb     = m_loc;
 
 #ifdef __DEBUG1__
-    if (verbose_solve_coarse) {
+    if (verbose_setup_coarse) {
         MPI_Barrier(*comm_coarsest);
         if (rank_coarsest == 0)
             printf("m = %d, m_loc = %d, n = %d, nnz_g = %ld, nnz_loc = %d, ldb = %d \n",
@@ -388,7 +390,7 @@ int saena_object::setup_SuperLU() {
     LUstructInit(n, &LUstruct);
 
 #ifdef __DEBUG1__
-    if (verbose_solve_coarse) {
+    if (verbose_setup_coarse) {
         options.PrintStat = YES;
         MPI_Barrier(*comm_coarsest);
         if (rank_coarsest == 0) printf("setup_SuperLU: done. \n");
@@ -401,16 +403,20 @@ int saena_object::setup_SuperLU() {
 
 int saena_object::destroy_SuperLU(){
 
-    if(superlu_active){
-        Destroy_CompRowLoc_Matrix_dist(&A_SLU2);
-        ScalePermstructFree(&ScalePermstruct);
-        if(lu_created){
-            Destroy_LU(A_coarsest->Mbig, &superlu_grid, &LUstruct);
-        }
-        LUstructFree(&LUstruct);
-        superlu_gridexit(&superlu_grid);
-        if ( options.SolveInitialized ) {
-            dSolveFinalize(&options, &SOLVEstruct);
+    if(superlu_allocated){
+        superlu_allocated = false;
+
+        if(superlu_active){
+            Destroy_CompRowLoc_Matrix_dist(&A_SLU2);
+            ScalePermstructFree(&ScalePermstruct);
+            if(lu_created){
+                Destroy_LU(A_coarsest->Mbig, &superlu_grid, &LUstruct);
+            }
+            LUstructFree(&LUstruct);
+            superlu_gridexit(&superlu_grid);
+            if ( options.SolveInitialized ) {
+                dSolveFinalize(&options, &SOLVEstruct);
+            }
         }
     }
 
@@ -945,6 +951,19 @@ int saena_object::smooth(Grid* grid, std::vector<value_t>& u, std::vector<value_
 }
 
 
+int saena_object::setup_vcycle_memory(){
+    for(int i = 0; i < grids.size() - 1; ++i){
+        if(grids[i].active){
+            grids[i].res.resize(grids[i].A->M);
+            grids[i].uCorr.resize(grids[i].A->M);
+//            grids[i].res_coarse.resize(max(grids[i].Ac.M_old, grids[i].Ac.M));
+//            grids[i].uCorrCoarse.resize(max(grids[i].Ac.M_old, grids[i].Ac.M));
+        }
+    }
+    return 0;
+}
+
+
 int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs) {
 
     if (!grid->A->active) {
@@ -968,14 +987,14 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
         if (!rank) printf("\n");
         MPI_Barrier(comm);
         printf("rank = %d: vcycle level = %d, A->M = %u, u.size = %lu, rhs.size = %lu \n",
-               rank, grid->currentLevel, grid->A->M, u.size(), rhs.size());
+               rank, grid->level, grid->A->M, u.size(), rhs.size());
         MPI_Barrier(comm);
     }
 #endif
 
     // **************************************** 0. direct-solve the coarsest level ****************************************
 
-    if (grid->currentLevel == max_level) {
+    if (grid->level == max_level) {
 
 #ifdef __DEBUG1__
         if (verbose_vcycle) {
@@ -999,7 +1018,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
         {
             if (verbose) {
                 t2 = omp_get_wtime();
-                func_name = "vcycle: level " + std::to_string(grid->currentLevel) + ": solve coarsest";
+                func_name = "vcycle: level " + std::to_string(grid->level) + ": solve coarsest";
                 print_time(t1, t2, func_name, comm);
             }
 
@@ -1008,7 +1027,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
                 grid->A->residual(u, rhs, res);
                 dotProduct(res, res, &dot, comm);
                 if (rank == 0)
-                    std::cout << "\nlevel = " << grid->currentLevel
+                    std::cout << "\nlevel = " << grid->level
                               << ", after coarsest level = " << sqrt(dot) << std::endl;
             }
 
@@ -1033,18 +1052,22 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
         return 0;
     }
 
-    std::vector<value_t> res(grid->A->M);
+    std::vector<value_t> &res         = grid->res;
+    std::vector<value_t> &uCorr       = grid->uCorr;
+//    std::vector<value_t> &res_coarse  = grid->res_coarse;
+//    std::vector<value_t> &uCorrCoarse = grid->uCorrCoarse;
+
     std::vector<value_t> res_coarse(grid->Ac.M_old);
-    std::vector<value_t> uCorr(grid->A->M);
-    std::vector<value_t> uCorrCoarse(grid->Ac.M, 0);
-//    std::vector<value_t> temp(grid->A->M);
+    std::vector<value_t> uCorrCoarse(grid->Ac.M);
+//    std::vector<value_t> res(grid->A->M);
+//    std::vector<value_t> uCorr(grid->A->M);
 
 #ifdef __DEBUG1__
     if (verbose_vcycle_residuals) {
         grid->A->residual(u, rhs, res);
         dotProduct(res, res, &dot, comm);
         if (!rank)
-            std::cout << "\nlevel = " << grid->currentLevel << ", vcycle start      = " << sqrt(dot) << std::endl;
+            std::cout << "\nlevel = " << grid->level << ", vcycle start      = " << sqrt(dot) << std::endl;
     }
 #endif
 
@@ -1053,7 +1076,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 #ifdef __DEBUG1__
     if (verbose_vcycle) {
         MPI_Barrier(comm);
-        if (rank == 0) printf("vcycle level %d: presmooth\n", grid->currentLevel);
+        if (rank == 0) printf("vcycle level %d: presmooth\n", grid->level);
         MPI_Barrier(comm);
     }
 
@@ -1066,11 +1089,11 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
-    func_name = "Vcycle: level " + std::to_string(grid->currentLevel) + ": pre";
+    func_name = "Vcycle: level " + std::to_string(grid->level) + ": pre";
     if (verbose) print_time(t1, t2, func_name, comm);
 
 //    print_vector(u, -1, "u in vcycle", comm);
-//    if(rank==0) std::cout << "\n1. pre-smooth: u, currentLevel = " << grid->currentLevel << std::endl;
+//    if(rank==0) std::cout << "\n1. pre-smooth: u, level = " << grid->level << std::endl;
 #endif
 
     // **************************************** 2. compute residual ****************************************
@@ -1078,7 +1101,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 #ifdef __DEBUG1__
     if (verbose_vcycle) {
         MPI_Barrier(comm);
-        if (rank == 0) printf("vcycle level %d: residual\n", grid->currentLevel);
+        if (rank == 0) printf("vcycle level %d: residual\n", grid->level);
         MPI_Barrier(comm);
     }
 #endif
@@ -1091,7 +1114,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
     if (verbose_vcycle_residuals) {
         dotProduct(res, res, &dot, comm);
         if (rank == 0)
-            std::cout << "level = " << grid->currentLevel << ", after pre-smooth  = " << sqrt(dot) << std::endl;
+            std::cout << "level = " << grid->level << ", after pre-smooth  = " << sqrt(dot) << std::endl;
     }
 #endif
 
@@ -1100,7 +1123,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 #ifdef __DEBUG1__
     if (verbose_vcycle) {
         MPI_Barrier(comm);
-        if (rank == 0) printf("vcycle level %d: restrict\n", grid->currentLevel);
+        if (rank == 0) printf("vcycle level %d: restrict\n", grid->level);
 //        printf("rank %d: grid->Ac.M_old = %u \n", rank, grid->Ac.M_old);
         MPI_Barrier(comm);
     }
@@ -1116,7 +1139,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
     if (verbose_vcycle) {
         MPI_Barrier(comm);
-        if (rank == 0) printf("vcycle level %d: repart_u_shrink\n", grid->currentLevel);
+        if (rank == 0) printf("vcycle level %d: repart_u_shrink\n", grid->level);
 //        printf("rank %d: res.size() = %lu \tres_coarse.size() = %lu \n", rank, res.size(), res_coarse.size());
         MPI_Barrier(comm);
     }
@@ -1142,7 +1165,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 //                print_vector(res_coarse, 0, "res_coarse", comm);
 
                 t2 = omp_get_wtime();
-                func_name = "Vcycle: level " + std::to_string(grid->currentLevel) + ": restriction";
+                func_name = "Vcycle: level " + std::to_string(grid->level) + ": restriction";
                 if (verbose) print_time(t1, t2, func_name, comm);
             }
 #endif
@@ -1152,7 +1175,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 #ifdef __DEBUG1__
             if (verbose_vcycle) {
                 MPI_Barrier(comm);
-                if (rank == 0) printf("vcycle level %d: recurse\n", grid->currentLevel);
+                if (rank == 0) printf("vcycle level %d: recurse\n", grid->level);
                 MPI_Barrier(comm);
             }
 #endif
@@ -1161,6 +1184,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
             scale_vector(res_coarse, grid->coarseGrid->A->inv_sq_diag);
 
 //            uCorrCoarse.assign(grid->Ac.M, 0);
+            fill(uCorrCoarse.begin(), uCorrCoarse.end(), 0);
             vcycle(grid->coarseGrid, uCorrCoarse, res_coarse);
 
             // scale u
@@ -1184,7 +1208,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
     if (verbose_vcycle) {
         MPI_Barrier(comm);
-        if (rank == 0) printf("\nvcycle level %d: repart_back_u_shrink\n", grid->currentLevel);
+        if (rank == 0) printf("\nvcycle level %d: repart_back_u_shrink\n", grid->level);
         MPI_Barrier(comm);
     }
 #endif
@@ -1199,7 +1223,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
     if(verbose_vcycle){
         MPI_Barrier(comm);
-        if(rank==0) printf("vcycle level %d: prolong\n", grid->currentLevel);
+        if(rank==0) printf("vcycle level %d: prolong\n", grid->level);
         MPI_Barrier(comm);}
 #endif
 
@@ -1208,11 +1232,11 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
-    func_name = "Vcycle: level " + std::to_string(grid->currentLevel) + ": prolongation";
+    func_name = "Vcycle: level " + std::to_string(grid->level) + ": prolongation";
     if (verbose) print_time(t1, t2, func_name, comm);
 
 //    if(rank==0)
-//        std::cout << "\n5. prolongation: uCorr = P*uCorrCoarse , currentLevel = " << grid->currentLevel
+//        std::cout << "\n5. prolongation: uCorr = P*uCorrCoarse , level = " << grid->level
 //                  << ", uCorr.size = " << uCorr.size() << std::endl;
 //    print_vector(uCorr, -1, "uCorr", grid->A->comm);
 #endif
@@ -1222,7 +1246,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 #ifdef __DEBUG1__
     if(verbose_vcycle){
         MPI_Barrier(comm);
-        if(rank==0) printf("vcycle level %d: correct\n", grid->currentLevel);
+        if(rank==0) printf("vcycle level %d: correct\n", grid->level);
         MPI_Barrier(comm);}
 #endif
 
@@ -1236,7 +1260,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
     if(verbose_vcycle_residuals){
         grid->A->residual(u, rhs, res);
         dotProduct(res, res, &dot, comm);
-        if(rank==0) std::cout << "level = " << grid->currentLevel << ", after correction  = " << sqrt(dot) << std::endl;
+        if(rank==0) std::cout << "level = " << grid->level << ", after correction  = " << sqrt(dot) << std::endl;
     }
 #endif
 
@@ -1245,7 +1269,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 #ifdef __DEBUG1__
     if(verbose_vcycle){
         MPI_Barrier(comm);
-        if(rank==0) printf("vcycle level %d: post-smooth\n", grid->currentLevel);
+        if(rank==0) printf("vcycle level %d: post-smooth\n", grid->level);
         MPI_Barrier(comm);}
 
     t1 = omp_get_wtime();
@@ -1257,17 +1281,17 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
-    func_name = "Vcycle: level " + std::to_string(grid->currentLevel) + ": post";
+    func_name = "Vcycle: level " + std::to_string(grid->level) + ": post";
     if (verbose) print_time(t1, t2, func_name, comm);
 
     if(verbose_vcycle_residuals){
 
-//        if(rank==1) std::cout << "\n7. post-smooth: u, currentLevel = " << grid->currentLevel << std::endl;
+//        if(rank==1) std::cout << "\n7. post-smooth: u, level = " << grid->level << std::endl;
 //        print_vector(u, 0, "u post-smooth", grid->A->comm);
 
         grid->A->residual(u, rhs, res);
         dotProduct(res, res, &dot, comm);
-        if(rank==0) std::cout << "level = " << grid->currentLevel << ", after post-smooth = " << sqrt(dot) << std::endl;
+        if(rank==0) std::cout << "level = " << grid->level << ", after post-smooth = " << sqrt(dot) << std::endl;
     }
 #endif
 
@@ -1277,17 +1301,29 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
 int saena_object::solve(std::vector<value_t>& u){
 
-    MPI_Comm comm = grids[0].A->comm;
+    auto *A = grids[0].A;
+    vector<value_t> &rhs = grids[0].rhs;
+
+    MPI_Comm comm = A->comm;
     int nprocs = -1, rank = -1;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+#ifdef __DEBUG1__
+//    print_vector(rhs, -1, "rhs", comm);
+    if(verbose_solve){
+        MPI_Barrier(comm);
+        if(rank == 0) printf("solve: start\n");
+        MPI_Barrier(comm);
+    }
+#endif
+
     // ************** check u size **************
 /*
     index_t u_size_local = u.size(), u_size_total;
-    MPI_Allreduce(&u_size_local, &u_size_total, 1, MPI_UNSIGNED, MPI_SUM, grids[0].A->comm);
-    if(grids[0].A->Mbig != u_size_total){
-        if(rank==0) printf("Error: size of LHS (=%u) and the solution vector u (=%u) are not equal!\n", grids[0].A->Mbig, u_size_total);
+    MPI_Allreduce(&u_size_local, &u_size_total, 1, MPI_UNSIGNED, MPI_SUM, A->comm);
+    if(A->Mbig != u_size_total){
+        if(rank==0) printf("Error: size of LHS (=%u) and the solution vector u (=%u) are not equal!\n", A->Mbig, u_size_total);
         MPI_Finalize();
         return -1;
     }
@@ -1300,37 +1336,48 @@ int saena_object::solve(std::vector<value_t>& u){
 
     // ************** initialize u **************
 
-    u.assign(grids[0].A->M, 0);
+    u.assign(A->M, 0);
+
+    // ************** allocate memory for vcycle **************
+
+    setup_vcycle_memory();
 
     // ************** solve **************
 
+#ifdef __DEBUG1__
 //    double temp;
 //    current_dot(rhs, rhs, &temp, comm);
 //    if(rank==0) std::cout << "norm(rhs) = " << sqrt(temp) << std::endl;
+#endif
 
-    std::vector<value_t> r(grids[0].A->M);
-    grids[0].A->residual(u, grids[0].rhs, r);
-    double initial_dot = 0.0, current_dot = 0.0;
-    dotProduct(r, r, &initial_dot, comm);
+    std::vector<value_t> r(A->M);
+    A->residual(u, rhs, r);
+    double init_dot = 0.0, current_dot = 0.0;
+    dotProduct(r, r, &init_dot, comm);
     if(!rank){
         print_sep();
-        printf("\ninitial residual = %e \n\n", sqrt(initial_dot));
+        printf("\ninitial residual = %e \n\n", sqrt(init_dot));
     }
 
+    const double THRSHLD = init_dot * solver_tol * solver_tol;
+
     // if max_level==0, it means only direct solver is being used.
-    if(max_level == 0 && rank==0){
+    if(max_level == 0 && !rank){
         printf("\nonly using the direct solver! \n");
     }
 
     int i = 0;
     for(i = 0; i < solver_max_iter; ++i){
-        vcycle(&grids[0], u, grids[0].rhs);
-        grids[0].A->residual(u, grids[0].rhs, r);
+        vcycle(&grids[0], u, rhs);
+        A->residual(u, rhs, r);
         dotProduct(r, r, &current_dot, comm);
 
+#ifdef __DEBUG1__
 //        if(rank==0) printf("Vcycle %d: \t%.10f \n", i, sqrt(current_dot));
 //        if(rank==0) printf("vcycle iteration = %d, residual = %f \n\n", i, sqrt(current_dot));
-        if( current_dot / initial_dot < solver_tol * solver_tol )
+#endif
+
+        if(current_dot < THRSHLD)
             break;
     }
 
@@ -1339,25 +1386,21 @@ int saena_object::solve(std::vector<value_t>& u){
     if(i == solver_max_iter)
         --i;
 
-    if(rank==0){
+    if(!rank){
         print_sep();
         printf("\nfinal:\nstopped at iteration    = %d \nfinal absolute residual = %e"
-                       "\nrelative residual       = %e \n\n", ++i, sqrt(current_dot), sqrt(current_dot/initial_dot));
+                       "\nrelative residual       = %e \n\n", ++i, sqrt(current_dot), sqrt(current_dot / init_dot));
         print_sep();
     }
 
+#ifdef __DEBUG1__
 //    print_vector(u, -1, "u", comm);
-
-    // ************** destroy data from SuperLU **************
-
-    if(A_coarsest->active) {
-        destroy_SuperLU();
-    }
+#endif
 
     // ************** scale u **************
 
     if(scale){
-        scale_vector(u, grids[0].A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag);
     }
 
     // ************** repartition u back **************
@@ -1365,7 +1408,14 @@ int saena_object::solve(std::vector<value_t>& u){
 //    if(repartition)
 //        repartition_back_u(u);
 
+#ifdef __DEBUG1__
 //    print_vector(u, -1, "u", comm);
+    if(verbose_solve){
+        MPI_Barrier(comm);
+        if(rank == 0) printf("solve_pcg: end\n");
+        MPI_Barrier(comm);
+    }
+#endif
 
     return 0;
 }
@@ -1373,7 +1423,10 @@ int saena_object::solve(std::vector<value_t>& u){
 
 int saena_object::solve_smoother(std::vector<value_t>& u){
 
-    MPI_Comm comm = grids[0].A->comm;
+    auto *A = grids[0].A;
+    vector<value_t> &rhs = grids[0].rhs;
+
+    MPI_Comm comm = A->comm;
     int nprocs = -1, rank = -1;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
@@ -1381,9 +1434,9 @@ int saena_object::solve_smoother(std::vector<value_t>& u){
     // ************** check u size **************
 /*
     index_t u_size_local = u.size(), u_size_total;
-    MPI_Allreduce(&u_size_local, &u_size_total, 1, MPI_UNSIGNED, MPI_SUM, grids[0].A->comm);
-    if(grids[0].A->Mbig != u_size_total){
-        if(rank==0) printf("Error: size of LHS (=%u) and the solution vector u (=%u) are not equal!\n", grids[0].A->Mbig, u_size_total);
+    MPI_Allreduce(&u_size_local, &u_size_total, 1, MPI_UNSIGNED, MPI_SUM, A->comm);
+    if(A->Mbig != u_size_total){
+        if(rank==0) printf("Error: size of LHS (=%u) and the solution vector u (=%u) are not equal!\n", A->Mbig, u_size_total);
         MPI_Finalize();
         return -1;
     }
@@ -1396,7 +1449,7 @@ int saena_object::solve_smoother(std::vector<value_t>& u){
 
     // ************** initialize u **************
 
-    u.assign(grids[0].A->M, 0);
+    u.assign(A->M, 0);
 
     // ************** solve **************
 
@@ -1404,24 +1457,26 @@ int saena_object::solve_smoother(std::vector<value_t>& u){
 //    current_dot(rhs, rhs, &temp, comm);
 //    if(rank==0) std::cout << "norm(rhs) = " << sqrt(temp) << std::endl;
 
-    std::vector<value_t> r(grids[0].A->M);
-    grids[0].A->residual(u, grids[0].rhs, r);
-    double initial_dot = 0.0, current_dot = 0.0;
-    dotProduct(r, r, &initial_dot, comm);
+    std::vector<value_t> r(A->M);
+    A->residual(u, rhs, r);
+    double init_dot = 0.0, current_dot = 0.0;
+    dotProduct(r, r, &init_dot, comm);
     if(!rank){
         print_sep();
-        printf("\ninitial residual = %e \n\n", sqrt(initial_dot));
+        printf("\ninitial residual = %e \n\n", sqrt(init_dot));
     }
+
+    const double THRSHLD = init_dot * solver_tol * solver_tol;
 
     int i = 0;
     for(i = 0; i < solver_max_iter; ++i){
-        smooth(&grids[0], u, grids[0].rhs, preSmooth);
-        grids[0].A->residual(u, grids[0].rhs, r);
+        smooth(&grids[0], u, rhs, preSmooth);
+        A->residual(u, rhs, r);
         dotProduct(r, r, &current_dot, comm);
 
 //        if(rank==0) printf("Vcycle %d: \t%.10f \n", i, sqrt(current_dot));
 //        if(rank==0) printf("vcycle iteration = %d, residual = %f \n\n", i, sqrt(current_dot));
-        if( current_dot / initial_dot < solver_tol * solver_tol )
+        if(current_dot < THRSHLD)
             break;
     }
 
@@ -1433,22 +1488,16 @@ int saena_object::solve_smoother(std::vector<value_t>& u){
     if(rank==0){
         print_sep();
         printf("\nfinal:\nstopped at iteration    = %d \nfinal absolute residual = %e"
-               "\nrelative residual       = %e \n\n", ++i, sqrt(current_dot), sqrt(current_dot/initial_dot));
+               "\nrelative residual       = %e \n\n", ++i, sqrt(current_dot), sqrt(current_dot / init_dot));
         print_sep();
     }
 
 //    print_vector(u, -1, "u", comm);
 
-    // ************** destroy data from SuperLU **************
-
-//    if(A_coarsest->active) {
-//        destroy_SuperLU();
-//    }
-
     // ************** scale u **************
 
     if(scale){
-        scale_vector(u, grids[0].A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag);
     }
 
     // ************** repartition u back **************
@@ -1464,7 +1513,10 @@ int saena_object::solve_smoother(std::vector<value_t>& u){
 
 int saena_object::solve_CG(std::vector<value_t>& u){
 
-    MPI_Comm comm = grids[0].A->comm;
+    auto *A = grids[0].A;
+    vector<value_t> &rhs = grids[0].rhs;
+
+    MPI_Comm comm = A->comm;
     int nprocs = 0, rank = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
@@ -1481,9 +1533,9 @@ int saena_object::solve_CG(std::vector<value_t>& u){
 /*
     index_t u_size_local = u.size();
     index_t u_size_total;
-    MPI_Allreduce(&u_size_local, &u_size_total, 1, MPI_UNSIGNED, MPI_SUM, grids[0].A->comm);
-    if(grids[0].A->Mbig != u_size_total){
-        if(rank==0) printf("Error: size of LHS (=%u) and the solution vector u (=%u) are not equal!\n", grids[0].A->Mbig, u_size_total);
+    MPI_Allreduce(&u_size_local, &u_size_total, 1, MPI_UNSIGNED, MPI_SUM, A->comm);
+    if(A->Mbig != u_size_total){
+        if(rank==0) printf("Error: size of LHS (=%u) and the solution vector u (=%u) are not equal!\n", A->Mbig, u_size_total);
         MPI_Finalize();
         return -1;
     }
@@ -1517,7 +1569,7 @@ int saena_object::solve_CG(std::vector<value_t>& u){
 
     // ************** initialize u **************
 
-    u.assign(grids[0].A->M, 0);
+    u.assign(A->M, 0);
 
     // ************** solve **************
 
@@ -1527,19 +1579,19 @@ int saena_object::solve_CG(std::vector<value_t>& u){
 //    dot(rhs, rhs, &temp, comm);
 //    if(rank==0) std::cout << "norm(rhs) = " << sqrt(temp) << std::endl;
 
-    std::vector<value_t> r(grids[0].A->M);
-    grids[0].A->residual(u, grids[0].rhs, r);
+    std::vector<value_t> r(A->M);
+    A->residual(u, rhs, r);
 
     double init_dot = 0.0, current_dot = 0.0;
 //    double previous_dot;
     dotProduct(r, r, &init_dot, comm);
-    if(rank==0) printf("\ninitial residual = %.18e \n", sqrt(init_dot));
+    if(rank==0) printf("\ninitial residual = %e \n", sqrt(init_dot));
 
     // if max_level==0, it means only direct solver is being used inside the previous vcycle, and that is all needed.
 /*
     if(max_level == 0){
-        vcycle(&grids[0], u, grids[0].rhs);
-        grids[0].A->residual(u, grids[0].rhs, r);
+        vcycle(&grids[0], u, rhs);
+        A->residual(u, rhs, r);
         dotProduct(r, r, &current_dot, comm);
 
 #ifdef __DEBUG1__
@@ -1555,7 +1607,7 @@ int saena_object::solve_CG(std::vector<value_t>& u){
         }
 
         // scale the solution u
-        scale_vector(u, grids[0].A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag);
 
         // repartition u back
 //        if(repartition){
@@ -1566,7 +1618,7 @@ int saena_object::solve_CG(std::vector<value_t>& u){
     }
 */
 
-//    std::vector<value_t> rho(grids[0].A->M, 0);
+//    std::vector<value_t> rho(A->M, 0);
 //    vcycle(&grids[0], rho, r);
     std::vector<value_t> rho(r);
 
@@ -1585,7 +1637,7 @@ int saena_object::solve_CG(std::vector<value_t>& u){
 //    }
 #endif
 
-    std::vector<value_t> h(grids[0].A->M);
+    std::vector<value_t> h(A->M);
     std::vector<value_t> p = rho;
 
     const double THRSHLD = init_dot * solver_tol * solver_tol;
@@ -1596,7 +1648,7 @@ int saena_object::solve_CG(std::vector<value_t>& u){
 //    previous_dot = init_dot;
 
     for(i = 0; i < solver_max_iter; i++){
-        grids[0].A->matvec(p, h);
+        A->matvec(p, h);
         dotProduct(r, rho, &rho_res, comm);
         dotProduct(p, h,   &pdoth,   comm);
         alpha = rho_res / pdoth;
@@ -1611,7 +1663,7 @@ int saena_object::solve_CG(std::vector<value_t>& u){
 
 #ifdef __DEBUG1__
 //        printf("rho_res = %e, pdoth = %e, alpha = %f \n", rho_res, pdoth, alpha);
-//        print_vector(u, -1, "v inside solve_pcg", grids[0].A->comm);
+//        print_vector(u, -1, "v inside solve_pcg", A->comm);
 //        previous_dot = current_dot;
 
         // print the "absolute residual" and the "convergence factor":
@@ -1678,16 +1730,10 @@ int saena_object::solve_CG(std::vector<value_t>& u){
     }
 #endif
 
-    // ************** destroy data from SuperLU **************
-
-    if(A_coarsest->active) {
-        destroy_SuperLU();
-    }
-
     // ************** scale u **************
 
     if(scale){
-        scale_vector(u, grids[0].A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag);
     }
 
     // ************** repartition u back **************
@@ -1716,12 +1762,16 @@ int saena_object::solve_CG(std::vector<value_t>& u){
 
 int saena_object::solve_pCG(std::vector<value_t>& u){
 
-    MPI_Comm comm = grids[0].A->comm;
+    auto *A = grids[0].A;
+    vector<value_t> &rhs = grids[0].rhs;
+
+    MPI_Comm comm = A->comm;
     int nprocs = 0, rank = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
 #ifdef __DEBUG1__
+//        print_vector(u, -1, "u", comm);
     if(verbose_solve){
         MPI_Barrier(comm);
         if(rank == 0) printf("solve_pcg: start!\n");
@@ -1769,7 +1819,11 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 
     // ************** initialize u **************
 
-    u.assign(grids[0].A->M, 0);
+    u.assign(A->M, 0);
+
+    // ************** allocate memory for vcycle **************
+
+    setup_vcycle_memory();
 
     // ************** solve **************
 
@@ -1779,18 +1833,18 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 //    dot(rhs, rhs, &temp, comm);
 //    if(rank==0) std::cout << "norm(rhs) = " << sqrt(temp) << std::endl;
 
-    std::vector<value_t> r(grids[0].A->M);
-    grids[0].A->residual(u, grids[0].rhs, r);
+    std::vector<value_t> r(A->M);
+    A->residual(u, rhs, r);
 
     double init_dot = 0.0, current_dot = 0.0;
 //    double previous_dot;
     dotProduct(r, r, &init_dot, comm);
-    if(rank==0) printf("\ninitial residual = %.18e \n", sqrt(init_dot));
+    if(rank==0) printf("\ninitial residual = %e \n", sqrt(init_dot));
 
     // if max_level==0, it means only direct solver is being used inside the previous vcycle, and that is all needed.
     if(max_level == 0){
-        vcycle(&grids[0], u, grids[0].rhs);
-        grids[0].A->residual(u, grids[0].rhs, r);
+        vcycle(&grids[0], u, rhs);
+        A->residual(u, rhs, r);
         dotProduct(r, r, &current_dot, comm);
 
 #ifdef __DEBUG1__
@@ -1806,7 +1860,7 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         }
 
         // scale the solution u
-        scale_vector(u, grids[0].A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag);
 
         // repartition u back
 //        if(repartition){
@@ -1816,7 +1870,7 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         return 0;
     }
 
-    std::vector<value_t> rho(grids[0].A->M, 0);
+    std::vector<value_t> rho(A->M, 0);
     vcycle(&grids[0], rho, r);
 
 #ifdef __DEBUG1__
@@ -1834,7 +1888,7 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 //    }
 #endif
 
-    std::vector<value_t> h(grids[0].A->M);
+    std::vector<value_t> h(A->M);
     std::vector<value_t> p = rho;
 
     const double THRSHLD = init_dot * solver_tol * solver_tol;
@@ -1845,7 +1899,7 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 //    previous_dot = init_dot;
 
     for(i = 0; i < solver_max_iter; i++){
-        grids[0].A->matvec(p, h);
+        A->matvec(p, h);
         dotProduct(r, rho, &rho_res, comm);
         dotProduct(p, h,   &pdoth,   comm);
         alpha = rho_res / pdoth;
@@ -1860,7 +1914,7 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 
 #ifdef __DEBUG1__
 //        printf("rho_res = %e, pdoth = %e, alpha = %f \n", rho_res, pdoth, alpha);
-//        print_vector(u, -1, "v inside solve_pcg", grids[0].A->comm);
+//        print_vector(u, -1, "v inside solve_pcg", A->comm);
 //        previous_dot = current_dot;
 
         // print the "absolute residual" and the "convergence factor":
@@ -1928,14 +1982,14 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 
     // ************** destroy data from SuperLU **************
 
-    if(A_coarsest->active) {
-        destroy_SuperLU();
-    }
+//    if(grids.back().active) {
+//        destroy_SuperLU();
+//    }
 
     // ************** scale u **************
 
     if(scale){
-        scale_vector(u, grids[0].A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag);
     }
 
     // ************** repartition u back **************
@@ -2175,7 +2229,8 @@ int saena_object::GMRES(std::vector<double> &u){
     // GMRES proconditioned with AMG
 //    Preconditioner &M, Matrix &H;
 
-    saena_matrix *A = grids[0].A; // todo: double-check
+    saena_matrix *A = grids[0].A;
+    vector<value_t> &rhs = grids[0].rhs;
 
     MPI_Comm comm = A->comm;
     int nprocs, rank;
@@ -2213,7 +2268,7 @@ int saena_object::GMRES(std::vector<double> &u){
 
     std::vector<double> res(size), r(size);
     u.assign(size, 0); // initial guess // todo: decide where to do this.
-    A->residual_negative(u, grids[0].rhs, res);
+    A->residual_negative(u, rhs, res);
 //    vcycle(&grids[0], r, res); //todo: M should be used here.
     r = res;
 
@@ -2223,7 +2278,7 @@ int saena_object::GMRES(std::vector<double> &u){
     std::vector<std::vector<value_t>> v(m + 1, std::vector<value_t>(size)); // todo: decide how to allocate for v.
 
 //    double normb = norm(M.solve(rhs));
-    double normb = pnorm(grids[0].rhs, comm); // todo: this is different from the above line
+    double normb = pnorm(rhs, comm); // todo: this is different from the above line
 
     if (normb == 0.0){
         normb = 1;
@@ -2386,7 +2441,7 @@ int saena_object::GMRES(std::vector<double> &u){
 #endif
 
         // r = M.solve(rhs - A * u);
-        A->residual_negative(u, grids[0].rhs, res);
+        A->residual_negative(u, rhs, res);
 //        vcycle(&grids[0], r, res);
         r = res;
 
@@ -2407,15 +2462,9 @@ int saena_object::GMRES(std::vector<double> &u){
     // the exit label to be used by "goto".
     gmres_out:
 
-    // ************** destroy matrix from SuperLU **************
-
-    if(A_coarsest->active) {
-        destroy_SuperLU();
-    }
-
     // ************** scale u **************
 
-    scale_vector(u, grids[0].A->inv_sq_diag);
+    scale_vector(u, A->inv_sq_diag);
 
 #ifdef __DEBUG1__
     if(verbose_solve){
@@ -2447,9 +2496,9 @@ int saena_object::pGMRES(std::vector<double> &u){
     // GMRES proconditioned with AMG
 //    Preconditioner &M, Matrix &H;
 
-    saena_matrix *A = grids[0].A; // todo: double-check
+    saena_matrix *A = grids[0].A;
+    vector<value_t> &rhs = grids[0].rhs;
 
-//    MPI_Comm comm = MPI_COMM_WORLD; //todo
     MPI_Comm comm = A->comm;
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
@@ -2486,19 +2535,21 @@ int saena_object::pGMRES(std::vector<double> &u){
     // *************************
 //    std::vector<double> r = M.solve(rhs - A * u);
 
+    // allocate memory for vcycle
+    setup_vcycle_memory();
+
     std::vector<double> res(size), r(size);
     u.assign(size, 0); // initial guess // todo: decide where to do this.
-    A->residual_negative(u, grids[0].rhs, res);
-    //vcycle(&grids[0], r, res); //todo: M should be used here.
-	for (int ii=0; ii<res.size(); ii++)
-		r[ii] = res[ii];	
+    A->residual_negative(u, rhs, res);
+    vcycle(&grids[0], r, res); //todo: M should be used here.
+
     // *************************
 
 //    Vector *v = new Vector[m+1];
     std::vector<std::vector<value_t>> v(m + 1, std::vector<value_t>(size)); // todo: decide how to allocate for v.
 
 //    double normb = norm(M.solve(rhs));
-    double normb = pnorm(grids[0].rhs, comm); // todo: this is different from the above line
+    double normb = pnorm(rhs, comm); // todo: this is different from the above line
 
     if (normb == 0.0){
         normb = 1;
@@ -2661,10 +2712,9 @@ int saena_object::pGMRES(std::vector<double> &u){
 #endif
 
         // r = M.solve(rhs - A * u);
-        A->residual_negative(u, grids[0].rhs, res);
-        //vcycle(&grids[0], r, res); //todo: M should be used here.
-		for (int ii=0; ii<res.size(); ii++)
-			r[ii] = res[ii];
+        A->residual_negative(u, rhs, res);
+        vcycle(&grids[0], r, res); //todo: M should be used here.
+
         beta  = pnorm(r, comm);
         resid = beta / normb;
 
@@ -2682,15 +2732,9 @@ int saena_object::pGMRES(std::vector<double> &u){
     // the exit label to be used by "goto".
     gmres_out:
 
-    // ************** destroy matrix from SuperLU **************
-
-    if(A_coarsest->active) {
-        destroy_SuperLU();
-    }
-
     // ************** scale u **************
 
-    scale_vector(u, grids[0].A->inv_sq_diag);
+    scale_vector(u, A->inv_sq_diag);
 
 #ifdef __DEBUG1__
     if(verbose_solve){

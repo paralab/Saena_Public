@@ -38,7 +38,6 @@ int saena_matrix::allocate_zfp(){
 int saena_matrix::deallocate_zfp(){
 
     if(free_zfp_buff){
-
         zfp_field_free(send_field);
         zfp_stream_close(send_zfp);
         stream_close(send_stream);
@@ -51,8 +50,13 @@ int saena_matrix::deallocate_zfp(){
         delete []zfp_send_buff2;
         delete []zfp_recv_buff;
         delete []zfp_recv_buff2;
-        free_zfp_buff = false;
 
+        zfp_send_buff  = nullptr;
+        zfp_send_buff2 = nullptr;
+        zfp_recv_buff  = nullptr;
+        zfp_recv_buff2 = nullptr;
+
+        free_zfp_buff = false;
     }
 
     return 0;
@@ -860,12 +864,12 @@ int saena_matrix::matvec_sparse_comp(std::vector<value_t>& v, std::vector<value_
     // they are received in order: first put the values from the lowest rank matrix, and so on.
     for(int i = 0; i < numRecvProc; ++i) {
         MPI_Irecv(&zfp_recv_buff[(zfp_rate/CHAR_BIT)*rdispls[recvProcRank[i]]], (zfp_rate/CHAR_BIT)*recvProcCount[i], MPI_UNSIGNED_CHAR, recvProcRank[i], 1, comm, &requests[i]);
-        MPI_Test(&requests[i], &flag, statuses);
+        MPI_Test(&requests[i], &flag, &statuses[i]);
     }
 
     for(int i = 0; i < numSendProc; ++i){
         MPI_Isend(&zfp_send_buff[(zfp_rate/CHAR_BIT)*vdispls[sendProcRank[i]]], (zfp_rate/CHAR_BIT)*sendProcCount[i], MPI_UNSIGNED_CHAR, sendProcRank[i], 1, comm, &requests[numRecvProc+i]);
-        MPI_Test(&requests[numRecvProc + i], &flag, statuses);
+        MPI_Test(&requests[numRecvProc + i], &flag, &statuses[numRecvProc + i]);
     }
 
     // local loop

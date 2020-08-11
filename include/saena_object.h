@@ -51,18 +51,24 @@ public:
     // matmat
     // *****************
 
+    // stop condition for matmat split:
+    // A.row_sz * B.col_sz < matmat_thre1   &&   B.col_sz < matmat_thre2
+    // matmat_thre1 is upper bound for nonzeros of C = A * B.
+    // matmat_thre2 is upper bound for columns of C.
+    // matmat_thre3 is for when we want to have an exact number of splits. (case2_iter + case3_iter == matmat_thre3)
+
     std::string          coarsen_method  = "recursive"; // 1-basic, 2-recursive, 3-no_overlap
-    const int            matmat_thre1    = 10000000;   // split until (A_row * B_col < matmat_thre1)
-    index_t              matmat_thre2    = 0;          // split until (B.col_sz < matmat_thre2). It will be set as ceil(sqrt(matmat_thre1))
-    static const index_t matmat_thre3    = 40;         // split until (case2_iter + case3_iter == matmat_thre3)
-    const index_t        matmat_nnz_thre = 200;     //default 200
+    const int            matmat_thre1    = 50000000;
+    index_t              matmat_thre2    = 0;
+    static const index_t matmat_thre3    = 40;
+    const index_t        matmat_nnz_thre = 200; //default 200
 
 //    std::bitset<matmat_size_thre2> mapbit; // todo: is it possible to clear memory for this (after setup phase)?
 
     long   zfp_orig_sz = 0l;   // the original size of array that was compressed with zfp
     long   zfp_comp_sz = 0l;   // the size of the compressed array as the output of zfp
     double zfp_rate    = 0.0;  // = zfp_comp_sz / zfp_orig_sz
-    double zfp_thrshld = 0.0; // if (zfp_rate < zfp_thrshld) zfp_perform = true;
+    double zfp_thrshld = 0.0;  // if (zfp_rate < zfp_thrshld) zfp_perform = true;
                                // set zfp_thrshld = 0 to disable zfp compression
     bool   zfp_perform = true;
 
@@ -130,7 +136,7 @@ public:
     int         postSmooth    = 3;
     std::string smoother      = "chebyshev";    // choices: "jacobi", "chebyshev"
     std::string direct_solver = "SuperLU";      // choices: "CG", "SuperLU"
-    float       connStrength  = 0.2;            // connection strength parameter: control coarsening aggressiveness
+    float       connStrength  = 0.1;            // connection strength parameter: control coarsening aggressiveness
 
     // ****************
     // SuperLU
@@ -144,9 +150,10 @@ public:
     SOLVEstruct_t           SOLVEstruct;
     superlu_dist_options_t  options;
 
-    bool first_solve    = TRUE;
-    bool superlu_active = TRUE;
-    bool lu_created     = FALSE;
+    bool first_solve       = true;
+    bool superlu_active    = true;
+    bool superlu_allocated = false;
+    bool lu_created        = false;
 
     // **********************************************
 
@@ -180,13 +187,14 @@ public:
     bool verbose_matmat_A         = false;
     bool verbose_matmat_B         = false;
     bool verbose_matmat_assemble  = false;
+    bool verbose_setup_coarse     = false;
+    bool verbose_set_rhs          = false;
+
     bool verbose_solve            = false;
     bool verbose_vcycle           = true;
     bool verbose_vcycle_residuals = false;
     bool verbose_solve_coarse     = false;
     bool verbose_update           = false;
-
-//    bool verbose_triple_mat_mult_test = false;
 
     // **********************************************
     // setup functions
@@ -195,6 +203,7 @@ public:
     saena_object()  = default;
     ~saena_object() = default;
     int destroy(){
+        destroy_SuperLU();
         return 0;
     }
 
@@ -234,7 +243,7 @@ public:
     int find_aggregation(saena_matrix* A, std::vector<index_t>& aggregate, std::vector<index_t>& splitNew);
     int create_strength_matrix(saena_matrix* A, strength_matrix* S);
     int aggregation_1_dist(strength_matrix *S, std::vector<index_t> &aggregate, std::vector<index_t> &aggArray);
-    int aggregation_2_dist(strength_matrix *S, std::vector<unsigned long> &aggregate, std::vector<unsigned long> &aggArray);
+//    int aggregation_2_dist(strength_matrix *S, std::vector<unsigned long> &aggregate, std::vector<unsigned long> &aggArray);
     int aggregate_index_update(strength_matrix* S, std::vector<index_t>& aggregate, std::vector<index_t>& aggArray, std::vector<index_t>& splitNew);
     int create_prolongation(Grid *gird, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all, std::vector<int> &order_dif);
 
@@ -284,6 +293,7 @@ public:
     int solve_smoother(std::vector<value_t>& u);
     int solve_CG(std::vector<value_t>& u);
     int solve_pCG(std::vector<value_t>& u);
+    int setup_vcycle_memory();
     int vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
     int smooth(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs, int iter);
 

@@ -54,8 +54,7 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
 //    Ac->set_p_order(A->p_order / 2);
 
 	if (!rank) cout << "order = " << order << endl;    
-	next_order = A->p_order - order_dif[grid->currentLevel];
-
+    next_order = A->p_order - order_dif[grid->level];
     if (next_order < 1)
         next_order = 1;
 
@@ -419,6 +418,7 @@ void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_
         }
     }
 
+#if 0
     // col is global
     // row is universal
     // nodeno_coarse is the local coarse level size without boundary nodes
@@ -429,9 +429,16 @@ void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_
     for (int i = 0; i < univ_nodeno_fine; i++)
         Pp_loc.at(i).resize(nodeno_coarse, 0);
 
-    if (rank == rank_v)
-        std::cout << "Pp_loc has row (universal) = " << Pp_loc.size() << ", and col(global) = " << Pp_loc[0].size() << endl;
-	*/
+#ifdef __DEBUG1__
+    if(verbose_pcoarsen) {
+        MPI_Barrier(comm);
+        if (rank == rank_v)
+            std::cout << "Pp_loc has row (universal) = " << Pp_loc.size() << ", and col(global) = " << Pp_loc[0].size() << endl;
+        MPI_Barrier(comm);
+    }
+#endif
+#endif
+
     // next level g2u
     // index next level node index
     // value this level g2u value
