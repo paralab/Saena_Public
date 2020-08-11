@@ -52,10 +52,9 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
 
     // assume divided by 2
 //    Ac->set_p_order(A->p_order / 2);
-	if (order_dif.size() <= grid->currentLevel)
-		next_order = 1;
-	else
-    	next_order = A->p_order - order_dif[grid->currentLevel];
+
+	if (!rank) cout << "order = " << order << endl;    
+	next_order = A->p_order - order_dif[grid->currentLevel];
 
     if (next_order < 1)
         next_order = 1;
