@@ -1538,16 +1538,16 @@ int saena_object::matmat_memory_alloc(CSCMat &A, CSCMat &B){
             std::cerr << "bad_alloc caught: " << ba.what() << '\n';
         }
 
-        if(zfp_thrshld > 1e-8) {
+//        if(zfp_thrshld > 1e-8) {
             // the buffer size is sometimes bigger than the original array, so choosing 2 to be safe.
-            mempool7_sz = 2 * B.max_nnz * sizeof(value_t);
-
-            try {
-                mempool7 = new uchar[mempool7_sz]; // used as the zfp compressor and decompressor buffer
-            } catch (std::bad_alloc &ba) {
-                std::cerr << "bad_alloc caught: " << ba.what() << '\n';
-            }
-        }
+//            mempool7_sz = 2 * B.max_nnz * sizeof(value_t);
+//
+//            try {
+//                mempool7 = new uchar[mempool7_sz]; // used as the zfp compressor and decompressor buffer
+//            } catch (std::bad_alloc &ba) {
+//                std::cerr << "bad_alloc caught: " << ba.what() << '\n';
+//            }
+//        }
     }
 
     matmat_thre2 = ceil(sqrt(matmat_thre1));
@@ -1590,10 +1590,10 @@ int saena_object::matmat_memory_free(){
     mempool5 = nullptr;
     mempool6 = nullptr;
 
-    if(zfp_thrshld > 1e-8) {
-        delete[]mempool7;
-        mempool7 = nullptr;
-    }
+//    if(zfp_thrshld > 1e-8) {
+//        delete[]mempool7;
+//        mempool7 = nullptr;
+//    }
 
     delete []Cmkl_r;
     delete []Cmkl_v;
