@@ -23,8 +23,8 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 	
-	if (!rank) printf("---------------\npcoarsen: start\n---------------\n");
-	double t1 = omp_get_wtime();
+	//if (!rank) printf("---------------\npcoarsen: start\n---------------\n");
+	//double t1 = omp_get_wtime();
 
 #ifdef __DEBUG1__
 //    int rank_v = 0;
@@ -219,9 +219,9 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     }
 #endif
 
-	double t2 = omp_get_wtime();
-	print_time(t1, t2, "pcoarsen", comm);
-	if (!rank) printf("---------------\npcoarsen: end\n---------------\n");
+	//double t2 = omp_get_wtime();
+	//print_time(t1, t2, "pcoarsen", comm);
+	//if (!rank) printf("---------------\npcoarsen: end\n---------------\n");
     
 	return 0;
 }
@@ -423,7 +423,6 @@ void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_
     // row is universal
     // nodeno_coarse is the local coarse level size without boundary nodes
 
-	/*cout << "nodeno_coarse" << nodeno_coarse << endl;
 	cout << "univ_nodeno_fine" << univ_nodeno_fine << endl;
     vector< vector<double> > Pp_loc(univ_nodeno_fine);
     for (int i = 0; i < univ_nodeno_fine; i++)
@@ -437,6 +436,7 @@ void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_
         MPI_Barrier(comm);
     }
 #endif
+
 #endif
 
     // next level g2u
@@ -511,8 +511,8 @@ inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &m
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-	if (!rank) printf("---------------\nmesh_info: start\n---------------\n");
-	double t1 = omp_get_wtime();
+	//if (!rank) printf("---------------\nmesh_info: start\n---------------\n");
+	//double t1 = omp_get_wtime();
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
         MPI_Barrier(comm); if (!rank) printf("\nmesh_info: start\n"); MPI_Barrier(comm);
@@ -589,6 +589,12 @@ inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &m
             }
         }
 
+		if (map_all.size() > 2)
+		{
+			//map_all.erase(map_all.begin());
+		}
+		if (!rank)
+			std::cout << "l2g map size = " << map_all.size() << std::endl;
 
 #ifdef __DEBUG1__
         if(verbose_pcoarsen) {
@@ -611,9 +617,9 @@ inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &m
     }
 #endif
 
-	double t2 = omp_get_wtime();
-	print_time(t1, t2, "mesh_info", comm);
-	if (!rank) printf("---------------\nmesh_info: end\n---------------\n");
+	//double t2 = omp_get_wtime();
+	//print_time(t1, t2, "mesh_info", comm);
+	//if (!rank) printf("---------------\nmesh_info: end\n---------------\n");
     
 	return 0;
 }
@@ -625,8 +631,8 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-	if (!rank) printf("---------------\ng2umap: start\n---------------\n");
-	double t1 = omp_get_wtime();
+	//if (!rank) printf("---------------\ng2umap: start\n---------------\n");
+	//double t1 = omp_get_wtime();
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
         MPI_Barrier(comm); if (!rank) printf("\ng2umap: start\n"); MPI_Barrier(comm);
@@ -762,6 +768,12 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
     }
     //std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
 
+	if (g2u_all.size() > 2)
+	{
+		//g2u_all.erase(g2u_all.begin());
+	}
+	if (!rank)
+		std::cout << "g2u map size = " << g2u_all.size() << std::endl;
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
         MPI_Barrier(comm);
@@ -771,9 +783,9 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
         MPI_Barrier(comm);
     }
 #endif
-	double t2 = omp_get_wtime();
-	print_time(t1, t2, "g2u", comm);
-	if (!rank) printf("---------------\ng2umap: end\n---------------\n");
+	//double t2 = omp_get_wtime();
+	//print_time(t1, t2, "g2u", comm);
+	//if (!rank) printf("---------------\ng2umap: end\n---------------\n");
 }
 
 
