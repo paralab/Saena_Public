@@ -591,10 +591,11 @@ inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &m
 
 		if (map_all.size() > 2)
 		{
-			//map_all.erase(map_all.begin());
+			map_all.erase(map_all.begin());
+			map_all.shrink_to_fit();
 		}
-		if (!rank)
-			std::cout << "l2g map size = " << map_all.size() << std::endl;
+		//if (!rank)
+			//std::cout << "l2g map size = " << map_all.size() << std::endl;
 
 #ifdef __DEBUG1__
         if(verbose_pcoarsen) {
@@ -770,10 +771,11 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
 
 	if (g2u_all.size() > 2)
 	{
-		//g2u_all.erase(g2u_all.begin());
+		g2u_all.erase(g2u_all.begin());
+		g2u_all.shrink_to_fit();
 	}
-	if (!rank)
-		std::cout << "g2u map size = " << g2u_all.size() << std::endl;
+	//if (!rank)
+		//std::cout << "g2u map size = " << g2u_all.size() << std::endl;
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
         MPI_Barrier(comm);
