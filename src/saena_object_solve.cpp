@@ -1008,12 +1008,20 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 //    std::vector<value_t> res(grid->A->M);
 //    std::vector<value_t> uCorr(grid->A->M);
 
-
+	double time_smooth_pre1;
+	double time_smooth_pre2; 
+	if (grid->level == 0)
+	{
+		time_smooth_pre1 = omp_get_wtime();
+	}
     if (preSmooth) {
         smooth(grid, u, rhs, preSmooth);
     }
-
-
+	if (grid->level == 0)
+	{
+		time_smooth_pre2 = omp_get_wtime();
+		vcycle_smooth_time += time_smooth_pre2 - time_smooth_pre1;
+	}
     grid->A->residual(u, rhs, res);
 
 
@@ -1081,9 +1089,20 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
     // **************************************** 7. post-smooth ****************************************
 
+	double time_smooth_post1;
+	double time_smooth_post2; 
+	if (grid->level == 0)
+	{
+		time_smooth_post1 = omp_get_wtime();
+	}
     if(postSmooth){
         smooth(grid, u, rhs, postSmooth);
     }
+	if (grid->level == 0)
+	{
+		time_smooth_post2 = omp_get_wtime();
+		vcycle_smooth_time += time_smooth_post2 - time_smooth_post1;
+	}
 
     return 0;
 }
@@ -1690,9 +1709,15 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 
 	double vcycle_time = 0;
 	superlu_time = 0;
+	vcycle_smooth_time = 0;
+	double matvec_time1 = 0;
 	double t_pcg1 = omp_get_wtime();
     for(i = 0; i < solver_max_iter; i++){
+		double time_matvec1 = omp_get_wtime();
         A->matvec(p, h);
+		double time_matvec2 = omp_get_wtime();
+		matvec_time1 += time_matvec2 - time_matvec1;
+
         dotProduct(r, rho, &rho_res, comm);
         dotProduct(p, h,   &pdoth,   comm);
         alpha = rho_res / pdoth;
@@ -1763,6 +1788,8 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         printf("\ntime per iteration    = %e \n", (t_pcg2 - t_pcg1)/(i+1));
         printf("\nvcycle time per iteration    = %e \n", vcycle_time/(i+1));
         printf("\nsuperlu time per iteration    = %e \n", superlu_time/(i+1));
+        printf("\nmatvec1 time per iteration    = %e \n", matvec_time1/(i+1));
+        printf("\nsmooth time per iteration    = %e \n", vcycle_smooth_time/(i+1));
         print_sep();
     }
 
