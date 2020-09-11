@@ -127,10 +127,11 @@ public:
     // shrink_minor: if there is no entry for the coarse matrix on this proc, then shrink.
     bool active_minor = false;    // default = false
 
-    bool enable_shrink   = true; // default = true
+    bool enable_shrink   = false; // default = true
     bool enable_shrink_c = true;  // default = true. enables shrinking for the coarsest level.
     bool do_shrink       = false; // default = false
     bool shrinked        = false; // default = false. if shrinking happens for the matrix, set this to true.
+    bool enable_dummy_matvec = false; // default = true
 
     std::vector<double> matvec_dummy_time;
     int total_active_procs = 0;
@@ -271,7 +272,6 @@ public:
 
     int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
     int matvec_sparse(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec_sparse_array(value_t *v, value_t *w);    // to be used in ietl.
 
     // for the compression paper
     int matvec_sparse_test(std::vector<value_t>& v, std::vector<value_t>& w);
@@ -300,7 +300,7 @@ public:
 
     // smoothers
     int jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp);
-    int chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp, std::vector<value_t>& temp2);
+    int chebyshev(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp, std::vector<value_t>& temp2);
 
     // I/O functions
     int print_entry(int ran, std::string name = "");
