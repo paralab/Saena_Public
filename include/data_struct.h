@@ -13,8 +13,14 @@
 #include <vector>
 #include <set>
 #include <cmath>
-#include <algorithm>
 #include <random>
+
+#ifdef SANEA_USE_PSTL
+#include "pstl/algorithm"
+#include "pstl/execution"
+#else
+#include <algorithm>
+#endif
 
 #include "mpi.h"
 #include <omp.h>
@@ -92,11 +98,7 @@ public:
 
     cooEntry() = default;
 
-    cooEntry(index_t i, index_t j, value_t v){
-        row = i;
-        col = j;
-        val = v;
-    }
+    cooEntry(index_t i, index_t j, value_t v) : row(i), col(j), val(v){}
 
     bool operator == (const cooEntry& node2) const {
         return (row == node2.row && col == node2.col);
@@ -220,11 +222,7 @@ public:
 
     cooEntry_row() = default;
 
-    cooEntry_row(index_t i, index_t j, value_t v){
-        row = i;
-        col = j;
-        val = v;
-    }
+    cooEntry_row(index_t i, index_t j, value_t v) : row(i), col(j), val(v){}
 
     bool operator == (const cooEntry_row& node2) const {
         return (row == node2.row && col == node2.col);
@@ -554,9 +552,9 @@ public:
     // =======================
 
     CSCMat() = default;
-    int compress_prep_compute(const index_t *v, index_t v_sz, GR_sz &comp_sz);
-    int compress_prep_compute2(const index_t *v, index_t v_sz, GR_sz &comp_sz);
-    int compress_prep();
+    void compress_prep_compute(const index_t *v, index_t v_sz, GR_sz &comp_sz) const;
+    void compress_prep_compute2(const index_t *v, index_t v_sz, GR_sz &comp_sz);
+    void compress_prep();
 };
 
 

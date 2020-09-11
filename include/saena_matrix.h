@@ -111,7 +111,8 @@ public:
     std::vector<int> sendProcRank;
     std::vector<int> sendProcCount;
 
-    unsigned int num_threads = 1;
+    int num_threads   = 1;
+    int matvec_levels = 1;
     std::vector<nnz_t> iter_local_array;
     std::vector<nnz_t> iter_remote_array;
 //    std::vector<nnz_t> iter_local_array2;
@@ -127,11 +128,10 @@ public:
     // shrink_minor: if there is no entry for the coarse matrix on this proc, then shrink.
     bool active_minor = false;    // default = false
 
-    bool enable_shrink   = false; // default = true
+    bool enable_shrink   = true; // default = true
     bool enable_shrink_c = true;  // default = true. enables shrinking for the coarsest level.
     bool do_shrink       = false; // default = false
     bool shrinked        = false; // default = false. if shrinking happens for the matrix, set this to true.
-    bool enable_dummy_matvec = false; // default = true
 
     std::vector<double> matvec_dummy_time;
     int total_active_procs = 0;
@@ -295,8 +295,24 @@ public:
 //    int matvec_timing5(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
 //    int matvec_timing5_alltoall(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
 
-    void residual(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res);
-    int residual_negative(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res);
+    // Vector res = A * u - rhs;
+    inline void residual(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res){
+        matvec(u, res);
+        #pragma omp parallel for
+        for(index_t i = 0; i < M; ++i){
+            res[i] -= rhs[i];
+        }
+    }
+
+    // Vector res = rhs - A * u
+    inline void residual_negative(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res){
+        matvec(u, res);
+        #pragma omp parallel for
+        for(index_t i = 0; i < M; i++){
+            res[i] = rhs[i] - res[i];
+        }
+    }
+
     int inverse_diag();
 
     // smoothers

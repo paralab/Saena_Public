@@ -8,9 +8,11 @@
 
 #include <mkl_spblas.h>
 
+//#define MATMAT_TIME
 
 double case1 = 0, case2 = 0, case3 = 0; // for timing case parts of fast_mm
-double t_init_prep = 0, t_mat = 0, t_comp_GR = 0, t_comp_zfp = 0, t_decomp_GR = 0, t_decomp_zfp = 0, t_prep_iter = 0, t_fast_mm = 0, t_sort = 0, t_wait = 0;
+double t_init_prep = 0, t_mat = 0, t_comp_GR = 0, t_comp_zfp = 0, t_decomp_GR = 0, t_decomp_zfp = 0, t_prep_iter = 0,
+       t_fast_mm = 0, t_sort = 0, t_wait = 0;
 
 // from an MKL example
 /* To avoid constantly repeating the part of code that checks inbound SparseBLAS functions' status,
@@ -185,12 +187,16 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 //        ++case1_iter;
 #endif
 
+#ifdef MATMAT_TIME
         ++case1_iter;
+#endif
 
 //        if(use_dcsrmultcsr) {
             // C_mk = A_mn * B_nk = (BT_kn * AT_nm) = CT_km = C_mk
 
-            double t1 = MPI_Wtime();
+#ifdef MATMAT_TIME
+            double t1 = omp_get_wtime();
+#endif
 
             MKL_INT m = B.col_sz;
             MKL_INT n = B.row_sz;
@@ -226,26 +232,24 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 //            printf("mkl_dcsrmultcsr result: %d\n", info);
 #endif
 
-            MKL_INT i = 0, j = 0;
-            MKL_INT ii = 0;
-//            index_t *Cmkl_r_p = &Cmkl_r[0] - 1;
-//            value_t *Cmkl_v_p = &Cmkl_v[0] - 1;
-            int B_c_sz = B.col_sz;
+            MKL_INT i = 0, j = 0, ii = 0;
+            const int B_C_SZ   = B.col_sz;
             const int ATHRSHLD = A.row_offset - 1;
             const int BTHRSHLD = B.col_offset;
 
-            for (j = 0; j < B_c_sz; ++j) {
-//                if(rank == 0) printf("col %3d: (%3d , %3d)\n", j, Cmkl_c_scan[j], Cmkl_c_scan[j+1]); fflush(nullptr);
+            // Cmkl_c_scan is 1-indexed, so i starts from 1. That's why we use ii to start from 0.
+            for (j = 0; j < B_C_SZ; ++j) {
+//                if(rank == 0) printf("col %3d: (%3d , %3d)\n", j, Cmkl_c_scan[j], Cmkl_c_scan[j+1]);
                 for (i = Cmkl_c_scan[j]; i < Cmkl_c_scan[j+1]; ++i, ++ii) {
-//                    C.emplace_back(Cmkl_r_p[i] + A.row_offset - 1, j + B.col_offset, Cmkl_v_p[i]);
                     C.emplace_back(Cmkl_r[ii] + ATHRSHLD, j + BTHRSHLD, Cmkl_v[ii]);
-//                    if(rank == 0) printf("\n%3d: (%3d , %3d) = %8f\n", i, Cmkl_r[i] + 1, j + B.col_offset, Cmkl_v[i]); fflush(nullptr);
-//                    if(rank == 0) printf("%3d: (%3d , %3d) = %8f\n", ii, Cmkl_r[ii] + 1, j + B.col_offset, Cmkl_v[ii+1]); fflush(nullptr);
+//                    if(rank==0) printf("%3d: (%3d , %3d) = %8f\n", ii, Cmkl_r[ii] + 1, j + B.col_offset, Cmkl_v[ii]);
                 }
             }
 
-            t1 = MPI_Wtime() - t1;
-            case1 += t1;
+#ifdef MATMAT_TIME
+        t1 = omp_get_wtime() - t1;
+        case1 += t1;
+#endif
 
 #if 0
         }else {
@@ -385,7 +389,7 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
                 fflush(nullptr);
             }
 
-            t1 = MPI_Wtime() - t1;
+            t1 = omp_get_wtime() - t1;
             case1 += t1;
 
             return;
@@ -395,7 +399,7 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
             mkl_sparse_destroy(Bmkl);
             mkl_sparse_destroy(Amkl);
 
-            t1 = MPI_Wtime() - t1;
+            t1 = omp_get_wtime() - t1;
             case1 += t1;
         }
 #endif
@@ -407,7 +411,7 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
     // Case2
     // ==============================================================
 
-    index_t A_col_size_half = A.col_sz/2;
+    index_t A_col_size_half = A.col_sz / 2;
 
     // if A_col_size_half == 0, it means A_col_size = 1. In this case it goes to case3.
     if ( (A.row_sz <= A.col_sz) && (A_col_size_half != 0) ){//DOLLAR("case2")
@@ -417,10 +421,11 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
         if (rank == verbose_rank && verbose_fastmm) { printf("fast_mm: case 2: start \n"); }
 //        ++case2_iter;
 #endif
-//        if (rank == verbose_rank) { printf("fast_mm: case 2: start \n"); }
 
-        double t2 = MPI_Wtime();
+#ifdef MATMAT_TIME
+        double t2 = omp_get_wtime();
         ++case2_iter;
+#endif
 
         // =======================================================
         // split based on matrix size
@@ -512,8 +517,10 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 
         reorder_split(B, B1, B2);
 
-        t2 = MPI_Wtime() - t2;
+#ifdef MATMAT_TIME
+        t2 = omp_get_wtime() - t2;
         case2 += t2;
+#endif
 
 #ifdef __DEBUG1__
 /*
@@ -763,7 +770,9 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
         // Finalize Case2
         // =======================================================
 
-        t2 = MPI_Wtime();
+#ifdef MATMAT_TIME
+        t2 = omp_get_wtime();
+#endif
 
         // return B to its original order.
         if(B2.nnz != 0) {
@@ -775,8 +784,10 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
         }
 #endif
 
-        t2 = MPI_Wtime() - t2;
+#ifdef MATMAT_TIME
+        t2 = omp_get_wtime() - t2;
         case2 += t2;
+#endif
 
 #ifdef __DEBUG1__
 //        if(rank==0 && verbose_fastmm) printf("C1.size() = %lu, C2.size() = %lu \n", C1.size(), C2.size());
@@ -801,8 +812,10 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 #endif
 //        if (rank == verbose_rank) printf("fast_mm: case 3: start \n");
 
-        double t3 = MPI_Wtime();
+#ifdef MATMAT_TIME
+        double t3 = omp_get_wtime();
         ++case3_iter;
+#endif
 
         // split based on matrix size
         // =======================================================
@@ -936,8 +949,10 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 
         reorder_split(A, A1, A2);
 
-        t3 = MPI_Wtime() - t3;
+#ifdef MATMAT_TIME
+        t3 = omp_get_wtime() - t3;
         case3 += t3;
+#endif
 
 #ifdef __DEBUG1__
 /*
@@ -1121,7 +1136,9 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
         // Finalize Case3
         // =======================================================
 
-        t3 = MPI_Wtime();
+#ifdef MATMAT_TIME
+        t3 = omp_get_wtime();
+#endif
 
         // return A to its original order.
         if(A2.nnz != 0){
@@ -1133,8 +1150,10 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
         }
 #endif
 
-        t3 = MPI_Wtime() - t3;
+#ifdef MATMAT_TIME
+        t3 = omp_get_wtime() - t3;
         case3 += t3;
+#endif
 
 #ifdef __DEBUG1__
         if (rank == verbose_rank && verbose_fastmm) printf("fast_mm: case 3: end \n");
@@ -1142,7 +1161,6 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 
     }
 
-//    return;
 }
 
 
@@ -1172,7 +1190,7 @@ int saena_object::matmat(saena_matrix *A, saena_matrix *B, saena_matrix *C, cons
     for(nnz_t i = 0; i < A->nnz_l; i++){
         assert( (A->entry[i].row - A->split[rank] >= 0) && (A->entry[i].row - A->split[rank] < A->M) );
         assert( (A->entry[i].col >= 0) && (A->entry[i].col < A->Mbig) );
-        assert( fabs(A->entry[i].val) > ALMOST_ZERO );
+        ASSERT( fabs(A->entry[i].val) > ALMOST_ZERO, A->entry[i] );
     }
 #endif
 
@@ -1324,7 +1342,7 @@ int saena_object::matmat(saena_matrix *A, saena_matrix *B, saena_matrix *C, cons
 
     if(print_timing){
         MPI_Barrier(comm);
-        t_temp = MPI_Wtime();
+        t_temp = omp_get_wtime();
     }
 
     if(nprocs > 1) {
@@ -1336,9 +1354,11 @@ int saena_object::matmat(saena_matrix *A, saena_matrix *B, saena_matrix *C, cons
     // =======================================
 
     matmat_memory_alloc(Acsc, Bcsc);
+    C_temp.reserve(10 * std::max(A->nnz_l, B->nnz_l));
+    C->entry.reserve(std::max(A->nnz_l, B->nnz_l));
 
     if(print_timing){
-        t_temp = MPI_Wtime() - t_temp;
+        t_temp = omp_get_wtime() - t_temp;
         t_matmat_prep = t_temp;
     }
 
@@ -1354,29 +1374,31 @@ int saena_object::matmat(saena_matrix *A, saena_matrix *B, saena_matrix *C, cons
     }else{
         // warmup
         case1 = 0, case2 = 0, case3 = 0;
-        t_init_prep = 0, t_mat = 0, t_comp_GR = 0, t_comp_zfp = 0, t_decomp_GR = 0, t_decomp_zfp = 0, t_prep_iter = 0, t_fast_mm = 0, t_sort = 0, t_wait = 0;
+        t_init_prep = 0, t_mat = 0, t_comp_GR = 0, t_comp_zfp = 0, t_decomp_GR = 0, t_decomp_zfp = 0, t_prep_iter = 0,
+        t_fast_mm = 0, t_sort = 0, t_wait = 0;
         for (int i = 0; i < matmat_iter_warmup; ++i) {
             case1_iter = 0;
             case2_iter = 0;
             case3_iter = 0;
-            saena_matrix C_tmp(A->comm);
-            matmat_CSC(Acsc, Bcsc, C_tmp);
+            C->entry.clear();
+            matmat_CSC(Acsc, Bcsc, *C);
         }
 
         case1 = 0, case2 = 0, case3 = 0;
-        t_init_prep = 0, t_mat = 0, t_comp_GR = 0, t_comp_zfp = 0, t_decomp_GR = 0, t_decomp_zfp = 0, t_prep_iter = 0, t_fast_mm = 0, t_sort = 0, t_wait = 0;
+        t_init_prep = 0, t_mat = 0, t_comp_GR = 0, t_comp_zfp = 0, t_decomp_GR = 0, t_decomp_zfp = 0, t_prep_iter = 0,
+        t_fast_mm = 0, t_sort = 0, t_wait = 0;
         for (int i = 0; i < matmat_iter; ++i) {
             case1_iter = 0;
             case2_iter = 0;
             case3_iter = 0;
-            saena_matrix C_tmp(A->comm);
+            C->entry.clear();
 
             MPI_Barrier(comm);
-            t_temp = MPI_Wtime();
+            t_temp = omp_get_wtime();
 
-            matmat_CSC(Acsc, Bcsc, C_tmp);
+            matmat_CSC(Acsc, Bcsc, *C);
 
-            t_temp = MPI_Wtime() - t_temp;
+            t_temp = omp_get_wtime() - t_temp;
             t_matmat += t_temp;
         }
 
@@ -1385,7 +1407,8 @@ int saena_object::matmat(saena_matrix *A, saena_matrix *B, saena_matrix *C, cons
         //===============
         // print timings
         //===============
-/*
+
+#if 0
         if(nprocs > 1 && !rank) {
             if(zfp_perform) {
                 std::cout << "zfp: orig sz (rank0) = " << zfp_orig_sz << ", comp sz (rank0) = " << zfp_comp_sz
@@ -1395,28 +1418,33 @@ int saena_object::matmat(saena_matrix *A, saena_matrix *B, saena_matrix *C, cons
             }
 //            print_time_ave(zfp_save_loc, "zfp_saving", comm, true, false);
         }
-*/
-        if (!rank) printf("\n");
-        print_time_ave(t_matmat_tot, "Saena matmat", comm, true, true);
+#endif
 
-        if (!rank) printf("\ninit prep\ncomm\nfastmm\nsort\nprep_iter\n\nwait\nt_comp_GR\nt_decomp_GR\n\n");
-        print_time_ave(t_init_prep / matmat_iter,                       "t_init_prep", comm, true, false);
-        print_time_ave((t_mat - t_prep_iter - t_fast_mm) / matmat_iter, "comm", comm, true, false);
-        print_time_ave(t_fast_mm / matmat_iter,                         "t_fast_mm", comm, true, false);
-        print_time_ave(t_sort / matmat_iter,                            "t_sort", comm, true, false);
-        print_time_ave(t_prep_iter / matmat_iter,                       "t_prep_iter", comm, true, false);
+        if(verbose_matmat_timing){
+            if (!rank) printf("\n");
+            print_time_ave(t_matmat_tot, "Saena matmat", comm, true, true);
 
-        if (!rank) printf("\n");
-        print_time_ave(t_wait / matmat_iter,                            "t_wait", comm, true, false);
-        print_time_ave(t_comp_GR / matmat_iter,                         "t_comp_GR", comm, true, false);
-        print_time_ave(t_decomp_GR / matmat_iter,                       "t_decomp_GR", comm, true, false);
-        if (!rank) printf("\n");
+            if (!rank) printf("\ninit prep\ncomm\nfastmm\nsort\nprep_iter\n\nwait\nt_comp_GR\nt_decomp_GR\n\n");
+            print_time_ave(t_init_prep / matmat_iter,                       "t_init_prep", comm, true, false);
+            print_time_ave((t_mat - t_prep_iter - t_fast_mm) / matmat_iter, "comm", comm, true, false);
+            print_time_ave(t_fast_mm / matmat_iter,                         "t_fast_mm", comm, true, false);
+            print_time_ave(t_sort / matmat_iter,                            "t_sort", comm, true, false);
+            print_time_ave(t_prep_iter / matmat_iter,                       "t_prep_iter", comm, true, false);
+
+            if (!rank) printf("\n");
+            print_time_ave(t_wait / matmat_iter,                            "t_wait", comm, true, false);
+            print_time_ave(t_comp_GR / matmat_iter,                         "t_comp_GR", comm, true, false);
+            print_time_ave(t_decomp_GR / matmat_iter,                       "t_decomp_GR", comm, true, false);
+            if (!rank) printf("\n");
 
 //        if (!rank) printf("case1\ncase2\ncase3\n");
-        if (!rank) printf("case1\ncase2\ncase3\n");
-        print_time_ave(case1 / matmat_iter, "case1", comm, true, false);
-        print_time_ave(case2 / matmat_iter, "case2", comm, true, false);
-        print_time_ave(case3 / matmat_iter, "case3", comm, true, false);
+            if (!rank) printf("case1\ncase2\ncase3\n");
+            print_time_ave(case1 / matmat_iter, "case1", comm, true, false);
+            print_time_ave(case2 / matmat_iter, "case2", comm, true, false);
+            print_time_ave(case3 / matmat_iter, "case3", comm, true, false);
+        }else{
+            print_time_ave(t_matmat_tot, "Saena matmat", comm, true, false);
+        }
 
     }
 
@@ -1683,8 +1711,10 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
 //    assert(Acsc.col_sz == Bcsc.row_sz);
 #endif
 
+#ifdef MATMAT_TIME
     double t_temp = 0.0, t_temp2 = 0.0, t_temp3 = 0.0;
-    t_temp = MPI_Wtime();
+    t_temp = omp_get_wtime();
+#endif
 
     // =======================================
     // perform the multiplication - serial implementation
@@ -1726,7 +1756,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
     index_t Acsc_M = Acsc.split[rank+1] - Acsc.split[rank];
     CSCMat_mm A(Acsc_M, Acsc.split[rank], Acsc.col_sz, 0, Acsc.nnz, Acsc.row, Acsc.val, Acsc.col_scan);
 
-    std::vector<cooEntry> AB_temp;
+    C_temp.clear();
 
     if(nprocs > 1){
         // set the mat_send data
@@ -1736,7 +1766,9 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
         // 3- val:    type: value_t, size: send_nnz
         auto mat_send = &mempool6[0];
 
-        t_temp3 = MPI_Wtime();
+#ifdef MATMAT_TIME
+        t_temp3 = omp_get_wtime();
+#endif
 
         assert(mempool6_sz != 0);
 //        std::fill(mempool6, &mempool6[mempool6_sz], 0);
@@ -1746,8 +1778,10 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
         encoder.compress(Bcsc.row,      Bcsc.nnz,      Bcsc.comp_row.k, mat_send);
         encoder.compress(Bcsc.col_scan, Bcsc.col_sz+1, Bcsc.comp_col.k, &mat_send[Bcsc.comp_row.tot]);
 
-        t_temp3 = MPI_Wtime() - t_temp3;
+#ifdef MATMAT_TIME
+        t_temp3 = omp_get_wtime() - t_temp3;
         t_comp_GR += t_temp3;
+#endif
 
 #if 0
         // zfp parameters
@@ -1760,7 +1794,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
         std::vector<long> zfp_comp_szs;
 
         if(zfp_thrshld > 1e-8){
-            t_temp3 = MPI_Wtime();
+            t_temp3 = omp_get_wtime();
 
             // zfp: compress values
             field = zfp_field_1d(&Bcsc.val[0], zfp_type_double, Bcsc.nnz);
@@ -1802,7 +1836,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                 stream_close(stream);
             }
 
-            t_temp3 = MPI_Wtime() - t_temp3;
+            t_temp3 = omp_get_wtime() - t_temp3;
             t_comp_zfp += t_temp3;
         }else{
             zfp_perform = false;
@@ -1828,12 +1862,23 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
 #endif
 
         // copy B.val at the end of the compressed array
-        auto mat_send_v = reinterpret_cast<value_t*>(&mat_send[Bcsc.comp_row.tot + Bcsc.comp_col.tot]);
-//        if(zfp_perform){
-//            memcpy(mat_send_v, zfp_buffer, zfpsize);
-//        }else{
-            memcpy(mat_send_v, Bcsc.val, Bcsc.nnz * sizeof(value_t));
-//        }
+        auto *mat_send_v = reinterpret_cast<value_t*>(&mat_send[Bcsc.comp_row.tot + Bcsc.comp_col.tot]);
+
+#if 0 // zfp
+        {
+            if(zfp_perform){
+                memcpy(mat_send_v, zfp_buffer, zfpsize);
+            }else{
+                memcpy(mat_send_v, Bcsc.val, Bcsc.nnz * sizeof(value_t));
+            }
+        }
+#endif
+
+#ifdef SANEA_USE_PSTL
+        std::copy(pstl::execution::par_unseq, &Bcsc.val[0], &Bcsc.val[Bcsc.nnz], &mat_send_v[0]);
+#else
+        memcpy(mat_send_v, Bcsc.val, Bcsc.nnz * sizeof(value_t));
+#endif
 
         nnz_t send_nnz   = Bcsc.nnz;
         nnz_t row_buf_sz = tot_sz(send_nnz,        Bcsc.comp_row.k, Bcsc.comp_row.q);
@@ -1915,9 +1960,11 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
             mat_current_M = Bcsc.col_sz;
         }
 
-        t_temp = MPI_Wtime() - t_temp;
+#ifdef MATMAT_TIME
+        t_temp = omp_get_wtime() - t_temp;
         t_init_prep += t_temp;
-        t_temp2 = MPI_Wtime();
+        t_temp2 = omp_get_wtime();
+#endif
 
         for(int k = rank; k < rank+nprocs; ++k){
             // This is overlapped. Both local and remote loops are done here.
@@ -1929,7 +1976,9 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
 
             if(k != rank+nprocs-1) { // do not perform the communication for the last one, because it's just each processor's data.
 
-                t_temp = MPI_Wtime();
+#ifdef MATMAT_TIME
+                t_temp = omp_get_wtime();
+#endif
 
                 next_owner = (k + 1) % nprocs;
                 recv_nnz   = Bcsc.nnz_list[next_owner];
@@ -1948,8 +1997,10 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                     recv_size += recv_nnz * sizeof(value_t);
 //                }
 
-                t_temp = MPI_Wtime() - t_temp;
+#ifdef MATMAT_TIME
+                t_temp = omp_get_wtime() - t_temp;
                 t_prep_iter += t_temp;
+#endif
 
 #ifdef __DEBUG1__
                 ASSERT(row_buf_sz + col_buf_sz <= Bcsc.max_comp_sz, "rank " << rank << ": row_buf:" << row_buf_sz
@@ -1979,7 +2030,9 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
             // =======================================
             if(Acsc.nnz != 0 && send_nnz != 0){
 
-                t_temp = MPI_Wtime();
+#ifdef MATMAT_TIME
+                t_temp = omp_get_wtime();
+#endif
 
                 owner = k%nprocs;
                 if(Bcsc.use_trans) {
@@ -1995,17 +2048,21 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                 mat_current_cscan = &mat_current[send_nnz];
                 mat_current_v     = reinterpret_cast<value_t*>(&mat_current[send_nnz + mat_current_M + 1]);
 
-                t_temp3 = MPI_Wtime();
+#ifdef MATMAT_TIME
+                t_temp3 = omp_get_wtime();
+#endif
 
                 encoder.decompress(mat_current_r,     send_nnz,          Bcsc.comp_row.ks[owner], Bcsc.comp_row.qs[owner], mat_send);
                 encoder.decompress(mat_current_cscan, mat_current_M + 1, Bcsc.comp_col.ks[owner], Bcsc.comp_col.qs[owner], &mat_send[row_comp_sz]);
 
-                t_temp3 = MPI_Wtime() - t_temp3;
+#ifdef MATMAT_TIME
+                t_temp3 = omp_get_wtime() - t_temp3;
                 t_decomp_GR += t_temp3;
+#endif
 
 #if 0
                 if(zfp_perform){
-                    t_temp3 = MPI_Wtime();
+                    t_temp3 = omp_get_wtime();
 
                     field2 = zfp_field_1d(mat_current_v, zfp_type_double, Bcsc.nnz_list[owner]);
                     stream = stream_open(&mat_send[current_comp_sz], zfp_comp_szs[owner]);
@@ -2013,14 +2070,19 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                     zfp_stream_rewind(zfp);
                     zfp_decompress(zfp, field2);
 
-                    t_temp3 = MPI_Wtime() - t_temp3;
+                    t_temp3 = omp_get_wtime() - t_temp3;
                     t_decomp_zfp += t_temp3;
                 }else{
                     memcpy(mat_current_v, &mat_send[current_comp_sz], Bcsc.nnz_list[owner] * sizeof(value_t));
                 }
 #endif
 
+#ifdef SANEA_USE_PSTL
+                std::copy(pstl::execution::par_unseq, &mat_send[current_comp_sz],
+                          &mat_send[current_comp_sz + Bcsc.nnz_list[owner]], &mat_current_v[0]);
+#else
                 memcpy(mat_current_v, &mat_send[current_comp_sz], Bcsc.nnz_list[owner] * sizeof(value_t));
+#endif
 
 #ifdef __DEBUG1__
                 {
@@ -2058,8 +2120,10 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                                  mat_current_r, mat_current_v, mat_current_cscan);
                 }
 
-                t_temp = MPI_Wtime() - t_temp;
+#ifdef MATMAT_TIME
+                t_temp = omp_get_wtime() - t_temp;
                 t_prep_iter += t_temp;
+#endif
 
 #ifdef __DEBUG1__
                 // ===============
@@ -2089,49 +2153,34 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                 }
 #endif
 
-                t_temp = MPI_Wtime();
+#ifdef MATMAT_TIME
+                t_temp = omp_get_wtime();
+#endif
 
-                fast_mm(A, S, AB_temp, comm);
+                fast_mm(A, S, C_temp, comm);
 
-                t_temp = MPI_Wtime() - t_temp;
+#ifdef MATMAT_TIME
+                t_temp = omp_get_wtime() - t_temp;
                 t_fast_mm += t_temp;
+#endif
+
 #ifdef __DEBUG1__
                 assert(S.nnz == (S.col_scan[S.col_sz] - S.col_scan[0]));
 #endif
-#if 0
-                // =======================================
-                // sort and remove duplicates
-                // =======================================
-                if(!AB_temp.empty()) {
 
-                    t_temp = MPI_Wtime();
-
-                    std::sort(AB_temp.begin(), AB_temp.end());
-
-                    nnz_t AP_temp_size_minus1 = AB_temp.size() - 1;
-                    for (nnz_t i = 0; i < AB_temp.size(); i++) {
-                        C.entry.emplace_back(AB_temp[i]);
-                        while (i < AP_temp_size_minus1 && AB_temp[i] == AB_temp[i + 1]) { // values of entries with the same row and col should be added.
-//                            std::cout << AB_temp[i] << "\t" << AB_temp[i+1] << std::endl;
-                            C.entry.back().val += AB_temp[++i].val;
-                        }
-                    }
-
-                    AB_temp.clear();
-                    t_temp = MPI_Wtime() - t_temp;
-                    t_sort_dup += t_temp;
-
-                }
-#endif
             }
 
             if(k != rank+nprocs-1) {
-                t_temp = MPI_Wtime();
+#ifdef MATMAT_TIME
+                t_temp = omp_get_wtime();
+#endif
 
                 MPI_Waitall(2, requests, statuses);
 
-                t_temp = MPI_Wtime() - t_temp;
+#ifdef MATMAT_TIME
+                t_temp = omp_get_wtime() - t_temp;
                 t_wait += t_temp;
+#endif
 
 #ifdef __DEBUG1__
                 {
@@ -2145,7 +2194,9 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                 }
 #endif
 
-                t_temp = MPI_Wtime();
+#ifdef MATMAT_TIME
+                t_temp = omp_get_wtime();
+#endif
 
                 send_size = recv_size;
                 send_nnz  = recv_nnz;
@@ -2157,8 +2208,10 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                 mat_send = mat_recv;
                 mat_recv = mat_temp;
 
-                t_temp = MPI_Wtime() - t_temp;
+#ifdef MATMAT_TIME
+                t_temp = omp_get_wtime() - t_temp;
                 t_prep_iter += t_temp;
+#endif
 
 #ifdef __DEBUG1__
                 if (verbose_matmat) {
@@ -2204,8 +2257,10 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
         delete [] requests;
         delete [] statuses;
 
-        t_temp2 = MPI_Wtime() - t_temp2;
+#ifdef MATMAT_TIME
+        t_temp2 = omp_get_wtime() - t_temp2;
         t_mat += t_temp2;
+#endif
 
 #ifdef __DEBUG1__
         if (verbose_matmat) {
@@ -2293,7 +2348,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
 
         if(Acsc.nnz != 0 && Bcsc.nnz != 0){
             CSCMat_mm B(Acsc.col_sz, 0, Bcsc.col_sz, Bcsc.split[rank], Bcsc.nnz, Bcsc.row, Bcsc.val, Bcsc.col_scan);
-            fast_mm(A, B, AB_temp, comm);
+            fast_mm(A, B, C_temp, comm);
         }
     }
 
@@ -2316,21 +2371,28 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
 //    }
 #endif
 
-    t_temp = MPI_Wtime();
-//#if 0
-    if(!AB_temp.empty()) {
-        auto tmp = cooEntry(0, 0, 0.0);
-        const nnz_t SZ_M1 = AB_temp.size() - 1;
+#ifdef MATMAT_TIME
+    t_temp = omp_get_wtime();
+#endif
+
+    if(!C_temp.empty()) {
+        auto  tmp = cooEntry(0, 0, 0.0);
+        const nnz_t CSZ   = C_temp.size();
+        const nnz_t SZ_M1 = C_temp.size() - 1;
 
         if(trans){
-            std::sort(AB_temp.begin(), AB_temp.end(), row_major);
+            #ifdef SANEA_USE_PSTL
+            std::sort(pstl::execution::par, C_temp.begin(), C_temp.end(), row_major);
+            #else
+            std::sort(C_temp.begin(), C_temp.end(), row_major);
+            #endif
 
-            for (long i = 0; i < AB_temp.size(); ++i) {
-                tmp = cooEntry(AB_temp[i].col, AB_temp[i].row, AB_temp[i].val);
+            for (long i = 0; i < CSZ; ++i) {
+                tmp = cooEntry(C_temp[i].col, C_temp[i].row, C_temp[i].val);
 //                std::cout << "tmp = " << tmp << std::endl;
-                while (i < SZ_M1 && AB_temp[i] == AB_temp[i + 1]) { // values of entries with the same row and col should be added.
+                while (i < SZ_M1 && C_temp[i] == C_temp[i + 1]) { // values of entries with the same row and col should be added.
 //                    std::cout << AB_temp[i] << "\t" << AB_temp[i+1] << std::endl;
-                    tmp.val += AB_temp[++i].val;
+                    tmp.val += C_temp[++i].val;
                 }
 
                 if(fabs(tmp.val) > ALMOST_ZERO){
@@ -2338,13 +2400,18 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                 }
             }
         }else{
-            std::sort(AB_temp.begin(), AB_temp.end());
 
-            for (long i = 0; i < AB_temp.size(); ++i) {
-                tmp = AB_temp[i];
-                while (i < SZ_M1 && AB_temp[i] == AB_temp[i + 1]) { // values of entries with the same row and col should be added.
+            #ifdef SANEA_USE_PSTL
+            std::sort(pstl::execution::par, C_temp.begin(), C_temp.end());
+            #else
+            std::sort(C_temp.begin(), C_temp.end());
+            #endif
+
+            for (long i = 0; i < CSZ; ++i) {
+                tmp = C_temp[i];
+                while (i < SZ_M1 && C_temp[i] == C_temp[i + 1]) { // values of entries with the same row and col should be added.
 //                    std::cout << AB_temp[i] << "\t" << AB_temp[i+1] << std::endl;
-                    tmp.val += AB_temp[++i].val;
+                    tmp.val += C_temp[++i].val;
                 }
 
                 if(fabs(tmp.val) > ALMOST_ZERO){
@@ -2354,10 +2421,11 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
         }
 
     }
-//#endif
-//    std::sort(C.entry.begin(), C.entry.end());
-    t_temp = MPI_Wtime() - t_temp;
+
+#ifdef MATMAT_TIME
+    t_temp = omp_get_wtime() - t_temp;
     t_sort += t_temp;
+#endif
 
 #ifdef __DEBUG1__
     {
@@ -2392,7 +2460,7 @@ int saena_object::matmat_grid(Grid *grid){
     // part 1: multiply: AP_temp = A_i * P_j. in which P_j = R_j_tranpose and 0 <= j < nprocs.
     // *******************************************************
 
-//    double t_AP = MPI_Wtime();
+//    double t_AP = omp_get_wtime();
 
     unsigned long send_size     = R->entry.size();
     unsigned long send_size_max = R->nnz_max;
@@ -2561,14 +2629,14 @@ int saena_object::matmat_grid(Grid *grid){
 #endif
         } else {
 
-//            double t1 = MPI_Wtime();
+//            double t1 = omp_get_wtime();
 
             fast_mm(&A->entry[0], &mat_send[0], AP_temp, A->entry.size(), send_size,
                     A->M, A->split[rank], A->Mbig, 0, mat_recv_M, P->splitNew[rank],
                     &nnzPerColScan_left[0],  &nnzPerColScan_left[1],
                     &nnzPerColScan_right[0], &nnzPerColScan_right[1], A->comm);
 
-//            double t2 = MPI_Wtime();
+//            double t2 = omp_get_wtime();
 //            printf("\nfast_mm of AP_temp = %f\n", t2-t1);
         }
     }
@@ -2587,7 +2655,7 @@ int saena_object::matmat_grid(Grid *grid){
     AP_temp.clear();
     AP_temp.shrink_to_fit();
 
-//    t_AP = MPI_Wtime() - t_AP;
+//    t_AP = omp_get_wtime() - t_AP;
 //    print_time_ave(t_AP, "AP:\n", grid->A->comm);
 
 #ifdef __DEBUG1__

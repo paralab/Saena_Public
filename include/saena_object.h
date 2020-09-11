@@ -58,7 +58,7 @@ public:
     // matmat_thre3 is for when we want to have an exact number of splits. (case2_iter + case3_iter == matmat_thre3)
 
     std::string          coarsen_method  = "recursive"; // 1-basic, 2-recursive, 3-no_overlap
-    const int            matmat_thre1    = 50000000;
+    const int            matmat_thre1    = 100000000;
     index_t              matmat_thre2    = 0;
     static const index_t matmat_thre3    = 40;
     const index_t        matmat_nnz_thre = 200; //default 200
@@ -90,6 +90,8 @@ public:
     index_t *Cmkl_c_scan = nullptr;
     value_t *Cmkl_v      = nullptr;
     bool    use_dcsrmultcsr = true;
+
+    std::vector<cooEntry> C_temp;
 
     index_t case1_iter = 0,       case2_iter = 0,       case3_iter = 0;
     double  case1_iter_ave = 0.0, case2_iter_ave = 0.0, case3_iter_ave = 0.0;
@@ -187,6 +189,7 @@ public:
     bool verbose_matmat_A         = false;
     bool verbose_matmat_B         = false;
     bool verbose_matmat_assemble  = false;
+    bool verbose_matmat_timing    = false;
     bool verbose_setup_coarse     = false;
     bool verbose_set_rhs          = false;
 

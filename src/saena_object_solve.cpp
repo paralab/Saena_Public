@@ -1061,7 +1061,16 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
         repartition_back_u_shrink(uCorrCoarse, *grid);
     }
 
-    uCorr.resize(grid->A->M);
+#ifdef __DEBUG1__
+//    MPI_Barrier(comm); printf("rank %d: after  repart_back_u_shrink: uCorrCoarse.size = %ld \n", rank, uCorrCoarse.size()); MPI_Barrier(comm);
+//    print_vector(uCorrCoarse, -1, "uCorrCoarse", grid->A->comm);
+
+    if(verbose_vcycle){
+        MPI_Barrier(comm);
+        if(rank==0) printf("vcycle level %d: prolong\n", grid->level);
+        MPI_Barrier(comm);}
+#endif
+
     grid->P.matvec(uCorrCoarse, uCorr);
 
     // **************************************** 6. correct ****************************************
