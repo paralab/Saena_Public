@@ -985,8 +985,11 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
         if (direct_solver == "CG") {
             solve_coarsest_CG(grid->A, u, rhs);
-        } else if (direct_solver == "SuperLU") {
+        } else if (direct_solver == "SuperLU") {		
+			double superlu_tmp1 = omp_get_wtime();
             solve_coarsest_SuperLU(grid->A, u, rhs);
+			double superlu_tmp2 = omp_get_wtime();
+			superlu_time += superlu_tmp2 - superlu_tmp1;
         } else {
             if (!rank) printf("Error: Unknown direct solver! \n");
             exit(EXIT_FAILURE);
@@ -1676,6 +1679,8 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     current_dot = init_dot;
 //    previous_dot = init_dot;
 
+	double vcycle_time = 0;
+	superlu_time = 0;
 	double t_pcg1 = omp_get_wtime();
     for(i = 0; i < solver_max_iter; i++){
         A->matvec(p, h);
@@ -1718,8 +1723,10 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         // **************************************************************
 
         std::fill(rho.begin(), rho.end(), 0);
+		double time_tmp1 = omp_get_wtime();
         vcycle(&grids[0], rho, r);
-
+		double time_tmp2 = omp_get_wtime();
+		vcycle_time += time_tmp2 - time_tmp1;
         // **************************************************************
 
         dotProduct(r, rho, &beta, comm);
@@ -1745,6 +1752,8 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         printf("\nfinal:\nstopped at iteration    = %d \nfinal absolute residual = %e"
                        "\nrelative residual       = %e \n\n", i+1, sqrt(current_dot), sqrt(current_dot / init_dot));
         printf("\ntime per iteration    = %e \n", (t_pcg2 - t_pcg1)/(i+1));
+        printf("\nvcycle time per iteration    = %e \n", vcycle_time/(i+1));
+        printf("\nsuperlu time per iteration    = %e \n", superlu_time/(i+1));
         print_sep();
     }
 
