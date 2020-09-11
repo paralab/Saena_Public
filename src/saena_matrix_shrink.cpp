@@ -505,9 +505,9 @@ int saena_matrix::compute_matvec_dummy_time(){
 //        std::cout << "total:  " << matvec_dummy_time[3] / matvec_iter_dummy << std::endl; // total time
 //    }
 
-//    if (!rank) {
-//        printf("next level matvec time: %f\n", matvec_dummy_time[3] / matvec_iter_dummy);
-//    }
+    if (!rank) {
+        printf("next level matvec time: %f\n", matvec_dummy_time[3] / matvec_iter_dummy);
+    }
 
     return 0;
 }
