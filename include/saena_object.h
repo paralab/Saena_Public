@@ -194,7 +194,7 @@ public:
     bool verbose_set_rhs          = false;
 
     bool verbose_solve            = false;
-    bool verbose_vcycle           = true;
+    bool verbose_vcycle           = false;
     bool verbose_vcycle_residuals = false;
     bool verbose_solve_coarse     = false;
     bool verbose_update           = false;
@@ -420,8 +420,8 @@ public:
     int next_order;
     int prodim;
 
-	double superlu_time;
-	double vcycle_smooth_time;
+    double superlu_time;
+    double vcycle_smooth_time;
 
     // for debugging
     int rank_v = 0;

@@ -773,6 +773,8 @@ int saena_object::triple_mat_mult(Grid *grid){
     matmat_CSC(RAcsc, Pcsc, *Ac, true);
     Ac->comm = comm_temp;
 
+//    assert(!Ac->entry.empty());
+
 #ifdef __DEBUG1__
 //    print_vector(Ac->entry, -1, "Ac->entry", comm);
     if (verbose_triple_mat_mult) {
@@ -1026,8 +1028,8 @@ void saena_object::reorder_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2){
 #ifdef __DEBUG1__
 
     if(nprocs > 1) {
-        ASSERT(A1.nnz <= mempool3_sz, "A1.nnz: " << A1.nnz << ", loc_nnz_max: " << mempool3_sz);
-        ASSERT(A2.nnz <= mempool3_sz, "A2.nnz: " << A2.nnz << ", loc_nnz_max: " << mempool3_sz);
+        ASSERT(A1.nnz <= mempool4and5_sz, "A1.nnz: " << A1.nnz << ", loc_nnz_max: " << mempool4and5_sz);
+        ASSERT(A2.nnz <= mempool4and5_sz, "A2.nnz: " << A2.nnz << ", loc_nnz_max: " << mempool4and5_sz);
     }
     ASSERT(A1.nnz + A2.nnz == A.nnz, "A.nnz: " << A.nnz << ", A1.nnz: " << A1.nnz << ", A2.nnz: " << A2.nnz);
 

@@ -22,9 +22,6 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
-	
-	//if (!rank) printf("---------------\npcoarsen: start\n---------------\n");
-	//double t1 = omp_get_wtime();
 
 #ifdef __DEBUG1__
 //    int rank_v = 0;
@@ -53,7 +50,6 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     // assume divided by 2
 //    Ac->set_p_order(A->p_order / 2);
 
-	if (!rank) cout << "order = " << order << endl;    
     next_order = A->p_order - order_dif[grid->level];
     if (next_order < 1)
         next_order = 1;
@@ -219,11 +215,7 @@ int saena_object::pcoarsen(Grid *grid, vector< vector< vector<int> > > &map_all,
     }
 #endif
 
-	//double t2 = omp_get_wtime();
-	//print_time(t1, t2, "pcoarsen", comm);
-	//if (!rank) printf("---------------\npcoarsen: end\n---------------\n");
-    
-	return 0;
+    return 0;
 }
 
 
@@ -404,6 +396,8 @@ void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_
     int univ_nodeno_fine = g2u_univ_map_tmp.size();
     g2u_univ_map_tmp.clear();
 
+    // ======================================
+
     // find bdydof next level
     vector<int> coarse_node_ind;
     coarse_p_node_arr(map, order, coarse_node_ind); // get coarse level matrix (local)
@@ -422,8 +416,6 @@ void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_
     // col is global
     // row is universal
     // nodeno_coarse is the local coarse level size without boundary nodes
-
-	cout << "univ_nodeno_fine" << univ_nodeno_fine << endl;
     vector< vector<double> > Pp_loc(univ_nodeno_fine);
     for (int i = 0; i < univ_nodeno_fine; i++)
         Pp_loc.at(i).resize(nodeno_coarse, 0);
@@ -436,7 +428,6 @@ void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_
         MPI_Barrier(comm);
     }
 #endif
-
 #endif
 
     // next level g2u
@@ -455,9 +446,9 @@ void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_
 
     // loop over all elements
     // elemno is the local element number
-    //int max_col = 0;
-    //int max_row = 0;
-    for (int i = 0; i < elemno; i++){
+//    int max_col = 0;
+//    int max_row = 0;
+    for (int i = 0; i < elemno; ++i){
         // for each element extract coarser element indices
         int elem_type;
         vector<int> ind_coarse;
@@ -511,8 +502,6 @@ inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &m
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-	//if (!rank) printf("---------------\nmesh_info: start\n---------------\n");
-	//double t1 = omp_get_wtime();
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
         MPI_Barrier(comm); if (!rank) printf("\nmesh_info: start\n"); MPI_Barrier(comm);
@@ -589,13 +578,10 @@ inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &m
             }
         }
 
-		if (map_all.size() > 2)
-		{
-			map_all.erase(map_all.begin());
-			map_all.shrink_to_fit();
-		}
-		//if (!rank)
-			//std::cout << "l2g map size = " << map_all.size() << std::endl;
+        if (map_all.size() > 2) {
+            map_all.erase(map_all.begin());
+            map_all.shrink_to_fit();
+        }
 
 #ifdef __DEBUG1__
         if(verbose_pcoarsen) {
@@ -618,11 +604,7 @@ inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &m
     }
 #endif
 
-	//double t2 = omp_get_wtime();
-	//print_time(t1, t2, "mesh_info", comm);
-	//if (!rank) printf("---------------\nmesh_info: end\n---------------\n");
-    
-	return 0;
+    return 0;
 }
 
 
@@ -632,8 +614,6 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-	//if (!rank) printf("---------------\ng2umap: start\n---------------\n");
-	//double t1 = omp_get_wtime();
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
         MPI_Barrier(comm); if (!rank) printf("\ng2umap: start\n"); MPI_Barrier(comm);
@@ -769,13 +749,11 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
     }
     //std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
 
-	if (g2u_all.size() > 2)
-	{
-		g2u_all.erase(g2u_all.begin());
-		g2u_all.shrink_to_fit();
-	}
-	//if (!rank)
-		//std::cout << "g2u map size = " << g2u_all.size() << std::endl;
+    if (g2u_all.size() > 2) {
+        g2u_all.erase(g2u_all.begin());
+        g2u_all.shrink_to_fit();
+    }
+
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
         MPI_Barrier(comm);
@@ -785,9 +763,7 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
         MPI_Barrier(comm);
     }
 #endif
-	//double t2 = omp_get_wtime();
-	//print_time(t1, t2, "g2u", comm);
-	//if (!rank) printf("---------------\ng2umap: end\n---------------\n");
+
 }
 
 

@@ -16,8 +16,8 @@
 #include <random>
 
 #ifdef SANEA_USE_PSTL
-#include "pstl/algorithm"
 #include "pstl/execution"
+#include "pstl/algorithm"
 #else
 #include <algorithm>
 #endif
@@ -73,7 +73,7 @@ typedef unsigned char uchar;
 
 void inline print_sep(){
     std::stringstream buf;
-    buf << MAGENTA << "\n******************************************************\n" << COLORRESET;
+    buf << "\n******************************************************\n";
     std::cout << buf.str();
 }
 
