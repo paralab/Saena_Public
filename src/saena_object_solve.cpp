@@ -1951,6 +1951,8 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 //        if(rank==0) printf("Vcycle %lu: aboslute residual = %.10f \n", i+1, sqrt(current_dot));
 #endif
 
+        if(rank==0) printf("pCG %lu: relative residual = %.10f  \n", i+1, sqrt(current_dot/init_dot));
+
         if(current_dot < THRSHLD)
             break;
 
