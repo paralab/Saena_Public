@@ -6,6 +6,7 @@
 #include "aux_functions.h"
 #include "saena_vector.h"
 #include "saena_matrix_dense.h"
+#include "grid.h"
 
 #include <memory>
 #include <unordered_map>
@@ -298,7 +299,20 @@ public:
     int solve_pCG(std::vector<value_t>& u);
     int setup_vcycle_memory();
     int vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
-    int smooth(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs, int iter);
+//    int smooth(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs, int iter);
+
+    void inline smooth(Grid *grid, std::vector<value_t> &u, std::vector<value_t> &rhs, int iter) const{
+        if(smoother == "jacobi"){
+            grid->A->jacobi(iter, u, rhs);
+        }else if(smoother == "chebyshev"){
+            grid->A->chebyshev(iter, u, rhs);
+        }
+//        else{
+//            printf("Error: Unknown smoother");
+//            MPI_Finalize();
+//            exit(EXIT_FAILURE);
+//        }
+    }
 
     // *****************
     // GMRES functions
