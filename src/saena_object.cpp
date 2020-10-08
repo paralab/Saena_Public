@@ -8,6 +8,9 @@
 
 #include <random>
 
+#ifdef _USE_PETSC_
+#include "petsc_functions.h"
+#endif
 
 void saena_object::set_parameters(int max_iter, double tol, std::string sm, int preSm, int postSm){
 //    maxLevel = l-1; // maxLevel does not include fine level. fine level is 0.
@@ -560,8 +563,14 @@ int saena_object::coarsen(Grid *grid, std::vector< std::vector< std::vector<int>
     }
 #endif
 
-    // **************************** compute_coarsen in PETSc ****************************
+    // **************************** Visualize using PETSc ****************************
+
+//    petsc_viewer(grid->A);
+//    petsc_viewer(&grid->P);
+//    petsc_viewer(&grid->R);
 //    petsc_viewer(&grid->Ac);
+
+    // **************************** compute_coarsen in PETSc ****************************
 
     // this part is only for experiments.
 //    petsc_coarsen(&grid->R, grid->A, &grid->P);
