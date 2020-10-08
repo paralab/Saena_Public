@@ -25,11 +25,14 @@ public:
     index_t M_max        = 0;
 
     std::vector<cooEntry> entry; // local row indices (not global)
-    std::vector<cooEntry> entry_local;
-    std::vector<cooEntry> entry_remote;
-    std::vector<index_t>  row_local;  // needed for finding sorting
-    std::vector<index_t>  row_remote; // needed for finding sorting
-    std::vector<index_t>  col_remote; // index starting from 0, instead of the original column index
+//    std::vector<cooEntry> entry_local;
+//    std::vector<cooEntry> entry_remote;
+    std::vector<index_t>  row_local;
+    std::vector<index_t>  col_local;
+    std::vector<value_t>  val_local;
+    std::vector<index_t>  row_remote;
+    std::vector<value_t>  val_remote;
+//    std::vector<index_t>  col_remote; // index starting from 0, instead of the original column index
 
     std::vector<index_t> split;
     std::vector<index_t> splitNew;
@@ -57,7 +60,9 @@ public:
     int numRecvProc = 0;
     int numSendProc = 0;
 
-    unsigned int num_threads = 1;
+    int num_threads   = 1;
+    int matvec_levels = 1;
+
     std::vector<nnz_t> iter_local_array;
     std::vector<nnz_t> iter_remote_array;
     std::vector<value_t> w_buff; // for matvec
@@ -68,14 +73,16 @@ public:
 //    bool arrays_defined = false; // set to true if transposeP function is called. it will be used for destructor.
 
     bool verbose_restrict_setup = false;
-    bool verbose_transposeP = false;
+    bool verbose_transposeP     = false;
+
+    double tloc = 0, trem = 0, tcomm = 0, ttot = 0;       // for timing matvec
 
     restrict_matrix();
     ~restrict_matrix();
 
     int transposeP(prolong_matrix* P);
     int openmp_setup();
-    int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec(std::vector<value_t>& v, std::vector<value_t>& w);
 
     int print_entry(int ran);
     int print_info(int ran);

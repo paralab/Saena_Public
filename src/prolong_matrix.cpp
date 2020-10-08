@@ -35,8 +35,11 @@ int prolong_matrix::findLocalRemote(){
     entry_local.clear();
     entry_remote.clear();
     row_local.clear();
-//    row_remote.clear();
+    col_local.clear();
+    val_local.clear();
+    row_remote.clear();
 //    col_remote.clear();
+    val_remote.clear();
     vElementRep_local.clear();
     vElement_remote.clear();
     vElement_remote_t.clear();
@@ -50,15 +53,16 @@ int prolong_matrix::findLocalRemote(){
         // take care of the first element here, since there is "col[i-1]" in the for loop below, so "i" cannot start from 0.
         if (entry[0].col >= splitNew[rank] && entry[0].col < splitNew[rank + 1]) { // local
             nnzPerRow_local[entry[0].row]++;
-            nnz_l_local++;
             entry_local.emplace_back(entry[0]);
-            row_local.emplace_back(
-                    entry[0].row); // only for sorting at the end of prolongMatrix::findLocalRemote. then clear the vector.
+            row_local.emplace_back(entry[0].row);
+            col_local.emplace_back(entry[0].col);
+            val_local.emplace_back(entry[0].val);
             vElementRep_local.emplace_back(1);
         } else { // remote
-            nnz_l_remote++;
             entry_remote.emplace_back(entry[0]);
-            col_remote_size++; // number of remote columns
+            row_remote.emplace_back(entry[0].row);
+//            col_remote.emplace_back(entry[i].col);
+            val_remote.emplace_back(entry[0].val);
             nnzPerCol_remote.emplace_back(1);
 
             vElement_remote.emplace_back(entry[0].col);
@@ -74,10 +78,10 @@ int prolong_matrix::findLocalRemote(){
             // local
             if (entry[i].col >= splitNew[rank] && entry[i].col < splitNew[rank + 1]) {
                 nnzPerRow_local[entry[i].row]++;
-                nnz_l_local++;
                 entry_local.emplace_back(entry[i]);
-                row_local.emplace_back(
-                        entry[i].row); // only for sorting at the end of prolongMatrix::findLocalRemote. then clear.
+                row_local.emplace_back(entry[i].row);
+                col_local.emplace_back(entry[i].col);
+                val_local.emplace_back(entry[i].val);
                 if (entry[i].col != entry[i - 1].col)
                     vElementRep_local.emplace_back(1);
                 else
@@ -85,15 +89,16 @@ int prolong_matrix::findLocalRemote(){
 
                 // remote
             } else {
-                nnz_l_remote++;
-//            if(rank==2) printf("entry[i].row = %lu\n", entry[i].row+split[rank]);
+//                if(rank==2) printf("entry[i].row = %lu\n", entry[i].row+split[rank]);
                 entry_remote.emplace_back(entry[i]);
+                row_remote.emplace_back(entry[i].row);
+//                col_remote.emplace_back(entry[i].col);
+                val_remote.emplace_back(entry[i].val);
                 procNum = lower_bound3(&splitNew[0], &splitNew[nprocs], entry[i].col);
                 vIndexCount_t[procNum]++;
-                vElement_remote_t.emplace_back((index_t) nnz_l_remote - 1); // todo: is (unsigned long) required here?
+                vElement_remote_t.emplace_back((index_t) nnz_l_remote - 1);
 
                 if (entry[i].col != entry[i - 1].col) {
-                    col_remote_size++;
                     vElement_remote.emplace_back(entry[i].col);
                     vElementRep_remote.emplace_back(1);
                     procNum = lower_bound3(&splitNew[0], &splitNew[nprocs], entry[i].col);
@@ -105,6 +110,10 @@ int prolong_matrix::findLocalRemote(){
                 }
             }
         } // for i
+
+        nnz_l_local     = row_local.size();
+        nnz_l_remote    = row_remote.size();
+        col_remote_size = vElement_remote.size(); // number of remote columns
 
 //    MPI_Barrier(comm); printf("rank=%d, P.nnz_l=%lu, P.nnz_l_local=%u, P.nnz_l_remote=%u \n", rank, nnz_l, nnz_l_local, nnz_l_remote); MPI_Barrier(comm);
 
@@ -257,8 +266,8 @@ int prolong_matrix::findLocalRemote(){
 
     index_t *row_localP = &*row_local.begin();
     std::sort(&indicesP_local[0], &indicesP_local[nnz_l_local], sort_indices(row_localP)); // todo: is it ordered only row-wise?
-    row_local.clear();
-    row_local.shrink_to_fit();
+//    row_local.clear();
+//    row_local.shrink_to_fit();
 
 //    indicesP_remote.resize(nnz_l_remote);
 //    for(nnz_t i=0; i<nnz_l_remote; i++)
@@ -385,10 +394,11 @@ int prolong_matrix::openmp_setup() {
 }
 
 
-int prolong_matrix::matvec(std::vector<value_t>& v, std::vector<value_t>& w) {
+void prolong_matrix::matvec(std::vector<value_t>& v, std::vector<value_t>& w) {
 
-    int nprocs, rank;
-    MPI_Comm_size(comm, &nprocs);
+//    int nprocs;
+//    MPI_Comm_size(comm, &nprocs);
+    int rank;
     MPI_Comm_rank(comm, &rank);
 
 //    print_vector(v, -1, "v in matvec", comm);
@@ -398,8 +408,9 @@ int prolong_matrix::matvec(std::vector<value_t>& v, std::vector<value_t>& w) {
 
     // put the values of the vector in vSend, for sending to other processors
 #pragma omp parallel for
-    for(index_t i = 0;i < vIndexSize;i++)
-        vSend[i] = v[(vIndex[i])];
+    for(index_t i = 0;i < vIndexSize; ++i)
+        vSend[i] = v[vIndex[i]];
+
 //    double t20 = MPI_Wtime();
 //    time[0] += (t20-t10);
 
@@ -411,21 +422,9 @@ int prolong_matrix::matvec(std::vector<value_t>& v, std::vector<value_t>& w) {
     auto *requests = new MPI_Request[numSendProc + numRecvProc];
     auto *statuses = new MPI_Status[numSendProc + numRecvProc];
 
-    //First place all recv requests. Do not recv from self.
-    for(int i = 0; i < numRecvProc; i++){
-        MPI_Irecv(&vecValues[rdispls[recvProcRank[i]]], recvProcCount[i], MPI_DOUBLE, recvProcRank[i], 1, comm, &(requests[i]));
-        MPI_Test(&requests[i], &flag, &statuses[i]);
-    }
-
-    //Next send the messages. Do not send to self.
-    for(int i = 0; i < numSendProc; i++){
-        MPI_Isend(&vSend[vdispls[sendProcRank[i]]], sendProcCount[i], MPI_DOUBLE, sendProcRank[i], 1, comm, &(requests[numRecvProc+i]));
-        MPI_Test(&requests[numRecvProc + i], &flag, &statuses[numRecvProc + i]);
-    }
-
     // local loop
     // ----------
-//    double t11 = MPI_Wtime();
+    double t1 = omp_get_wtime();
     value_t* v_p = &v[0] - splitNew[rank];
 
     #pragma omp parallel
@@ -436,23 +435,41 @@ int prolong_matrix::matvec(std::vector<value_t>& v, std::vector<value_t>& w) {
             for (index_t i = 0; i < M; ++i) {
                 w[i] = 0;
                 for (index_t j = 0; j < nnzPerRow_local[i]; ++j, ++iter) {
-//                    if(rank==0 && i==1) printf("%u \t%.18f \t%.18f \t%.18f \n",
+//                    if(rank==0) printf("%u \t%.18f \t%.18f \t%.18f \n",
 //                            entry_local[indicesP_local[iter]].col, entry_local[indicesP_local[iter]].val, v_p[entry_local[indicesP_local[iter]].col], entry_local[indicesP_local[iter]].val * v_p[entry_local[indicesP_local[iter]].col]);
-//                    w[i] += entry_local[indicesP_local[iter]].val * v[entry_local[indicesP_local[iter]].col - splitNew[rank]];
-                    w[i] += entry_local[indicesP_local[iter]].val * v_p[entry_local[indicesP_local[iter]].col];
+//                    w[i] += entry_local[indicesP_local[iter]].val * v_p[entry_local[indicesP_local[iter]].col];
+                    w[i] += val_local[indicesP_local[iter]] * v_p[col_local[indicesP_local[iter]]];
                 }
             }
     }
 
-//    double t21 = MPI_Wtime();
-//    time[1] += (t21-t11);
+    double t2 = omp_get_wtime();
+    tloc += (t2 - t1);
 
-    // Wait for comm to finish.
+    t1 = omp_get_wtime();
+
+    for(int i = 0; i < numRecvProc; i++){
+        MPI_Irecv(&vecValues[rdispls[recvProcRank[i]]], recvProcCount[i], par::Mpi_datatype<value_t>::value(), recvProcRank[i], 1, comm, &(requests[i]));
+        MPI_Test(&requests[i], &flag, &statuses[i]);
+    }
+
+    for(int i = 0; i < numSendProc; i++){
+        MPI_Isend(&vSend[vdispls[sendProcRank[i]]], sendProcCount[i], par::Mpi_datatype<value_t>::value(), sendProcRank[i], 1, comm, &(requests[numRecvProc+i]));
+        MPI_Test(&requests[numRecvProc + i], &flag, &statuses[numRecvProc + i]);
+    }
+
     MPI_Waitall(numRecvProc, requests, statuses);
+    MPI_Waitall(numSendProc, numRecvProc+requests, numRecvProc+statuses);
+
+    t2 = omp_get_wtime();
+    tcomm += (t2 - t1);
+
 //    print_vector(vecValues, 0, "vecValues", comm);
 
     // remote loop
     // -----------
+
+    t1 = omp_get_wtime();
 
 /*
 //    double t12 = MPI_Wtime();
@@ -516,20 +533,19 @@ int prolong_matrix::matvec(std::vector<value_t>& v, std::vector<value_t>& w) {
         for (index_t i = 0; i < nnzPerCol_remote[j]; ++i, ++iter) {
 //            if(rank==0 && entry_remote[iter].row==1) printf("%u \t%.18f \t%.18f \t%.18f \t%u \n",
 //                                       entry_remote[iter].col, entry_remote[iter].val, vecValues[j], entry_remote[iter].val * vecValues[j], col_remote[j]);
-            w[entry_remote[iter].row] += entry_remote[iter].val * vecValues[j];
+//            w[entry_remote[iter].row] += entry_remote[iter].val * vecValues[j];
+            w[row_remote[iter]] += val_remote[iter] * vecValues[j];
         }
     }
 
-    MPI_Waitall(numSendProc, numRecvProc+requests, numRecvProc+statuses);
+    t2 = omp_get_wtime();
+    trem += (t2 - t1);
+
+//    MPI_Waitall(numSendProc, numRecvProc+requests, numRecvProc+statuses);
     delete [] requests;
     delete [] statuses;
 
-//    double t22 = MPI_Wtime();
-//    time[2] += (t22-t12);
-//    double t23 = MPI_Wtime();
-//    time[3] += (t23-t13);
-
-    return 0;
+    ttot = tloc + tcomm + trem;
 }
 
 

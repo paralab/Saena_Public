@@ -6,8 +6,9 @@
 #include "grid.h"
 #include "aux_functions.h"
 
+// uncomment to print info for the lazy update feature
 // use this to store number of iterations for the lazy-update experiment.
-std::vector<int> iter_num_lazy;
+//std::vector<int> iter_num_lazy;
 
 
 int saena_object::solve_coarsest_CG(saena_matrix* A, std::vector<value_t>& u, std::vector<value_t>& rhs){
@@ -1151,7 +1152,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
     grid->R.matvec(res, res_coarse);
 
     double t_trans2 = omp_get_wtime();
-    transfer_time += t_trans2 - t_trans1;
+    Rtransfer_time += t_trans2 - t_trans1;
 
 #ifdef __DEBUG1__
 //    grid->R.print_entry(-1);
@@ -1252,7 +1253,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
     grid->P.matvec(uCorrCoarse, uCorr);
 
     t_trans2 = omp_get_wtime();
-    transfer_time += t_trans2 - t_trans1;
+    Ptransfer_time += t_trans2 - t_trans1;
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
@@ -1751,10 +1752,11 @@ int saena_object::solve_CG(std::vector<value_t>& u){
         print_sep();
     }
 
-    iter_num_lazy.emplace_back(i+1);
-    if(iter_num_lazy.size() == ITER_LAZY){
-        print_vector(iter_num_lazy, 0, "iter_num_lazy", comm);
-    }
+    // uncomment to print info for the lazy update feature
+//    iter_num_lazy.emplace_back(i+1);
+//    if(iter_num_lazy.size() == ITER_LAZY){
+//        print_vector(iter_num_lazy, 0, "iter_num_lazy", comm);
+//    }
 
 #ifdef __DEBUG1__
     if(verbose_solve){
@@ -1813,7 +1815,8 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     }
 #endif
 
-    transfer_time = 0;
+    Rtransfer_time = 0;
+    Ptransfer_time = 0;
     superlu_time = 0;
     vcycle_smooth_time = 0;
     double matvec_time1 = 0;
@@ -2017,10 +2020,11 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         print_sep();
     }
 
-    iter_num_lazy.emplace_back(i+1);
-    if(iter_num_lazy.size() == ITER_LAZY){
-        print_vector(iter_num_lazy, 0, "iter_num_lazy", comm);
-    }
+    // uncomment to print info for the lazy update feature
+//    iter_num_lazy.emplace_back(i+1);
+//    if(iter_num_lazy.size() == ITER_LAZY){
+//        print_vector(iter_num_lazy, 0, "iter_num_lazy", comm);
+//    }
 
 #ifdef __DEBUG1__
     if(verbose_solve){
@@ -2063,13 +2067,41 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     double t_pcg2 = omp_get_wtime();
 
     if(rank==0) {
-        printf("pCG total\ntransfer\nsmooth\nsuperlu\n\n");
+        printf("pCG total\nRtransfer\nPtransfer\nsmooth\nsuperlu\n\n");
     }
 
-    print_time_ave((t_pcg2 - t_pcg1) / (i+1),  "total",    comm, true, false);
-    print_time_ave(transfer_time / (i+1),      "transfer", comm, true, false);
-    print_time_ave(vcycle_smooth_time / (i+1), "smooth",   comm, true, false);
-    print_time_ave(superlu_time / (i+1),       "superlu",  comm, true, false);
+    print_time_ave((t_pcg2 - t_pcg1) / (i+1),  "total",     comm, true, false);
+    print_time_ave(Rtransfer_time / (i+1),     "Rtransfer", comm, true, false);
+    print_time_ave(Ptransfer_time / (i+1),     "Ptransfer", comm, true, false);
+    print_time_ave(vcycle_smooth_time / (i+1), "smooth",    comm, true, false);
+    print_time_ave(superlu_time / (i+1),       "superlu",   comm, true, false);
+
+#if 0
+    if(!rank) printf("\nP matvec:\n");
+    if(!rank) printf("loc\ncomm\nrem\ntot\n");
+    for(int l = 0; l < max_level; ++l){
+        if(grids[l].active) {
+            if(!rank) printf("\nlevel %d: \n", l);
+            print_time_ave(grids[l].P.tloc / (i+1),  "Ploc",  grids[l].A->comm, true, false);
+            print_time_ave(grids[l].P.tcomm / (i+1), "Pcomm", grids[l].A->comm, true, false);
+            print_time_ave(grids[l].P.trem / (i+1),  "Prem",  grids[l].A->comm, true, false);
+            print_time_ave(grids[l].P.ttot / (i+1),  "Ptot",  grids[l].A->comm, true, false);
+        }
+    }
+
+
+    if(!rank) printf("\nR matvec:\n");
+    if(!rank) printf("loc\ncomm\nrem\ntot\n");
+    for(int l = 0; l < max_level; ++l){
+        if(grids[l].active) {
+            if(!rank) printf("\nlevel %d: \n", l);
+            print_time_ave(grids[l].R.tloc / (i+1),  "Rloc",  grids[l].A->comm, true, false);
+            print_time_ave(grids[l].R.tcomm / (i+1), "Rcomm", grids[l].A->comm, true, false);
+            print_time_ave(grids[l].R.trem / (i+1),  "Rrem",  grids[l].A->comm, true, false);
+            print_time_ave(grids[l].R.ttot / (i+1),  "Rtot",  grids[l].A->comm, true, false);
+        }
+    }
+#endif
 
     return 0;
 }
