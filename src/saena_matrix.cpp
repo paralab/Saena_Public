@@ -1120,7 +1120,7 @@ int saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>
 }
 
 
-int saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res, std::vector<value_t>& d){
+int saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res, std::vector<value_t>& d, int level){
 
 #ifdef __DEBUG1__
 //    int rank;
@@ -1130,7 +1130,21 @@ int saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vecto
     }
 #endif
 
-    const double alpha = 0.14 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
+	// TODO 
+	// hacked in only for test
+	/*if (level == 0)
+		eig_max_of_invdiagXA = 3.8695;
+	else if(level == 1)
+		eig_max_of_invdiagXA = 8.8214;
+	else if(level == 2)
+		eig_max_of_invdiagXA = 27.7656;
+	else if(level == 3)
+		eig_max_of_invdiagXA = 58.3432;
+	else
+		std::cout << "only support so much grids" << std::endl;*/
+	std::cout << eig_max_of_invdiagXA << std::endl;
+	exit(0);
+    const double alpha = 0.13 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
     const double beta  = eig_max_of_invdiagXA;
     const double delta = (beta - alpha) / 2;
     const double theta = (beta + alpha) / 2;
@@ -1268,7 +1282,7 @@ int saena_matrix::writeMatrixToFile(const char *folder_name){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    const char* homeDir = getenv("HOME");
+    const char* homeDir = getenv("PWD");
 
     std::ofstream outFileTxt;
     std::string outFileNameTxt = homeDir;

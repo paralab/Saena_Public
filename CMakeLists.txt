@@ -1,25 +1,42 @@
-cmake_minimum_required(VERSION 3.10)
+cmake_minimum_required(VERSION 3.3)
 project(Saena)
 
-set(CMAKE_CXX_STANDARD 14) #CombBLAS requires 14
+set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # -----------------------------------------------------------------------
-# Build Type: Debug or Release
+# Build Type
 
 IF(NOT CMAKE_BUILD_TYPE)
-    SET(CMAKE_BUILD_TYPE Release)
+        SET(CMAKE_BUILD_TYPE Release)
 ENDIF()
 
-message(--\ Saena:\ CMAKE_BUILD_TYPE:\ ${CMAKE_BUILD_TYPE})
+IF(CMAKE_BUILD_TYPE STREQUAL Release)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+#    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -O3 -axCORE-AVX512,CORE-AVX2,AVX -xSSE4.2 -g -parallel-source-info=2 -shared-intel")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -axCORE-AVX512,CORE-AVX2,AVX -xSSE4.2 -g -parallel-source-info=2 -shared-intel")
+ENDIF()
+
+IF(CMAKE_BUILD_TYPE STREQUAL Debug)
+    add_definitions(-D__DEBUG1__)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
+ENDIF()
+
+#message(--\ Saena:\ CMAKE_BUILD_TYPE:\ ${CMAKE_BUILD_TYPE})
 
 # -----------------------------------------------------------------------
+# BOOST
 
-# set the include, src and external libraries directories
-set(EXT_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external)
-set(SAENA_INCLUDE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/include)
-set(SAENA_SRC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/src)
+#find_package(BOOST REQUIRED)
+#message(STATUS BOOST found: ${BOOST_LIBRARIES})
+#include_directories(${Boost_INCLUDE_DIRS})
+
+# first: module load boost
+#set(BOOST_INC_DIR $ENV{TACC_BOOST_INC})
+#include_directories(${BOOST_INC_DIR})
 
 # -----------------------------------------------------------------------
 # OpenMP
@@ -45,10 +62,10 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MPI_LIBRARIES})
 # SuperLU
 
 set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
-set(SuperLU_DIST_LIB ${CMAKE_BINARY_DIR}/build_superlu/lib/libsuperlu_dist.a)
+set(SuperLU_DIST_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_superlu/lib/libsuperlu_dist.a)
 include_directories(
-        ${CMAKE_BINARY_DIR}/build_superlu/include
-        #        ${SuperLU_DIST_DIR}/SRC
+        ${SuperLU_DIST_DIR}/build/include
+        ${SuperLU_DIST_DIR}/SRC
 )
 
 SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${SuperLU_DIST_LIB})
@@ -56,26 +73,13 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${SuperLU_DIST_LIB})
 # -----------------------------------------------------------------------
 # METIS and PARMETIS
 
-#set(METIS_INCLUDE_DIR    ${CMAKE_BINARY_DIR}/build_metis/include)
-#set(PARMETIS_INCLUDE_DIR ${CMAKE_BINARY_DIR}/build_parmetis/include)
-set(METIS_LIBRARY        ${CMAKE_BINARY_DIR}/build_metis/lib/libmetis.so)
-set(PARMETIS_LIBRARY     ${CMAKE_BINARY_DIR}/build_parmetis/lib/libparmetis.a)
+#set(PARMETIS_ROOT_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
+set(METIS_LIBRARY_SAENA    ${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/lib/libmetis.so)
+set(PARMETIS_LIBRARY_SAENA ${CMAKE_CURRENT_SOURCE_DIR}/build/build_parmetis/lib/libparmetis.a)
+#set(METIS_INCLUDE_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/include)
+#set(PARMETIS_INCLUDE_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/build/build_parmetis/include)
 
-SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${PARMETIS_LIBRARY} ${METIS_LIBRARY})
-
-# -----------------------------------------------------------------------
-# BOOST
-
-#find_package(BOOST REQUIRED)
-#message(STATUS BOOST found: ${BOOST_LIBRARIES})
-#include_directories(${Boost_INCLUDE_DIRS})
-
-# For Colorado Summit cluster:
-#include_directories("/curc/sw/intel/17.4/mkl/include")
-# For Frontera:
-# first: module load boost
-#set(BOOST_INC_DIR $ENV{TACC_BOOST_INC})
-#include_directories(${BOOST_INC_DIR})
+SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA})
 
 # -----------------------------------------------------------------------
 # BLAS
@@ -107,7 +111,6 @@ set(MKL_LIB_CORE   "${MKL_LIB_DIR}/libmkl_core.so")
 set(MKL_LIB_LP64   "${MKL_LIB_DIR}/libmkl_intel_lp64.so")
 
 set(MKL_LIB_THREAD "${MKL_LIB_DIR}/libmkl_gnu_thread.so")
-#set(MKL_LIB_THREAD "${MKL_LIB_DIR}/libmkl_tbb_thread.so")
 #set(MKL_LIB_THREAD "${MKL_LIB_DIR}/libmkl_intel_thread.so")
 
 #set(MKL_LIB_BLACS "${MKL_LIB_DIR}/libmkl_blacs_intelmpi_lp64.so")
@@ -120,33 +123,33 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_LIB_CORE} ${MKL_LIB_L
 # -----------------------------------------------------------------------
 # IETL: eigensolver
 
-set(IETL_DIR ${EXT_DIR}/ietl)
-include_directories(${IETL_DIR})
-set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
-        ${SAENA_INCLUDE_DIR}/ietl_saena.h
+include_directories(external/ietl)
+
+set(HEADER_FILES ${HEADER_FILES}
+        include/ietl_saena.h
         )
 
 # -----------------------------------------------------------------------
 # usort: to sort elements in parallel
 
-set(USORT_DIR ${EXT_DIR}/usort)
-include_directories(${USORT_DIR}/include)
-set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
-        ${USORT_DIR}/src/binUtils.cpp
-        ${USORT_DIR}/src/parUtils.cpp
-        ${USORT_DIR}/src/sort_profiler.cpp
+include_directories(external/usort/include)
+set(SOURCE_FILES ${SOURCE_FILES}
+        external/usort/src/binUtils.cpp
+        external/usort/src/parUtils.cpp
+        external/usort/src/sort_profiler.cpp
         )
 
 # -----------------------------------------------------------------------
 # pugixml: to read xml files for options
 
 #include_directories(external/pugixml/include)
+
 #set(SOURCE_FILES ${SOURCE_FILES}
 #        external/pugixml/src/pugixml.cpp
 #        )
 
 # -----------------------------------------------------------------------
-# ZFP: for compressing arrays
+# zfp: for compressing arrays
 
 include(GNUInstallDirs)
 
@@ -163,75 +166,17 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${ZFP_LIB})
 # -----------------------------------------------------------------------
 #PETSc
 
-option(ENABLE_PETSC OFF)
-
-set(PETSC_DIR "/home/majidrp/Software/petsc-3.13.5")
-set(PETSC_ARCH "arch-linux2-c-opt")
-
-#set(PETSC_DIR $ENV{PETSC_DIR})
-#set(PETSC_ARCH $ENV{PETSC_ARCH})
-
-if(ENABLE_PETSC)
-    if(NOT DEFINED ENV{PETSC_DIR})
-        message( FATAL_ERROR "PETSC_DIR is not set! CMake will exit." )
-    endif(NOT DEFINED ENV{PETSC_DIR})
-
-    if(NOT DEFINED ENV{PETSC_ARCH})
-        message( FATAL_ERROR "PETSC_ARCH is not set! CMake will exit." )
-    endif(NOT DEFINED ENV{PETSC_ARCH})
-
-#    set(PETSC_DIR $ENV{PETSC_DIR})
-#    set(PETSC_ARCH $ENV{PETSC_ARCH})
-    message(--\ PETSC_DIR:\ ${PETSC_DIR})
-    message(--\ PETSC_ARCH:\ ${PETSC_ARCH})
-
-    set(PETSC_LIB ${PETSC_DIR}/${PETSC_ARCH}/lib/libpetsc.so)
-    include_directories(
-            ${PETSC_DIR}/include
-            ${PETSC_DIR}/${PETSC_ARCH}/include
-    )
-
-    SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${PETSC_LIB})
-
-    set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES} ${SAENA_INCLUDE_DIR}/petsc_functions.h)
-    set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES} ${SAENA_SRC_DIR}/petsc_functions.cpp)
-
-#    add_compile_definitions(_USE_PETSC_) // requires newer cmake versions
-    add_definitions(-D_USE_PETSC_)
-
-endif(ENABLE_PETSC)
+#set(PETSC_DIR "~/softwares/petsc-3.8.4")
+#set(PETSC_LIB ${PETSC_DIR}/arch-linux2-c-debug/lib/libpetsc.so)
+#include_directories(
+#        ${PETSC_DIR}/include
+#        ${PETSC_DIR}/arch-linux2-c-debug/include
+#)
 
 # -----------------------------------------------------------------------
-#CombBLAS
+# dollar (profiler)
 
-option(ENABLE_COMBBLAS OFF)
-
-if(ENABLE_COMBBLAS)
-    if(NOT DEFINED ENV{COMBBLAS_DIR})
-        message( FATAL_ERROR "COMBBLAS_DIR is not set! CMake will exit." )
-    endif(NOT DEFINED ENV{COMBBLAS_DIR})
-
-    set(COMBBLAS_DIR $ENV{COMBBLAS_DIR})
-    message(--\ COMBBLAS_DIR:\ ${COMBBLAS_DIR})
-
-    include_directories("${COMBBLAS_DIR}/install/include")
-    set(COMBBLAS_LIB ${COMBBLAS_DIR}/install/lib/libCombBLAS.a)
-
-    SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${COMBBLAS_LIB})
-
-    set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES} ${SAENA_INCLUDE_DIR}/combblas_functions.h)
-    set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES} ${SAENA_SRC_DIR}/combblas_functions.cpp)
-
-#    add_compile_definitions(_USE_COMBBLAS_)
-    add_definitions(-D_USE_COMBBLAS_)
-
-endif(ENABLE_COMBBLAS)
-
-# -----------------------------------------------------------------------
-# dollar: for profiling
-# https://github.com/r-lyeh-archived/dollar
-
-set(DOLLAR_DIR "${EXT_DIR}/dollar")
+set(DOLLAR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/external/dollar")
 include_directories(
         ${DOLLAR_DIR}
 )
@@ -245,117 +190,74 @@ include_directories(
 #)
 
 # -----------------------------------------------------------------------
-# Intel Parallel STL (PSTL)
-# Part of Intel TBB (Threading Building Blocks)
-
-option(SANEA_USE_PSTL OFF)
-
-if(SANEA_USE_PSTL)
-    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -tbb")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -tbb")
-    add_definitions(-DSANEA_USE_PSTL)
-endif()
-
-# -----------------------------------------------------------------------
 # Main Files
 
 include_directories(include)
 
-set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
-        ${SAENA_INCLUDE_DIR}/saena.hpp
-        ${SAENA_INCLUDE_DIR}/aux_functions.h
-        ${SAENA_INCLUDE_DIR}/data_struct.h
-        ${SAENA_INCLUDE_DIR}/saena_matrix.h
-        ${SAENA_INCLUDE_DIR}/saena_matrix_dense.h
-        ${SAENA_INCLUDE_DIR}/saena_object.h
-        ${SAENA_INCLUDE_DIR}/strength_matrix.h
-        ${SAENA_INCLUDE_DIR}/prolong_matrix.h
-        ${SAENA_INCLUDE_DIR}/restrict_matrix.h
-        ${SAENA_INCLUDE_DIR}/grid.h
-        ${SAENA_INCLUDE_DIR}/saena_vector.h
-        ${SAENA_INCLUDE_DIR}/GR_encoder.h
+set(HEADER_FILES ${HEADER_FILES}
+        include/saena.hpp
+        include/aux_functions.h
+        include/data_struct.h
+        include/saena_matrix.h
+        include/saena_matrix_dense.h
+        include/saena_object.h
+        include/strength_matrix.h
+        include/prolong_matrix.h
+        include/restrict_matrix.h
+        include/grid.h
+        include/saena_vector.h
+        include/GR_encoder.h
         )
 
-set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
-        ${SAENA_SRC_DIR}/saena.cpp
-        ${SAENA_SRC_DIR}/aux_functions.cpp
-        ${SAENA_SRC_DIR}/data_struct.cpp
-        ${SAENA_SRC_DIR}/strength_matrix.cpp
-        ${SAENA_SRC_DIR}/prolong_matrix.cpp
-        ${SAENA_SRC_DIR}/restrict_matrix.cpp
-        ${SAENA_SRC_DIR}/saena_matrix_dense.cpp
-        ${SAENA_SRC_DIR}/saena_vector.cpp
-        ${SAENA_SRC_DIR}/GR_encoder.cpp
-        ${SAENA_SRC_DIR}/saena_matrix.cpp
-        ${SAENA_SRC_DIR}/saena_matrix_repart.cpp
-        ${SAENA_SRC_DIR}/saena_matrix_setup.cpp
-        ${SAENA_SRC_DIR}/saena_matrix_matvec.cpp
-        ${SAENA_SRC_DIR}/saena_matrix_shrink.cpp
-        ${SAENA_SRC_DIR}/saena_matrix_zfp.cpp
-        ${SAENA_SRC_DIR}/saena_object.cpp
-        ${SAENA_SRC_DIR}/saena_object_setup1.cpp
-        ${SAENA_SRC_DIR}/saena_object_setup2.cpp
-        ${SAENA_SRC_DIR}/saena_object_pcoarsen_modal.cpp
-        ${SAENA_SRC_DIR}/saena_object_setup_matmat.cpp
-        ${SAENA_SRC_DIR}/saena_object_solve.cpp
-        ${SAENA_SRC_DIR}/saena_object_lazy.cpp
-        ${SAENA_SRC_DIR}/saena_object_repart_shrink.cpp
-        ${SAENA_SRC_DIR}/saena_object_sparsify.cpp
-        ${SAENA_SRC_DIR}/saena_object_elemental.cpp
-        ${SAENA_SRC_DIR}/saena_object_write2file.cpp
+set(SOURCE_FILES ${SOURCE_FILES}
+        ${HEADER_FILES}
+        src/saena.cpp
+        src/aux_functions.cpp
+        src/data_struct.cpp
+        src/strength_matrix.cpp
+        src/prolong_matrix.cpp
+        src/restrict_matrix.cpp
+        src/saena_matrix_dense.cpp
+        src/saena_vector.cpp
+        src/GR_encoder.cpp
+
+        src/saena_matrix.cpp
+        src/saena_matrix_repart.cpp
+        src/saena_matrix_setup.cpp
+        src/saena_matrix_matvec.cpp
+        src/saena_matrix_shrink.cpp
+        src/saena_matrix_zfp.cpp
+
+        src/saena_object.cpp
+        src/saena_object_setup1.cpp
+        src/saena_object_setup2.cpp
+        src/saena_object_pcoarsen_modal.cpp
+        src/saena_object_setup_matmat.cpp
+        src/saena_object_solve.cpp
+        src/saena_object_lazy.cpp
+        src/saena_object_repart_shrink.cpp
+        src/saena_object_sparsify.cpp
+        src/saena_object_elemental.cpp
+        src/saena_object_write2file.cpp
         )
 
 # -----------------------------------------------------------------------
+# NEKTAR++
 
-# Intel flags:
-# -c                see Output, Debug, and PCH Options
-# -g                see Output, Debug, and PCH Options
-# -xCORE-AVX512     for Cascade Lake Processors (like Frontera) and Skylake
-# -xCORE-AVX2       for Broadwell and Haswell
-# -xAVX             for Ivy Bridge and Sandy Bridge
-# -shared-intel     Enable identifying the libm and C runtime calls as system functions and differentiating them
-#                   from the user code when a proper filter mode is applied to the VTune Profiler collection result.
-# fast              This option improves the speed of your application. It sets compiler options -O3, -no-prec-div, and -fp-model fast=2
-
-IF(CMAKE_BUILD_TYPE STREQUAL Debug)
-    add_definitions(-D__DEBUG1__)
-    set (CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -g")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
-    # sanitize flags for memory leak checks
-    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -fsanitize=address -fno-omit-frame-pointer") #for gcc and clang
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fsanitize=address -fno-omit-frame-pointer") #for gcc and clang
-    set(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} -fsanitize=address)
-ENDIF()
-
-# Enable Intel Optimization flags
-IF(CMAKE_BUILD_TYPE STREQUAL Release)
-#    set(SAENA_C_FLAGS "-Ofast -axCORE-AVX512,CORE-AVX2,AVX -xSSE4.2 -qopenmp-simd -g -parallel-source-info=2 -shared-intel")
-    set(SAENA_C_FLAGS   "-Ofast -xCORE-AVX512 -qopenmp-simd -g -parallel-source-info=2 -shared-intel")
-#    set(SAENA_C_FLAGS   "-Ofast -g")
-    set(SAENA_CXX_FLAGS "${SAENA_C_FLAGS}")
-    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${SAENA_C_FLAGS}")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${SAENA_CXX_FLAGS}")
-ENDIF()
+#ADD_NEKTAR_LIBRARY(Saena
+#        SOURCES ${SOURCE_FILES}
+#        HEADERS ${HEADER_FILES}
+#        SUMMARY "Nektar++ Saena fast multigrid solver library"
+#        DESCRIPTION "This library provides fast multigrid solves.")
 
 # -----------------------------------------------------------------------
 
-# Enable the Intel Optimization Reports
-# -qopt-report[=N]   N=1-5 specifies an increasing level of detail
-# -qopt-report-file   =stdout, stderr, filename
-# -qopt-report-phase  =loop, vec, par, cg, openmp, ipo, pgo, offload, all
-# -qopt-report-routine=fn1[,fn2,…]
+# Install Saena with rpath modified
+# Install Saena inside the ThirdParty libraris in Nektar++.
+# The following command tells where saena should look for its dependencies
+set(CMAKE_INSTALL_RPATH "/usr/local/lib" "${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/lib"
+        "${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/${CMAKE_INSTALL_LIBDIR}")
 
-#set(REPORT_ARG1 "-qopt-report=5 -qopt-report-file=stdout -qopt-report-phase=loop,vec,par,cg")
-#set(REPORT_ROUTINE "-qopt-report-routine=reorder_split")
-#set(REPORT_FILES "src/saena_object_setup_matmat.cpp")
-#set(REPORT_FILE "-qopt-report-filter=${REPORT_FILES}")
-
-#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${REPORT_ARG1} ${REPORT_ROUTINE}")
-#set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${REPORT_ARG1} ${REPORT_ROUTINE}")
-
-# -----------------------------------------------------------------------
-
-# compile and link experiments
-add_subdirectory(experiments)
-
-# -----------------------------------------------------------------------
+add_library(saena SHARED ${SOURCE_FILES})
+target_link_libraries(saena ${SAENA_LIB_DEPENDENCIES})
+install(TARGETS saena DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/ThirdParty/dist/lib)
