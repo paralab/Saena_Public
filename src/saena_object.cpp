@@ -612,24 +612,14 @@ int saena_object::scale_vector(std::vector<value_t>& v, std::vector<value_t>& w)
 
 int saena_object::find_eig(saena_matrix& A){
 
-    for(index_t i = 0; i < A.values_local.size(); ++i){
-        A.values_local[i] *= A.inv_diag[A.row_local[i]];
-    }
-
-    for(index_t i = 0; i < A.values_remote.size(); ++i){
-        A.values_remote[i] *= A.inv_diag[A.row_remote[i]];
-    }
+    A.scale_matrix();
 
 //    find_eig_Elemental(A);
     find_eig_ietl(A);
 
-    for(index_t i = 0; i < A.values_local.size(); ++i){
-        A.values_local[i] /= A.inv_diag[A.row_local[i]];
-    }
+    A.scale_back_matrix();
 
-    for(index_t i = 0; i < A.values_remote.size(); ++i){
-        A.values_remote[i] /= A.inv_diag[A.row_remote[i]];
-    }
+//    A.print_entry(-1, "A");
 
     return 0;
 }
