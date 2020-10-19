@@ -3,11 +3,11 @@
 
 #include "saena_object.h"
 #include "saena_matrix.h"
-#include "grid.h"
 #include "aux_functions.h"
 
+// uncomment to print info for the lazy update feature
 // use this to store number of iterations for the lazy-update experiment.
-std::vector<int> iter_num_lazy;
+//std::vector<int> iter_num_lazy;
 
 
 int saena_object::solve_coarsest_CG(saena_matrix* A, std::vector<value_t>& u, std::vector<value_t>& rhs){
@@ -932,25 +932,6 @@ int saena_object::solve_coarsest_SuperLU(saena_matrix *A, std::vector<value_t> &
 }
 
 
-int saena_object::smooth(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs, int iter){
-    std::vector<value_t> temp1(u.size());
-    std::vector<value_t> temp2(u.size());
-
-    if(smoother == "jacobi"){
-        grid->A->jacobi(iter, u, rhs, temp1);
-    }else if(smoother == "chebyshev"){
-        grid->A->chebyshev(iter, u, rhs, temp1, temp2, grid->level);
-    }else{
-        printf("Error: Unknown smoother");
-        MPI_Finalize();
-        exit(EXIT_FAILURE);
-//        return -1;
-    }
-
-    return 0;
-}
-
-
 int saena_object::setup_vcycle_memory(){
     for(int i = 0; i < grids.size() - 1; ++i){
         if(grids[i].active){
@@ -1005,6 +986,8 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
         if (verbose) t1 = omp_get_wtime();
 #endif
 
+        double slu1 = omp_get_wtime();
+
         if (direct_solver == "CG") {
             solve_coarsest_CG(grid->A, u, rhs);
         } else if (direct_solver == "SuperLU") {
@@ -1013,6 +996,9 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
             if (!rank) printf("Error: Unknown direct solver! \n");
             exit(EXIT_FAILURE);
         }
+
+        double slu2 = omp_get_wtime();
+        superlu_time += slu2 - slu1;
 
 #ifdef __DEBUG1__
         {
@@ -1084,18 +1070,18 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 #endif
 
     double time_smooth_pre1 = 0.0, time_smooth_pre2 = 0.0;
-    if (grid->level == 0) {
+//    if (grid->level == 0) {
         time_smooth_pre1 = omp_get_wtime();
-    }
+//    }
 
     if (preSmooth) {
         smooth(grid, u, rhs, preSmooth);
     }
 
-    if (grid->level == 0) {
+//    if (grid->level == 0) {
         time_smooth_pre2 = omp_get_wtime();
         vcycle_smooth_time += time_smooth_pre2 - time_smooth_pre1;
-    }
+//    }
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
@@ -1141,7 +1127,12 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
     t1 = omp_get_wtime();
 #endif
 
+    double t_trans1 = omp_get_wtime();
+
     grid->R.matvec(res, res_coarse);
+
+    double t_trans2 = omp_get_wtime();
+    Rtransfer_time += t_trans2 - t_trans1;
 
 #ifdef __DEBUG1__
 //    grid->R.print_entry(-1);
@@ -1247,7 +1238,12 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
         MPI_Barrier(comm);}
 #endif
 
+    t_trans1 = omp_get_wtime();
+
     grid->P.matvec(uCorrCoarse, uCorr);
+
+    t_trans2 = omp_get_wtime();
+    Ptransfer_time += t_trans2 - t_trans1;
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
@@ -1295,18 +1291,18 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 #endif
 
     double time_smooth_post1 = 0.0, time_smooth_post2 = 0.0;
-    if (grid->level == 0) {
+//    if (grid->level == 0) {
         time_smooth_post1 = omp_get_wtime();
-    }
+//    }
 
     if(postSmooth){
         smooth(grid, u, rhs, postSmooth);
     }
 
-    if (grid->level == 0) {
+//    if (grid->level == 0) {
         time_smooth_post2 = omp_get_wtime();
         vcycle_smooth_time += time_smooth_post2 - time_smooth_post1;
-    }
+//    }
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
@@ -1746,10 +1742,11 @@ int saena_object::solve_CG(std::vector<value_t>& u){
         print_sep();
     }
 
-    iter_num_lazy.emplace_back(i+1);
-    if(iter_num_lazy.size() == ITER_LAZY){
-        print_vector(iter_num_lazy, 0, "iter_num_lazy", comm);
-    }
+    // uncomment to print info for the lazy update feature
+//    iter_num_lazy.emplace_back(i+1);
+//    if(iter_num_lazy.size() == ITER_LAZY){
+//        print_vector(iter_num_lazy, 0, "iter_num_lazy", comm);
+//    }
 
 #ifdef __DEBUG1__
     if(verbose_solve){
@@ -1807,6 +1804,27 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         MPI_Barrier(comm);
     }
 #endif
+
+    Rtransfer_time = 0;
+    Ptransfer_time = 0;
+    superlu_time = 0;
+    vcycle_smooth_time = 0;
+    double matvec_time1 = 0;
+    double dots = 0;
+    double t_pcg1 = omp_get_wtime();
+
+    for(int l = 0; l < max_level; ++l){
+        if(grids[l].active) {
+            grids[l].P.tloc  = 0;
+            grids[l].P.tcomm = 0;
+            grids[l].P.trem  = 0;
+            grids[l].P.ttot  = 0;
+            grids[l].R.tloc  = 0;
+            grids[l].R.tcomm = 0;
+            grids[l].R.trem  = 0;
+            grids[l].R.ttot  = 0;
+        }
+    }
 
     // ************** check u size **************
 /*
@@ -1889,7 +1907,9 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         }
 
         // scale the solution u
-        //scale_vector(u, A->inv_sq_diag);
+        if(scale) {
+            scale_vector(u, A->inv_sq_diag);
+        }
 
         // repartition u back
 //        if(repartition){
@@ -1927,20 +1947,18 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     current_dot = init_dot;
 //    previous_dot = init_dot;
 
-    double vcycle_time = 0;
-    superlu_time = 0;
-    vcycle_smooth_time = 0;
-    double matvec_time1 = 0;
-    double t_pcg1 = omp_get_wtime();
-
     for(i = 0; i < solver_max_iter; i++){
         double time_matvec1 = omp_get_wtime();
         A->matvec(p, h);
         double time_matvec2 = omp_get_wtime();
         matvec_time1 += time_matvec2 - time_matvec1;
 
+        double dot1 = omp_get_wtime();
         dotProduct(r, rho, &rho_res, comm);
         dotProduct(p, h,   &pdoth,   comm);
+        double dot2 = omp_get_wtime();
+        dots += dot2 - dot1;
+
         alpha = rho_res / pdoth;
 
 #pragma omp parallel for default(none) shared(u, r, p, h, alpha)
@@ -1949,7 +1967,10 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
             r[j] -= alpha * h[j];
         }
 
+        dot1 = omp_get_wtime();
         dotProduct(r, r, &current_dot, comm);
+        dot2 = omp_get_wtime();
+        dots += dot2 - dot1;
 
 #ifdef __DEBUG1__
 //        printf("rho_res = %e, pdoth = %e, alpha = %f \n", rho_res, pdoth, alpha);
@@ -1957,8 +1978,8 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 //        previous_dot = current_dot;
 
         // print the "absolute residual" and the "convergence factor":
-//        if(rank==0) printf("Vcycle %d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
-//        if(rank==0) printf("Vcycle %lu: aboslute residual = %.10f \n", i+1, sqrt(current_dot));
+//        if(rank==0) printf("%d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
+//        if(rank==0) printf("%6d: aboslute = %.10f, relative = %.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/init_dot));
 #endif
 
         if(rank==0) printf("pCG %lu: relative residual = %.10f  \n", i+1, sqrt(current_dot/init_dot));
@@ -1984,7 +2005,11 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 
         // **************************************************************
 
+        dot1 = omp_get_wtime();
         dotProduct(r, rho, &beta, comm);
+        dot2 = omp_get_wtime();
+        dots += dot2 - dot1;
+        
         beta /= rho_res;
 
 //#pragma omp parallel for default(none) shared(u, p, rho, beta)
@@ -2002,22 +2027,23 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 //    print_time(t_dif, "solve_pcg", comm);
 
     if(rank==0){
-        double t_pcg2 = omp_get_wtime();
+//        double t_pcg2 = omp_get_wtime();
         print_sep();
         printf("\nfinal:\nstopped at iteration    = %d \nfinal absolute residual = %e"
                        "\nrelative residual       = %e \n\n", i+1, sqrt(current_dot), sqrt(current_dot / init_dot));
-        printf("total   time per iteration = %e \n", (t_pcg2 - t_pcg1)/(i+1));
-        printf("vcycle  time per iteration = %e \n", vcycle_time/(i+1));
-        printf("superlu time per iteration = %e \n", superlu_time/(i+1));
-        printf("matvec1 time per iteration = %e \n", matvec_time1/(i+1));
-        printf("smooth  time per iteration = %e \n", vcycle_smooth_time/(i+1));
+//        printf("total   time per iteration = %e \n", (t_pcg2 - t_pcg1)/(i+1));
+//        printf("vcycle  time per iteration = %e \n", vcycle_time/(i+1));
+//        printf("superlu time per iteration = %e \n", superlu_time/(i+1));
+//        printf("matvec1 time per iteration = %e \n", matvec_time1/(i+1));
+//        printf("smooth  time per iteration = %e \n", vcycle_smooth_time/(i+1));
         print_sep();
     }
 
-    iter_num_lazy.emplace_back(i+1);
-    if(iter_num_lazy.size() == ITER_LAZY){
-        print_vector(iter_num_lazy, 0, "iter_num_lazy", comm);
-    }
+    // uncomment to print info for the lazy update feature
+//    iter_num_lazy.emplace_back(i+1);
+//    if(iter_num_lazy.size() == ITER_LAZY){
+//        print_vector(iter_num_lazy, 0, "iter_num_lazy", comm);
+//    }
 
 #ifdef __DEBUG1__
     if(verbose_solve){
@@ -2057,8 +2083,48 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     }
 #endif
 
-//    if(rank==0) dollar::text(std::cout);
+    double t_pcg2 = omp_get_wtime();
 
+    if(rank==0) {
+        printf("L0matvec\ndots\nRtransfer\nPtransfer\nsmooth\nsuperlu\npCG total\n\n");
+    }
+
+    print_time_ave(matvec_time1 / (i+1),       "L0matvec",  comm, true, false);
+    print_time_ave(dots / (i+1),               "dots",      comm, true, false);
+    print_time_ave(Rtransfer_time / (i+1),     "Rtransfer", comm, true, false);
+    print_time_ave(Ptransfer_time / (i+1),     "Ptransfer", comm, true, false);
+    print_time_ave(vcycle_smooth_time / (i+1), "smooth",    comm, true, false);
+    print_time_ave(superlu_time / (i+1),       "superlu",   comm, true, false);
+    print_time_ave((t_pcg2 - t_pcg1) / (i+1),  "total",     comm, true, false);
+#if 0
+    if(!rank) printf("\nP matvec:\n");
+    if(!rank) printf("loc\ncomm\nrem\ntot\n");
+    for(int l = 0; l < max_level; ++l){
+//    for(int l = 0; l < 1; ++l){
+        if(grids[l].active) {
+            if(!rank) printf("\nlevel %d: \n", l);
+            if(!rank) printf("matvec_comm_sz: %d\n", grids[l].P.matvec_comm_sz);
+            print_time_ave(grids[l].P.tloc / (i+1),  "Ploc",  grids[l].A->comm, true, false);
+            print_time_ave(grids[l].P.tcomm / (i+1), "Pcomm", grids[l].A->comm, true, false);
+            print_time_ave(grids[l].P.trem / (i+1),  "Prem",  grids[l].A->comm, true, false);
+            print_time_ave(grids[l].P.ttot / (i+1),  "Ptot",  grids[l].A->comm, true, false);
+        }
+    }
+
+    if(!rank) printf("\nR matvec:\n");
+    if(!rank) printf("loc\ncomm\nrem\ntot\n");
+    for(int l = 0; l < max_level; ++l){
+//    for(int l = 0; l < 1; ++l){
+        if(grids[l].active) {
+            if(!rank) printf("\nlevel %d: \n", l);
+            if(!rank) printf("matvec_comm_sz: %d\n", grids[l].R.matvec_comm_sz);
+            print_time_ave(grids[l].R.tloc / (i+1),  "Rloc",  grids[l].A->comm, true, false);
+            print_time_ave(grids[l].R.tcomm / (i+1), "Rcomm", grids[l].A->comm, true, false);
+            print_time_ave(grids[l].R.trem / (i+1),  "Rrem",  grids[l].A->comm, true, false);
+            print_time_ave(grids[l].R.ttot / (i+1),  "Rtot",  grids[l].A->comm, true, false);
+        }
+    }
+#endif
     return 0;
 }
 
@@ -2511,7 +2577,9 @@ int saena_object::GMRES(std::vector<double> &u){
 
     // ************** scale u **************
 
-    scale_vector(u, A->inv_sq_diag);
+    if(scale) {
+        scale_vector(u, A->inv_sq_diag);
+    }
 
 #ifdef __DEBUG1__
     if(verbose_solve){
@@ -2778,7 +2846,9 @@ int saena_object::pGMRES(std::vector<double> &u){
 
     // ************** scale u **************
 
-    scale_vector(u, A->inv_sq_diag);
+    if(scale) {
+        scale_vector(u, A->inv_sq_diag);
+    }
 
 #ifdef __DEBUG1__
     if(verbose_solve){

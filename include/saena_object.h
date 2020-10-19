@@ -6,6 +6,7 @@
 #include "aux_functions.h"
 #include "saena_vector.h"
 #include "saena_matrix_dense.h"
+#include "grid.h"
 
 #include <memory>
 #include <unordered_map>
@@ -139,6 +140,8 @@ public:
     std::string smoother      = "chebyshev";    // choices: "jacobi", "chebyshev"
     std::string direct_solver = "SuperLU";      // choices: "CG", "SuperLU"
     float       connStrength  = 0.3;            // connection strength parameter: control coarsening aggressiveness
+    std::string PSmoother     = "jacobi";         // "jacobi", "SPAI"
+    double      Pomega        = 2.0 / 3;
 
     // ****************
     // SuperLU
@@ -259,8 +262,8 @@ public:
 
     // if shrinking happens, u and rhs should be shrunk too.
     int repartition_u_shrink_prepare(Grid *grid);
-    int repartition_u_shrink(std::vector<value_t> &u, Grid &grid);
-    int repartition_back_u_shrink(std::vector<value_t> &u, Grid &grid);
+    void repartition_u_shrink(std::vector<value_t> &u, Grid &grid);
+    void repartition_back_u_shrink(std::vector<value_t> &u, Grid &grid);
 
     // if minor shrinking happens, u and rhs should be shrunk too.
 //    int repartition_u_shrink_minor_prepare(Grid *grid);
@@ -298,7 +301,20 @@ public:
     int solve_pCG(std::vector<value_t>& u);
     int setup_vcycle_memory();
     int vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
-    int smooth(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs, int iter);
+//    int smooth(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs, int iter);
+
+    void inline smooth(Grid *grid, std::vector<value_t> &u, std::vector<value_t> &rhs, int iter) const{
+        if(smoother == "jacobi"){
+            grid->A->jacobi(iter, u, rhs);
+        }else if(smoother == "chebyshev"){
+            grid->A->chebyshev(iter, u, rhs, grid->level);
+        }
+//        else{
+//            printf("Error: Unknown smoother");
+//            MPI_Finalize();
+//            exit(EXIT_FAILURE);
+//        }
+    }
 
     // *****************
     // GMRES functions
@@ -335,14 +351,13 @@ public:
 
 //    to write saena matrix to a file use related function from saena_matrix class.
 //    int writeMatrixToFileA(saena_matrix* A, std::string name);
-    int writeMatrixToFile(std::vector<cooEntry>& A, const std::string &folder_name, MPI_Comm comm);
+    int writeMatrixToFile(std::vector<cooEntry>& A, const std::string &name, MPI_Comm comm);
     int writeMatrixToFileP(prolong_matrix* P, std::string name);
     int writeMatrixToFileR(restrict_matrix* R, std::string name);
-    int writeVectorToFileul(std::vector<unsigned long>& v, std::string name, MPI_Comm comm);
-    int writeVectorToFileul2(std::vector<unsigned long>& v, std::string name, MPI_Comm comm);
-    int writeVectorToFileui(std::vector<unsigned int>& v, std::string name, MPI_Comm comm);
-//    template <class T>
-//    int writeVectorToFile(std::vector<T>& v, unsigned long vSize, std::string name, MPI_Comm comm);
+
+    template <class T>
+    int writeVectorToFile(std::vector<T>& v, const std::string &name, MPI_Comm comm = MPI_COMM_WORLD,
+                          bool mat_market = false, index_t OFST = 0);
 
     // *****************
     // Misc functions
@@ -421,6 +436,8 @@ public:
     int prodim;
 
     double superlu_time;
+    double Rtransfer_time;
+    double Ptransfer_time;
     double vcycle_smooth_time;
 
     // for debugging
@@ -433,5 +450,7 @@ public:
     inline int mesh_info(int order, std::vector< std::vector< std::vector<int> > > &map_all, MPI_Comm comm);
     void g2umap(int order, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map, MPI_Comm comm);
 };
+
+#include <saena_object.tpp>
 
 #endif //SAENA_SAENA_OBJECT_H

@@ -33,29 +33,34 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
     read_from_file = true;
 
+    // check if file exists
+    // ====================
     std::string filename(Aname);
-    size_t      extIndex       = filename.find_last_of('.');
-    std::string file_extension = filename.substr(extIndex+1, 3);
-//    if(rank==0) std::cout << "file_extension: " << file_extension << std::endl;
+    std::ifstream inFile_check(filename.c_str());
+    if (!inFile_check.is_open()) {
+        if (!rank) std::cout << "\nCould not open the matrix file <" << filename << ">" << std::endl;
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+    }
+    inFile_check.close();
 
+    // find extension of the file
+    // ==========================
+    size_t extIndex = filename.find_last_of('.');
+    if(extIndex == string::npos || extIndex == filename.size() - 1){
+        if (!rank) cout << "The matrix file name does not have an extension!" << endl;
+        MPI_Abort(comm, 1);
+    }
+
+    std::string file_extension = filename.substr(extIndex+1, string::npos); // string::npos -> the end of the string
     std::string outFileName = filename.substr(0, extIndex) + ".bin";
+
+//    if(rank==0) std::cout << "file_extension: " << file_extension << std::endl;
 //    if(rank==0) std::cout << "outFileName: " << outFileName << std::endl;
 
+    // if the file is not binary, generate its binary file
+    // ===================================================
     if(file_extension != "bin") {
-
-        // check if file exists
-        // ====================
-
-        std::ifstream inFile_check(filename.c_str());
-        if (!inFile_check.is_open()) {
-            if (!rank) std::cout << "\nCould not open file <" << filename << ">" << std::endl;
-            MPI_Finalize();
-            exit(EXIT_FAILURE);
-        }
-        inFile_check.close();
-
-        // ====================
-
         if (file_extension == "mtx") {
 
             std::ifstream inFile_check_bin(outFileName.c_str());
@@ -1093,7 +1098,7 @@ int saena_matrix::set_zero(){
 }
 
 
-int saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp) {
+void saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs) {
 
 // Ax = rhs
 // u = u - (D^(-1))(Au - rhs)
@@ -1106,28 +1111,26 @@ int saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>
 //    MPI_Comm_rank(comm, &rank);
 
     for(int j = 0; j < iter; j++){
-        matvec(u, temp);
+        matvec(u, temp1);
 
         #pragma omp parallel for
         for(index_t i = 0; i < M; i++){
-            temp[i] -= rhs[i];
-            temp[i] *= inv_diag[i] * jacobi_omega;
-            u[i]    -= temp[i];
+            temp1[i] -= rhs[i];
+            temp1[i] *= inv_diag[i] * jacobi_omega;
+            u[i]    -= temp1[i];
         }
     }
-
-    return 0;
 }
 
 
-int saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res, std::vector<value_t>& d, int level){
+void saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs, int level){
 
 #ifdef __DEBUG1__
 //    int rank;
 //    MPI_Comm_rank(comm, &rank);
-    for(auto &i : inv_diag){
-        assert(i == 1);     // the matrix is scaled to have diagonal 1.
-    }
+//    for(auto &i : inv_diag){
+//        assert(i == 1);     // the matrix is scaled to have diagonal 1.
+//    }
 #endif
 
 	// TODO 
@@ -1142,8 +1145,19 @@ int saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vecto
 		eig_max_of_invdiagXA = 58.3432;
 	else
 		std::cout << "only support so much grids" << std::endl;*/
-	std::cout << eig_max_of_invdiagXA << std::endl;
-	exit(0);
+	//std::cout << eig_max_of_invdiagXA << std::endl;
+	//exit(0);
+	if (level == 0)
+		eig_max_of_invdiagXA = 9.7983;
+	else if(level == 1)
+		eig_max_of_invdiagXA = 7.4301;
+	else if(level == 2)
+		eig_max_of_invdiagXA = 3.8429;
+	else if(level == 3)
+		eig_max_of_invdiagXA = 3.5559;
+	else
+		std::cout << "only support so much grids" << std::endl;
+
     const double alpha = 0.13 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
     const double beta  = eig_max_of_invdiagXA;
     const double delta = (beta - alpha) / 2;
@@ -1153,13 +1167,15 @@ int saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vecto
           double rhok  = 1 / s1;
           double rhokp1 = 0.0, two_rhokp1 = 0.0, d1 = 0.0, d2 = 0.0;
 
+    std::vector<value_t>& res = temp1;
+    std::vector<value_t>& d   = temp2;
+
     // first loop
     residual_negative(u, rhs, res);
 
     #pragma omp parallel for
     for(index_t i = 0; i < u.size(); ++i){
-//        d[i] = (res[i] * inv_diag[i]) / theta;    // the matrix is scaled to have diagonal 1. use this for a non-scaled matrix.
-        d[i] = res[i] / theta;
+        d[i] = (res[i] * inv_diag[i]) / theta;
         u[i] += d[i];
 //        if(rank==0) printf("inv_diag[%u] = %f, \tres[%u] = %f, \td[%u] = %f, \tu[%u] = %f \n",
 //                           i, inv_diag[i], i, res[i], i, d[i], i, u[i]);
@@ -1176,20 +1192,16 @@ int saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vecto
 
         #pragma omp parallel for
         for(index_t j = 0; j < u.size(); ++j){
-            // the matrix is scaled to have diagonal 1. use this for a non-scaled matrix.
-//            d[j] = ( d1 * d[j] ) + ( d2 * res[j] * inv_diag[j]);
-            d[j] = ( d1 * d[j] ) + ( d2 * res[j] );
+            d[j] = ( d1 * d[j] ) + ( d2 * res[j] * inv_diag[j]);
             u[j] += d[j];
 //            if(rank==0) printf("inv_diag[%u] = %f, \tres[%u] = %f, \td[%u] = %f, \tu[%u] = %f \n",
 //                               j, inv_diag[j], j, res[j], j, d[j], j, u[j]);
         }
     }
-
-    return 0;
 }
 
 
-int saena_matrix::print_entry(int ran, const std::string name){
+int saena_matrix::print_entry(int ran, const std::string &name) const{
 
     // if ran >= 0 print_entry the matrix entries on proc with rank = ran
     // otherwise print the matrix entries on all processors in order. (first on proc 0, then proc 1 and so on.)
@@ -1230,7 +1242,7 @@ int saena_matrix::print_entry(int ran, const std::string name){
 }
 
 
-int saena_matrix::print_info(int ran, const std::string name) {
+int saena_matrix::print_info(int ran, const std::string &name) const{
 
     // if ran >= 0 print the matrix info on proc with rank = ran
     // otherwise print the matrix info on all processors in order. (first on proc 0, then proc 1 and so on.)
@@ -1260,18 +1272,20 @@ int saena_matrix::print_info(int ran, const std::string name) {
 }
 
 
-int saena_matrix::writeMatrixToFile(){
-    // the matrix file will be written in the HOME directory.
+int saena_matrix::writeMatrixToFile() const{
+    // the matrix file will be written in the current directory, mat-ri.mtx on rank i.
 
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
-    if(rank==0) printf("The matrix file will be written in the HOME directory. \n");
-    writeMatrixToFile("");
+    if(rank==0) printf("The matrix file will be written in the current directory. \n");
+    writeMatrixToFile("mat");
     return 0;
 }
 
 
-int saena_matrix::writeMatrixToFile(const char *folder_name){
+int saena_matrix::writeMatrixToFile(const std::string &name) const{
+    // name: pass the name of the file. The file will be saved in the working directory. To save the file in another
+    //       directory, pass that path.
     // Create txt files with name mat-r0.txt for processor 0, mat-r1.txt for processor 1, etc.
     // Then, concatenate them in terminal: cat mat-r0.mtx mat-r1.mtx > mat.mtx
     // row and column indices of txt files should start from 1, not 0.
@@ -1282,16 +1296,8 @@ int saena_matrix::writeMatrixToFile(const char *folder_name){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    const char* homeDir = getenv("PWD");
-
-    std::ofstream outFileTxt;
-    std::string outFileNameTxt = homeDir;
-    outFileNameTxt += "/";
-    outFileNameTxt += folder_name;
-    outFileNameTxt += "/mat-r";
-    outFileNameTxt += std::to_string(rank);
-    outFileNameTxt += ".mtx";
-    outFileTxt.open(outFileNameTxt);
+    std::string outFileNameTxt = name + "-r" + std::to_string(rank) + ".mtx";
+    std::ofstream outFileTxt(outFileNameTxt);
 
     if(rank==0) std::cout << "\nWriting the matrix in: " << outFileNameTxt << std::endl;
 

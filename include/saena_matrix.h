@@ -90,11 +90,11 @@ public:
 
     index_t vIndexSize = 0;
     index_t recvSize   = 0;
-    std::vector<index_t> vIndex;
+    std::vector<index_t> vIndex;        // indices that should be sent during matvec
     std::vector<value_t> vSend;
     std::vector<value_t> vSend2;
     std::vector<value_t> vecValues;
-    std::vector<value_t> vecValues2; // for compressed matvec
+    std::vector<value_t> vecValues2;    // for compressed matvec
 
     std::vector<nnz_t> indicesP_local;
 
@@ -117,8 +117,11 @@ public:
     std::vector<nnz_t> iter_remote_array;
 //    std::vector<nnz_t> iter_local_array2;
     std::vector<nnz_t> iter_remote_array2;
-    std::vector<index_t> vElement_remote;
+    std::vector<index_t> vElement_remote;           // indices that should be received during matvec
     std::vector<value_t> w_buff; // for matvec3()
+
+    std::vector<value_t> temp1;      // to be used in smoothers
+    std::vector<value_t> temp2;      // to be used in smoothers
 
     bool add_duplicates = true;
     bool assembled = false; // use this parameter to determine which matrix.set() function to use.
@@ -270,7 +273,21 @@ public:
     int shrink_cpu_minor();
     int shrink_cpu_c(); // for the coarsest level
 
-    int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    inline void matvec(std::vector<value_t>& v, std::vector<value_t>& w){
+        if(switch_to_dense && density >= dense_threshold){
+            std::cout << "dense matvec is commented out!" << std::endl;
+            // uncomment to enable DENSE
+//            if(!dense_matrix_generated){
+//                generate_dense_matrix();
+//            }
+//            dense_matrix.matvec(v, w);
+
+        }else{
+            matvec_sparse(v,w);
+//            matvec_sparse_zfp(v,w);
+        }
+    }
+
     int matvec_sparse(std::vector<value_t>& v, std::vector<value_t>& w);
     int matvec_sparse_array(value_t *v, value_t *w);    // to be used in ietl.
 
@@ -316,14 +333,14 @@ public:
     int inverse_diag();
 
     // smoothers
-    int jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp);
-    int chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp, std::vector<value_t>& temp2, int level = 0);
+    void jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs);
+    void chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs, int level = 0);
 
     // I/O functions
-    int print_entry(int ran, std::string name = "");
-    int print_info(int ran, std::string name = "");
-    int writeMatrixToFile();
-    int writeMatrixToFile(const char *folder_name);
+    int print_entry(int ran, const std::string &name) const;
+    int print_info(int ran, const std::string &name) const;
+    int writeMatrixToFile() const;
+    int writeMatrixToFile(const std::string &name) const;
 
     // erase and destroy
     int set_zero();

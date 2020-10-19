@@ -8,6 +8,9 @@
 
 #include <random>
 
+#ifdef _USE_PETSC_
+#include "petsc_functions.h"
+#endif
 
 void saena_object::set_parameters(int max_iter, double tol, std::string sm, int preSm, int postSm){
 //    maxLevel = l-1; // maxLevel does not include fine level. fine level is 0.
@@ -388,9 +391,9 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
             }
 
             // write matrix to file
-            /*if(i == 0){
-                //grids[i].Ac.writeMatrixToFile("M_noscale");
-                A->writeMatrixToFile("test");
+            /*if(i == 2){
+                grids[i].Ac.writeMatrixToFile("M_noscale");
+                //A->writeMatrixToFile("test");
 				std::cout << "print P1" << std::endl;
 				exit(0);
             }*/
@@ -563,8 +566,14 @@ int saena_object::coarsen(Grid *grid, std::vector< std::vector< std::vector<int>
     }
 #endif
 
-    // **************************** compute_coarsen in PETSc ****************************
+    // **************************** Visualize using PETSc ****************************
+
+//    petsc_viewer(grid->A);
+//    petsc_viewer(&grid->P);
+//    petsc_viewer(&grid->R);
 //    petsc_viewer(&grid->Ac);
+
+    // **************************** compute_coarsen in PETSc ****************************
 
     // this part is only for experiments.
 //    petsc_coarsen(&grid->R, grid->A, &grid->P);
@@ -603,8 +612,24 @@ int saena_object::scale_vector(std::vector<value_t>& v, std::vector<value_t>& w)
 
 int saena_object::find_eig(saena_matrix& A){
 
+    for(index_t i = 0; i < A.values_local.size(); ++i){
+        A.values_local[i] *= A.inv_diag[A.row_local[i]];
+    }
+
+    for(index_t i = 0; i < A.values_remote.size(); ++i){
+        A.values_remote[i] *= A.inv_diag[A.row_remote[i]];
+    }
+
 //    find_eig_Elemental(A);
     find_eig_ietl(A);
+
+    for(index_t i = 0; i < A.values_local.size(); ++i){
+        A.values_local[i] /= A.inv_diag[A.row_local[i]];
+    }
+
+    for(index_t i = 0; i < A.values_remote.size(); ++i){
+        A.values_remote[i] /= A.inv_diag[A.row_remote[i]];
+    }
 
     return 0;
 }
