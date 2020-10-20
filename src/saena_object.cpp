@@ -609,12 +609,12 @@ int saena_object::scale_vector(std::vector<value_t>& v, std::vector<value_t>& w)
 
 int saena_object::find_eig(saena_matrix& A){
 
-    A.scale_matrix();
+    A.scale_matrix(false);
 
 //    find_eig_Elemental(A);
     find_eig_ietl(A);
 
-    A.scale_back_matrix();
+    A.scale_back_matrix(false);
 
 //    A.print_entry(-1, "A");
 
