@@ -1147,7 +1147,7 @@ void saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vect
 		std::cout << "only support so much grids" << std::endl;*/
 	//std::cout << eig_max_of_invdiagXA << std::endl;
 	//exit(0);
-	if (level == 0)
+	/*if (level == 0)
 		eig_max_of_invdiagXA = 9.7983;
 	else if(level == 1)
 		eig_max_of_invdiagXA = 7.4301;
@@ -1157,8 +1157,13 @@ void saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vect
 		eig_max_of_invdiagXA = 3.5559;
 	else
 		std::cout << "only support so much grids" << std::endl;
+	*/
+    //int rank;
+    //MPI_Comm_rank(comm, &rank);
+	//if (!rank)
+		//std::cout << eig_max_of_invdiagXA << std::endl;
 
-    const double alpha = 0.13 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
+    const double alpha = 0.14 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
     const double beta  = eig_max_of_invdiagXA;
     const double delta = (beta - alpha) / 2;
     const double theta = (beta + alpha) / 2;
