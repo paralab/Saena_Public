@@ -2085,17 +2085,17 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 
     double t_pcg2 = omp_get_wtime();
 
-    if(rank==0) {
-        printf("L0matvec\ndots\nRtransfer\nPtransfer\nsmooth\nsuperlu\npCG total\n\n");
-    }
-
-    print_time_ave(matvec_time1 / (i+1),       "L0matvec",  comm, true, false);
-    print_time_ave(dots / (i+1),               "dots",      comm, true, false);
-    print_time_ave(Rtransfer_time / (i+1),     "Rtransfer", comm, true, false);
-    print_time_ave(Ptransfer_time / (i+1),     "Ptransfer", comm, true, false);
-    print_time_ave(vcycle_smooth_time / (i+1), "smooth",    comm, true, false);
-    print_time_ave(superlu_time / (i+1),       "superlu",   comm, true, false);
-    print_time_ave((t_pcg2 - t_pcg1) / (i+1),  "total",     comm, true, false);
+//    if(rank==0) {
+//        printf("L0matvec\ndots\nRtransfer\nPtransfer\nsmooth\nsuperlu\npCG total\n\n");
+//    }
+//
+//    print_time_ave(matvec_time1 / (i+1),       "L0matvec",  comm, true, false);
+//    print_time_ave(dots / (i+1),               "dots",      comm, true, false);
+//    print_time_ave(Rtransfer_time / (i+1),     "Rtransfer", comm, true, false);
+//    print_time_ave(Ptransfer_time / (i+1),     "Ptransfer", comm, true, false);
+//    print_time_ave(vcycle_smooth_time / (i+1), "smooth",    comm, true, false);
+//    print_time_ave(superlu_time / (i+1),       "superlu",   comm, true, false);
+//    print_time_ave((t_pcg2 - t_pcg1) / (i+1),  "total",     comm, true, false);
 #if 0
     if(!rank) printf("\nP matvec:\n");
     if(!rank) printf("loc\ncomm\nrem\ntot\n");
