@@ -160,9 +160,6 @@ void CSCMat::compress_prep_compute(const index_t *v, index_t v_sz, GR_sz &comp_s
     // size is smaller than the original size.
     comp_sz.tot = v_sz * sizeof(index_t);
 
-    if(rank==rank_ver)
-        printf("v_sz = %d, comp_sz.tot = %ld\n", v_sz, comp_sz.tot);
-
     if(v_sz != 0) {
 
         for (int kiter = k_start; kiter < k_end; kiter += 8) {
