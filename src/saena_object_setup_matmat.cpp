@@ -104,10 +104,10 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
         // assert A entries
         index_t col_idx = 0;
         for (nnz_t i = 0; i < A.col_sz; i++) {
-//            col_idx = i + A.col_offset;
+//            col_idx = i + A.col_offset + 1;
             for (nnz_t j = A.col_scan[i] - 1; j < A.col_scan[i + 1] - 1; j++) {
 //                std::cout << j << "\t" << A.r[j] << "\t" << col_idx << "\t" << A.v[j] << "\n";
-                ASSERT((A.r[j] >= 0) && (A.r[j] <= A.row_sz), "rank: " << rank << ", A.r[j]: " << A.r[j] << ", A.row_sz: " << A.row_sz);
+                ASSERT((A.r[j] >= 1) && (A.r[j] <= A.row_sz), "rank: " << rank << ", A.r[j]: " << A.r[j] << ", A.row_sz: " << A.row_sz);
                 assert(i < A.col_sz);
 //                ASSERT(fabs(A.v[j]) > ALMOST_ZERO, "rank: " << rank << ", A.v[j]: " << A.v[j]);
             }
@@ -115,11 +115,11 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 
         // assert B entries
         for (nnz_t i = 0; i < B.col_sz; i++) {
-//        col_idx = i + B.col_offset;
+//        col_idx = i + B.col_offset + 1;
 //            if(rank==0) std::cout << "B.col_scan[i] - 1: " << B.col_scan[i]-1 << ", B.col_scan[i+1] - 1: " << B.col_scan[i+1]-1 << "\n";
             for (nnz_t j = B.col_scan[i] - 1; j < B.col_scan[i + 1] - 1; j++) {
 //                if(rank==0) std::cout << j << "\t" << B.r[j] << "\t" << col_idx << "\t" << B.v[j] << "\n";
-                ASSERT((B.r[j] >= 0) && (B.r[j] <= B.row_sz), "rank: " << rank << ", B.r[j]: " << B.r[j] << ", B.row_sz: " << B.row_sz);
+                ASSERT((B.r[j] >= 1) && (B.r[j] <= B.row_sz), "rank: " << rank << ", B.r[j]: " << B.r[j] << ", B.row_sz: " << B.row_sz);
                 assert(i < B.col_sz);
 //                ASSERT(fabs(B.v[j]) > ALMOST_ZERO, "rank " << rank << ": B(" << B.r[j] << ", " << col_idx << ") = " << B.v[j]);
             }
@@ -242,7 +242,7 @@ void saena_object::fast_mm(CSCMat_mm &A, CSCMat_mm &B, std::vector<cooEntry> &C,
 //                if(rank == 0) printf("col %3d: (%3d , %3d)\n", j, Cmkl_c_scan[j], Cmkl_c_scan[j+1]);
                 for (i = Cmkl_c_scan[j]; i < Cmkl_c_scan[j+1]; ++i, ++ii) {
                     C.emplace_back(Cmkl_r[ii] + ATHRSHLD, j + BTHRSHLD, Cmkl_v[ii]);
-//                    if(rank==0) printf("%3d: (%3d , %3d) = %8f\n", ii, Cmkl_r[ii] + 1, j + B.col_offset, Cmkl_v[ii]);
+//                    if(rank==0) printf("%3d: (%3d , %3d) = %.12f\n", ii, Cmkl_r[ii] - 1, j + B.col_offset, Cmkl_v[ii]);
                 }
             }
 
@@ -1534,6 +1534,8 @@ int saena_object::matmat_memory_alloc(CSCMat &A, CSCMat &B){
         }
 
         mempool3_sz = v_buffer_sz_max + r_cscan_buffer_sz_max;
+//        if(rank==56) printf("v_buffer_sz_max = %ld, r_cscan_buffer_sz_max = %ld, mempool3_sz = %ld\n",
+//                             v_buffer_sz_max, r_cscan_buffer_sz_max, mempool3_sz);
 
         try {
             mempool3 = new index_t[mempool3_sz]; // used to store mat_current in matmat()
@@ -1702,6 +1704,10 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
     MPI_Comm_rank(comm, &rank);
 
     int verbose_rank = 0;
+    case1_iter = 0;
+    case2_iter = 0;
+    case3_iter = 0;
+
 #ifdef __DEBUG1__
     if (verbose_matmat) {
         MPI_Barrier(comm);
@@ -2008,9 +2014,9 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
 
                 if (verbose_matmat) {
                     MPI_Barrier(comm);
-                    if (rank == verbose_rank) printf("matmat: step 4 - in for loop\n");
+                    if(rank == verbose_rank) printf("matmat: step 4 - in for loop\n");
                     MPI_Barrier(comm);
-                    printf("rank %d: next_owner: %4d, recv_nnz: %4lu, recv_size: %4lu, send_nnz = %4lu, send_size: %4lu, mat_recv_M: %4u\n",
+                    if(rank == verbose_rank) printf("rank %d: next_owner: %4d, recv_nnz: %4lu, recv_size: %4lu, send_nnz = %4lu, send_size: %4lu, mat_recv_M: %4u\n",
                            rank, next_owner, recv_nnz, recv_size, send_nnz, send_size, mat_recv_M);
                     MPI_Barrier(comm);
                 }
@@ -2086,13 +2092,21 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
 
 #ifdef __DEBUG1__
                 {
+                    // check the local row indices after compression and decompression.
+                    if(rank==owner){
+//                        std::cout << "Bcsc.nnz_list[owner]: " << Bcsc.nnz_list[owner] << std::endl;
+                        for(int i = 0; i < Bcsc.nnz_list[owner]; ++i){
+                            ASSERT(Bcsc.row[i] == mat_current_r[i], Bcsc.row[i] << "\t" << mat_current_r[i]);
+                        }
+                    }
+
 //                    if(rank==verbose_rank) printf("row_comp_sz: %d, col_comp_sz: %d, current_comp_sz: %d\n", row_comp_sz, col_comp_sz, current_comp_sz);
 //                    MPI_Barrier(comm);
-//                    auto mat_send_vv = reinterpret_cast<value_t*>(&mat_send[current_comp_sz]);
+//                    auto *mat_send_vv = reinterpret_cast<value_t*>(&mat_send[current_comp_sz]);
 //                    if(rank==verbose_rank){
 //                        std::cout << "Bcsc.nnz_list[owner]: " << Bcsc.nnz_list[owner] << std::endl;
 //                        for(int i = 0; i < Bcsc.nnz_list[owner]; ++i){
-//                            std::cout << i << "\t" << mat_current_r[i] << "\t" << mat_current_v[i] << "\t" << mat_send_vv[i] << std::endl;
+//                            std::cout << i << "\t" << Bcsc.row[i] << "\t" << mat_current_r[i] << "\t" << mat_current_v[i] << "\t" << mat_send_vv[i] << std::endl;
 //                        }
 //                        std::cout << std::endl;
 //                    }
@@ -2353,7 +2367,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
     }
 
 #ifdef __DEBUG1__
-//    print_vector(AB_temp, -1, "AB_temp", comm);
+//    print_vector(C_temp, -1, "C_temp", comm);
 #endif
 
     // =======================================
