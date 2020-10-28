@@ -1161,7 +1161,7 @@ void saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vect
     //int rank;
     //MPI_Comm_rank(comm, &rank);
 	//if (!rank)
-		//std::cout << eig_max_of_invdiagXA << std::endl;
+		//std::cout << "chebyshev iteration number = " << iter << std::endl;
 
     const double alpha = 0.14 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
     const double beta  = eig_max_of_invdiagXA;
