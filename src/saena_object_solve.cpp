@@ -1183,7 +1183,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
             // scale rhs of the next level
             if(scale) {
-                scale_vector(res_coarse, grid->coarseGrid->A->inv_sq_diag);
+                scale_vector(res_coarse, grid->coarseGrid->A->inv_sq_diag_orig);
             }
 
 //            uCorrCoarse.assign(grid->Ac.M, 0);
@@ -1192,7 +1192,7 @@ int saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_
 
             // scale uCorrCoarse
             if(scale) {
-                scale_vector(uCorrCoarse, grid->coarseGrid->A->inv_sq_diag);
+                scale_vector(uCorrCoarse, grid->coarseGrid->A->inv_sq_diag_orig);
             }
 
 #ifdef __DEBUG1__
@@ -1419,7 +1419,7 @@ int saena_object::solve(std::vector<value_t>& u){
     // ************** scale u **************
 
     if(scale){
-        scale_vector(u, A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag_orig);
     }
 
     // ************** repartition u back **************
@@ -1516,7 +1516,7 @@ int saena_object::solve_smoother(std::vector<value_t>& u){
     // ************** scale u **************
 
     if(scale){
-        scale_vector(u, A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag_orig);
     }
 
     // ************** repartition u back **************
@@ -1753,7 +1753,7 @@ int saena_object::solve_CG(std::vector<value_t>& u){
     // ************** scale u **************
 
     if(scale){
-        scale_vector(u, A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag_orig);
     }
 
     // ************** repartition u back **************
@@ -1902,7 +1902,7 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 
         // scale the solution u
         if(scale) {
-            scale_vector(u, A->inv_sq_diag);
+            scale_vector(u, A->inv_sq_diag_orig);
         }
 
         // repartition u back
@@ -1975,6 +1975,8 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 //        if(rank==0) printf("%d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
 //        if(rank==0) printf("%6d: aboslute = %.10f, relative = %.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/init_dot));
 #endif
+
+        if(rank==0) printf("%6d: aboslute = %.10f, relative = %.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/init_dot));
 
         if(current_dot < THRSHLD)
             break;
@@ -2053,8 +2055,10 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 
     // ************** scale u **************
 
+//    writeVectorToFile(u, "sol", comm);
+
     if(scale){
-        scale_vector(u, A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag_orig);
     }
 
     // ************** repartition u back **************
@@ -2570,7 +2574,7 @@ int saena_object::GMRES(std::vector<double> &u){
     // ************** scale u **************
 
     if(scale) {
-        scale_vector(u, A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag_orig);
     }
 
 #ifdef __DEBUG1__
@@ -2839,7 +2843,7 @@ int saena_object::pGMRES(std::vector<double> &u){
     // ************** scale u **************
 
     if(scale) {
-        scale_vector(u, A->inv_sq_diag);
+        scale_vector(u, A->inv_sq_diag_orig);
     }
 
 #ifdef __DEBUG1__
