@@ -88,48 +88,29 @@ int find_eig_ietl(Matrix& A){
 #endif
 
     std::vector<double> eigen;
-//    std::vector<double> err;
-//    std::vector<int>    multiplicity;
 
 //    try{
         lanczos.calculate_eigenvalues(iter, mygen);
         eigen = lanczos.eigenvalues();
-//        err   = lanczos.errors();
-//        multiplicity = lanczos.multiplicities();
-
-#ifdef __DEBUG1__
-        if(verbose_eig) {
-            MPI_Barrier(comm);
-            if(rank==0) std::cout<<"\nnumber of iterations to compute the biggest eigenvalue: "<<iter.iterations()<<"\n";
-            MPI_Barrier(comm);
-        }
-#endif
-
 //    } catch (std::runtime_error& e) {
 //        std::cout << e.what() << "\n";
 //    }
 
 #ifdef __DEBUG1__
-//    err          = lanczos.errors();
-//    multiplicity = lanczos.multiplicities();
-
     // Printing eigenvalues with error & multiplicities:
     // -------------------------------------------------
-//    if(rank==0) std::cout << "\n#        eigenvalue            error         multiplicity\n";
-//    std::cout.precision(10);
-//    if(rank==0) {
-//        for (int i = eigen.size()-1; i > eigen.size()-1-n_highest_eigv; --i)
-//            std::cout << i << "\t" << eigen[i] << "\t" << err[i] << "\t" << multiplicity[i] << "\n";}
-
-//    printf("rank %d: the biggest eigenvalue is %.14f (IETL) \n", rank, eigen.back());
-
-    if(verbose_eig) {
-        MPI_Barrier(comm);
-        if(rank==0) printf("the biggest eigenvalue is %f (IETL) \n", eigen.back());
-        MPI_Barrier(comm);
-    }
-
-//    if(rank==0) printf("the biggest eigenvalue of A is %f (IETL) \n", eigen.back());
+//    if(!rank) {
+//        std::vector<double> err          = lanczos.errors();
+//        std::vector<int>    multiplicity = lanczos.multiplicities();
+//        std::cout.precision(10);
+//
+//        printf("\nnumber of iterations to compute the biggest eigenvalue: %d\n", iter.iterations());
+//        printf("rank %d: the biggest eigenvalue: %.14f (IETL) \n", rank, eigen.back());
+//        printf("\n#        eigenvalue            error         multiplicity\n");
+//        for (auto i = eigen.size()-1; i > eigen.size()-1-n_highest_eigv; --i){
+//            std::cout << i << "\t" << eigen[i] << "\t" << err[i] << "\t\t" << multiplicity[i] << "\n";
+//        }
+//    }
 #endif
 
     // The number of max_iter for Lanzcos is set low for performance reasons, so there may be error for the largest

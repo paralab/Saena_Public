@@ -612,13 +612,18 @@ int saena_object::scale_vector(std::vector<value_t>& v, std::vector<value_t>& w)
 
 int saena_object::find_eig(saena_matrix& A){
 
-    A.scale_matrix(false);
+    // if the linear system is not scaled, scale the matrix only for computing the eigenvalue that is
+    // being used in chebyshev, since chebyshev uses the preconditioned matrix.
+
+    if(!scale)
+        A.scale_matrix(false);
 
 //    find_eig_Elemental(A);
     find_eig_ietl(A);
 
 //	cout << A. eig_max_of_invdiagXA << endl;
-    A.scale_back_matrix(false);
+    if(!scale)
+    	A.scale_back_matrix(false);
 
 //    A.print_entry(-1, "A");
 
