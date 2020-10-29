@@ -629,7 +629,7 @@ int prolong_matrix::writeMatrixToFile(const char *folder_name){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    const char* homeDir = getenv("HOME");
+    const char* homeDir = getenv("PWD");
 
     std::ofstream outFileTxt;
     std::string outFileNameTxt = homeDir;
@@ -659,7 +659,7 @@ int prolong_matrix::writeMatrixToFile(const char *folder_name){
 
     // first line of the file: row_size col_size nnz
     if(rank==0) {
-        outFileTxt << Mbig << "\t" << Mbig << "\t" << nnz_g << std::endl;
+        outFileTxt << Mbig << "\t" << Nbig << "\t" << nnz_g << std::endl;
     }
 
     for (nnz_t i = 0; i < entry_temp2.size(); i++) {

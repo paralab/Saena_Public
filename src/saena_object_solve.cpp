@@ -1075,23 +1075,24 @@ void saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value
 #endif
 
     double time_smooth_pre1 = 0.0, time_smooth_pre2 = 0.0;
-//    if (grid->level == 0) {
+
+    if (grid->level == 0) {
 #ifdef PROFILE_VCYCLE
         MPI_Barrier(comm);
         time_smooth_pre1 = omp_get_wtime();
 #endif
-//    }
+    }
 
     if (preSmooth) {
         smooth(grid, u, rhs, preSmooth);
     }
 
-//    if (grid->level == 0) {
+    if (grid->level == 0) {
 #ifdef PROFILE_VCYCLE
         time_smooth_pre2 = omp_get_wtime();
         vcycle_smooth_time += time_smooth_pre2 - time_smooth_pre1;
 #endif
-//    }
+    }
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
@@ -1209,10 +1210,17 @@ void saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value
 #endif
 
             // scale rhs of the next level
-            if(scale) {
+			if (scale)
                 scale_vector(res_coarse, grid->coarseGrid->A->inv_sq_diag_orig);
-            }
 
+			/*if (grid->level == 1)
+			{
+				for (int aaa = 0; aaa < res_coarse.size(); aaa++)
+				{
+					cout << res_coarse[aaa] << endl;
+				}
+				exit(0);
+			}*/
 //            uCorrCoarse.assign(grid->Ac.M, 0);
             fill(uCorrCoarse.begin(), uCorrCoarse.end(), 0);
             vcycle(grid->coarseGrid, uCorrCoarse, res_coarse);
@@ -1327,23 +1335,23 @@ void saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value
 #endif
 
     double time_smooth_post1 = 0.0, time_smooth_post2 = 0.0;
-//    if (grid->level == 0) {
+    if (grid->level == 0) {
 #ifdef PROFILE_VCYCLE
         MPI_Barrier(comm);
         time_smooth_post1 = omp_get_wtime();
-//    }
+    }
 #endif
 
     if(postSmooth){
         smooth(grid, u, rhs, postSmooth);
     }
 
-//    if (grid->level == 0) {
+    if (grid->level == 0) {
 #ifdef PROFILE_VCYCLE
         time_smooth_post2 = omp_get_wtime();
         vcycle_smooth_time += time_smooth_post2 - time_smooth_post1;
 #endif
-//    }
+    }
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
@@ -1844,6 +1852,7 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     }
 #endif
 
+    double vcycle_time = 0;
     Rtransfer_time = 0;
     Ptransfer_time = 0;
     superlu_time = 0;
@@ -2063,7 +2072,10 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         // **************************************************************
 
         std::fill(rho.begin(), rho.end(), 0);
-        vcycle(&grids[0], rho, r);
+		double time_vcycle1 = omp_get_wtime();
+    	vcycle(&grids[0], rho, r);
+		double time_vcycle2 = omp_get_wtime();
+		vcycle_time += time_vcycle2 - time_vcycle1;
 
         // **************************************************************
 
@@ -2096,7 +2108,6 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 //    print_time(t_dif, "solve_pcg", comm);
 
     if(rank==0){
-//        double t_pcg2 = omp_get_wtime();
         print_sep();
         printf("\nfinal:\nstopped at iteration    = %d \nfinal absolute residual = %e"
                        "\nrelative residual       = %e \n", i+1, sqrt(current_dot), sqrt(current_dot / init_dot));
