@@ -166,12 +166,40 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${ZFP_LIB})
 # -----------------------------------------------------------------------
 #PETSc
 
-#set(PETSC_DIR "~/softwares/petsc-3.8.4")
-#set(PETSC_LIB ${PETSC_DIR}/arch-linux2-c-debug/lib/libpetsc.so)
-#include_directories(
-#        ${PETSC_DIR}/include
-#        ${PETSC_DIR}/arch-linux2-c-debug/include
-#)
+option(ENABLE_PETSC OFF)
+
+set(PETSC_DIR $ENV{PETSC_DIR})
+set(PETSC_ARCH $ENV{PETSC_ARCH})
+
+if(ENABLE_PETSC)
+    if(NOT DEFINED ENV{PETSC_DIR})
+        message( FATAL_ERROR "PETSC_DIR is not set! CMake will exit." )
+    endif(NOT DEFINED ENV{PETSC_DIR})
+
+    if(NOT DEFINED ENV{PETSC_ARCH})
+        message( FATAL_ERROR "PETSC_ARCH is not set! CMake will exit." )
+    endif(NOT DEFINED ENV{PETSC_ARCH})
+
+#    set(PETSC_DIR $ENV{PETSC_DIR})
+#    set(PETSC_ARCH $ENV{PETSC_ARCH})
+    message(--\ PETSC_DIR:\ ${PETSC_DIR})
+    message(--\ PETSC_ARCH:\ ${PETSC_ARCH})
+
+    set(PETSC_LIB ${PETSC_DIR}/${PETSC_ARCH}/lib/libpetsc.so)
+    include_directories(
+            ${PETSC_DIR}/include
+            ${PETSC_DIR}/${PETSC_ARCH}/include
+    )
+
+    SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${PETSC_LIB})
+
+    set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES} ${SAENA_INCLUDE_DIR}/petsc_functions.h)
+    set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES} ${SAENA_SRC_DIR}/petsc_functions.cpp)
+
+#    add_compile_definitions(_USE_PETSC_) // requires newer cmake versions
+    add_definitions(-D_USE_PETSC_)
+
+endif(ENABLE_PETSC)
 
 # -----------------------------------------------------------------------
 # dollar (profiler)
