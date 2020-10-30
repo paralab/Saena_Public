@@ -166,9 +166,9 @@ int saena_object::setup(saena_matrix* A) {
             }
 
             // write matrix to file
-           //if(i == 2){
-                //grids[i].A->writeMatrixToFile("matr");
-           // }
+//            if(i == 2){
+//                grids[i + 1].A->writeMatrixToFile("saena");
+//            }
 
         }else{
 #ifdef __DEBUG1__
@@ -625,9 +625,8 @@ int saena_object::find_eig(saena_matrix& A){
 //    find_eig_Elemental(A);
     find_eig_ietl(A);
 
-//	cout << A. eig_max_of_invdiagXA << endl;
     if(!scale)
-    	A.scale_back_matrix(false);
+        A.scale_back_matrix(false);
 
 //    A.print_entry(-1, "A");
 

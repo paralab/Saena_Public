@@ -1123,7 +1123,7 @@ void saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t
 }
 
 
-void saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs, int level){
+void saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs){
 
 #ifdef __DEBUG1__
 //    int rank;
@@ -1133,37 +1133,7 @@ void saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vect
 //    }
 #endif
 
-	// TODO 
-	// hacked in only for test
-	/*if (level == 0)
-		eig_max_of_invdiagXA = 3.8695;
-	else if(level == 1)
-		eig_max_of_invdiagXA = 8.8214;
-	else if(level == 2)
-		eig_max_of_invdiagXA = 27.7656;
-	else if(level == 3)
-		eig_max_of_invdiagXA = 58.3432;
-	else
-		std::cout << "only support so much grids" << std::endl;*/
-	//std::cout << eig_max_of_invdiagXA << std::endl;
-	//exit(0);
-	/*if (level == 0)
-		eig_max_of_invdiagXA = 9.7983;
-	else if(level == 1)
-		eig_max_of_invdiagXA = 7.4301;
-	else if(level == 2)
-		eig_max_of_invdiagXA = 3.8429;
-	else if(level == 3)
-		eig_max_of_invdiagXA = 3.5559;
-	else
-		std::cout << "only support so much grids" << std::endl;
-	*/
-    //int rank;
-    //MPI_Comm_rank(comm, &rank);
-	//if (!rank)
-		//std::cout << "chebyshev iteration number = " << iter << std::endl;
-
-    const double alpha = 0.14 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
+    const double alpha = 0.13 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
     const double beta  = eig_max_of_invdiagXA;
     const double delta = (beta - alpha) / 2;
     const double theta = (beta + alpha) / 2;
