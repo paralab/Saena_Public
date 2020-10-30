@@ -4,6 +4,7 @@
 #include "saena_object.h"
 #include "saena_matrix.h"
 #include "aux_functions.h"
+#include "petsc_functions.h"
 
 // uncomment to print info for the lazy update feature
 // use this to store number of iterations for the lazy-update experiment.
@@ -1075,24 +1076,23 @@ void saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value
 #endif
 
     double time_smooth_pre1 = 0.0, time_smooth_pre2 = 0.0;
-
-    if (grid->level == 0) {
+//    if (grid->level == 0) {
 #ifdef PROFILE_VCYCLE
         MPI_Barrier(comm);
         time_smooth_pre1 = omp_get_wtime();
 #endif
-    }
+//    }
 
     if (preSmooth) {
         smooth(grid, u, rhs, preSmooth);
     }
 
-    if (grid->level == 0) {
+//    if (grid->level == 0) {
 #ifdef PROFILE_VCYCLE
         time_smooth_pre2 = omp_get_wtime();
         vcycle_smooth_time += time_smooth_pre2 - time_smooth_pre1;
 #endif
-    }
+//    }
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
@@ -1210,17 +1210,10 @@ void saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value
 #endif
 
             // scale rhs of the next level
-			if (scale)
+            if(scale) {
                 scale_vector(res_coarse, grid->coarseGrid->A->inv_sq_diag_orig);
+            }
 
-			/*if (grid->level == 1)
-			{
-				for (int aaa = 0; aaa < res_coarse.size(); aaa++)
-				{
-					cout << res_coarse[aaa] << endl;
-				}
-				exit(0);
-			}*/
 //            uCorrCoarse.assign(grid->Ac.M, 0);
             fill(uCorrCoarse.begin(), uCorrCoarse.end(), 0);
             vcycle(grid->coarseGrid, uCorrCoarse, res_coarse);
@@ -1335,23 +1328,23 @@ void saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value
 #endif
 
     double time_smooth_post1 = 0.0, time_smooth_post2 = 0.0;
-    if (grid->level == 0) {
+//    if (grid->level == 0) {
 #ifdef PROFILE_VCYCLE
         MPI_Barrier(comm);
         time_smooth_post1 = omp_get_wtime();
-    }
+//    }
 #endif
 
     if(postSmooth){
         smooth(grid, u, rhs, postSmooth);
     }
 
-    if (grid->level == 0) {
+//    if (grid->level == 0) {
 #ifdef PROFILE_VCYCLE
         time_smooth_post2 = omp_get_wtime();
         vcycle_smooth_time += time_smooth_post2 - time_smooth_post1;
 #endif
-    }
+//    }
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
@@ -1844,7 +1837,7 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     MPI_Comm_rank(comm, &rank);
 
 #ifdef __DEBUG1__
-//        print_vector(u, -1, "u", comm);
+//    print_vector(u, -1, "u", comm);
     if(verbose_solve){
         MPI_Barrier(comm);
         if(rank == 0) printf("solve_pcg: start!\n");
@@ -1852,12 +1845,12 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     }
 #endif
 
-    double vcycle_time = 0;
     Rtransfer_time = 0;
     Ptransfer_time = 0;
     superlu_time = 0;
     vcycle_smooth_time = 0;
     vcycle_other_time = 0;
+    double vcycle_time = 0;
     double matvec_time1 = 0;
     double dots = 0;
 
@@ -2061,7 +2054,7 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 #ifdef __DEBUG1__
         if(verbose){
             MPI_Barrier(comm);
-            if(!rank) printf("_______________________________ \n\n***** Vcycle %u *****\n", i+1);
+            if(!rank) printf("_______________________________\n\n***** Vcycle %u *****\n", i+1);
             MPI_Barrier(comm);
         }
 #endif
@@ -2071,11 +2064,17 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         // solve A * rho = r, in which rho is initialized to the 0 vector.
         // **************************************************************
 
+#ifdef PROFILE_PCG
+        double time_vcycle1 = omp_get_wtime();
+#endif
+
         std::fill(rho.begin(), rho.end(), 0);
-		double time_vcycle1 = omp_get_wtime();
-    	vcycle(&grids[0], rho, r);
-		double time_vcycle2 = omp_get_wtime();
-		vcycle_time += time_vcycle2 - time_vcycle1;
+        vcycle(&grids[0], rho, r);
+
+#ifdef PROFILE_PCG
+        double time_vcycle2 = omp_get_wtime();
+        vcycle_time += time_vcycle2 - time_vcycle1;
+#endif
 
         // **************************************************************
 
@@ -2108,6 +2107,7 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
 //    print_time(t_dif, "solve_pcg", comm);
 
     if(rank==0){
+//        double t_pcg2 = omp_get_wtime();
         print_sep();
         printf("\nfinal:\nstopped at iteration    = %d \nfinal absolute residual = %e"
                        "\nrelative residual       = %e \n", i+1, sqrt(current_dot), sqrt(current_dot / init_dot));
@@ -2132,12 +2132,6 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         MPI_Barrier(comm);
     }
 #endif
-
-    // ************** destroy data from SuperLU **************
-
-//    if(grids.back().active) {
-//        destroy_SuperLU();
-//    }
 
     // ************** scale u **************
 
@@ -2169,35 +2163,25 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     double t_pcg2 = omp_get_wtime();
 #endif
 
-    if(rank==0) {
-#ifdef PROFILE_PCG
-        printf("\nL0matvec\ndots\n");
-#endif
-
 #ifdef PROFILE_VCYCLE
-        printf("Rtransfer\nPtransfer\nsmooth\nsuperlu\nvcycle other\n");
-#endif
-
-#ifdef PROFILE_TOTAL_PCG
-        printf("pCG total\n\n");
-#endif
-    }
-
-#ifdef PROFILE_PCG
-    print_time_ave(matvec_time1 / (i+1),       "L0matvec",     comm, true, false);
-    print_time_ave(dots / (i+1),               "dots",         comm, true, false);
-#endif
-
-#ifdef PROFILE_VCYCLE
+    if(!rank) printf("\nRtransfer\nPtransfer\nsmooth\nsuperlu\nvcycle_other\n\n");
     print_time_ave(Rtransfer_time / (i+1),     "Rtransfer",    comm, true, false);
     print_time_ave(Ptransfer_time / (i+1),     "Ptransfer",    comm, true, false);
     print_time_ave(vcycle_smooth_time / (i+1), "smooth",       comm, true, false);
     print_time_ave(superlu_time / (i+1),       "superlu",      comm, true, false);
-    print_time_ave(vcycle_other_time / (i+1),  "vcycle other", comm, true, false);
+    print_time_ave(vcycle_other_time / (i+1),  "vcycle_other", comm, true, false);
+#endif
+
+#ifdef PROFILE_PCG
+    if(!rank) printf("\nvcycle_pCG\nL0matvec\ndots\n\n");
+    print_time_ave(vcycle_time / (i+1),        "vcycle_pCG",   comm, true, false);
+    print_time_ave(matvec_time1 / (i+1),       "L0matvec",     comm, true, false);
+    print_time_ave(dots / (i+1),               "dots",         comm, true, false);
 #endif
 
 #ifdef PROFILE_TOTAL_PCG
-    print_time_ave((t_pcg2 - t_pcg1) / (i+1),  "total",     comm, true, false);
+    if(!rank) printf("\npCG_total\n");
+    print_time_ave((t_pcg2 - t_pcg1) / (i+1),  "pCG_total",    comm, true, false);
 #endif
 
 #if 0
@@ -2229,6 +2213,11 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         }
     }
 #endif
+
+    // call petsc solver
+//    std::vector<double> u_petsc(rhs.size());
+//    petsc_solve(A, rhs, u_petsc, solver_tol);
+
     return 0;
 }
 

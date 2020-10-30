@@ -20,9 +20,11 @@
 #define ITER_LAZY 20
 
 // uncomment to enable timing
-#define PROFILE_PCG
-#define PROFILE_TOTAL_PCG
-#define PROFILE_VCYCLE
+// to have a more accurate timing for PROFILE_TOTAL_PCG, comment out PROFILE_PCG and PROFILE_VCYCLE, since they
+// have barriers and are inside PROFILE_TOTAL_PCG.
+//#define PROFILE_PCG
+//#define PROFILE_TOTAL_PCG
+//#define PROFILE_VCYCLE
 
 class strength_matrix;
 class saena_matrix;
@@ -313,7 +315,7 @@ public:
         if(smoother == "jacobi"){
             grid->A->jacobi(iter, u, rhs);
         }else if(smoother == "chebyshev"){
-            grid->A->chebyshev(iter, u, rhs, grid->level);
+            grid->A->chebyshev(iter, u, rhs);
         }
 //        else{
 //            printf("Error: Unknown smoother");
