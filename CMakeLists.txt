@@ -125,7 +125,7 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_LIB_CORE} ${MKL_LIB_L
 
 include_directories(external/ietl)
 
-set(HEADER_FILES ${HEADER_FILES}
+set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
         include/ietl_saena.h
         )
 
@@ -133,7 +133,7 @@ set(HEADER_FILES ${HEADER_FILES}
 # usort: to sort elements in parallel
 
 include_directories(external/usort/include)
-set(SOURCE_FILES ${SOURCE_FILES}
+set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
         external/usort/src/binUtils.cpp
         external/usort/src/parUtils.cpp
         external/usort/src/sort_profiler.cpp
@@ -144,7 +144,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 #include_directories(external/pugixml/include)
 
-#set(SOURCE_FILES ${SOURCE_FILES}
+#set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
 #        external/pugixml/src/pugixml.cpp
 #        )
 
@@ -193,8 +193,8 @@ if(ENABLE_PETSC)
 
     SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${PETSC_LIB})
 
-    set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES} ${SAENA_INCLUDE_DIR}/petsc_functions.h)
-    set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES} ${SAENA_SRC_DIR}/petsc_functions.cpp)
+    set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES} include/petsc_functions.h)
+    set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES} src/petsc_functions.cpp)
 
 #    add_compile_definitions(_USE_PETSC_) // requires newer cmake versions
     add_definitions(-D_USE_PETSC_)
@@ -222,7 +222,7 @@ include_directories(
 
 include_directories(include)
 
-set(HEADER_FILES ${HEADER_FILES}
+set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
         include/saena.hpp
         include/aux_functions.h
         include/data_struct.h
@@ -237,8 +237,7 @@ set(HEADER_FILES ${HEADER_FILES}
         include/GR_encoder.h
         )
 
-set(SOURCE_FILES ${SOURCE_FILES}
-        ${HEADER_FILES}
+set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
         src/saena.cpp
         src/aux_functions.cpp
         src/data_struct.cpp
@@ -273,8 +272,8 @@ set(SOURCE_FILES ${SOURCE_FILES}
 # NEKTAR++
 
 #ADD_NEKTAR_LIBRARY(Saena
-#        SOURCES ${SOURCE_FILES}
-#        HEADERS ${HEADER_FILES}
+#        SOURCES ${SAENA_SOURCE_FILES}
+#        HEADERS ${SAENA_HEADER_FILES}
 #        SUMMARY "Nektar++ Saena fast multigrid solver library"
 #        DESCRIPTION "This library provides fast multigrid solves.")
 
@@ -286,6 +285,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
 set(CMAKE_INSTALL_RPATH "/usr/local/lib" "${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/lib"
         "${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/${CMAKE_INSTALL_LIBDIR}")
 
-add_library(saena SHARED ${SOURCE_FILES})
+add_library(saena SHARED ${SAENA_SOURCE_FILES})
 target_link_libraries(saena ${SAENA_LIB_DEPENDENCIES})
 install(TARGETS saena DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/ThirdParty/dist/lib)
