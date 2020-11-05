@@ -395,12 +395,9 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
             }
 
             // write matrix to file
-            /*if(i == 2){
-                grids[i].Ac.writeMatrixToFile("M_noscale");
-                //A->writeMatrixToFile("test");
-				std::cout << "print P1" << std::endl;
-				exit(0);
-            }*/
+//            if(i == 2){
+//                grids[i + 1].A->writeMatrixToFile("saena");
+//            }
         }else{
 #ifdef __DEBUG1__
             if(verbose_setup_steps){printf("rank %d is not active for grids[%d].Ac.\n", rank, i);}

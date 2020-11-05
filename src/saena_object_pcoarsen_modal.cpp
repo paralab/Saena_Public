@@ -444,6 +444,7 @@ void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_
     //skip bdy node
     //vector<int> skip;
 */
+
     // loop over all elements
     // elemno is the local element number
 //    int max_col = 0;
