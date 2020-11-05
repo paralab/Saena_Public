@@ -186,6 +186,8 @@ if(ENABLE_PETSC)
     message(--\ PETSC_ARCH:\ ${PETSC_ARCH})
 
     set(PETSC_LIB ${PETSC_DIR}/${PETSC_ARCH}/lib/libpetsc.so)
+	set(PETSC_HYPRE_LIB ${PETSC_DIR}/${PETSC_ARCH}/lib/libHYPRE.so)
+#	set(PETSC_LIB ${PETSC_LIB} ${PETSC_DIR}/${PETSC_ARCH}/lib/libHYPRE.so)
     include_directories(
             ${PETSC_DIR}/include
             ${PETSC_DIR}/${PETSC_ARCH}/include

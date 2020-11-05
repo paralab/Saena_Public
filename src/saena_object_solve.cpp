@@ -1828,6 +1828,7 @@ int saena_object::solve_CG(std::vector<value_t>& u){
 
 int saena_object::solve_pCG(std::vector<value_t>& u){
 
+
     auto *A = grids[0].A;
     vector<value_t> &rhs = grids[0].rhs;
 
@@ -1836,6 +1837,11 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+	if (rank == 0)
+		std::cout << "using petsc AMG solver" << std::endl;
+    // call petsc solver
+    std::vector<double> u_petsc(rhs.size());
+    petsc_solve(A, rhs, u_petsc, solver_tol);
 #ifdef __DEBUG1__
 //    print_vector(u, -1, "u", comm);
     if(verbose_solve){
@@ -2036,15 +2042,15 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         dots += dot2 - dot1;
 #endif
 
-#ifdef __DEBUG1__
+//#ifdef __DEBUG1__
 //        printf("rho_res = %e, pdoth = %e, alpha = %f \n", rho_res, pdoth, alpha);
 //        print_vector(u, -1, "v inside solve_pcg", A->comm);
 //        previous_dot = current_dot;
 
         // print the "absolute residual" and the "convergence factor":
-//        if(rank==0) printf("%d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
-//        if(rank==0) printf("%6d: aboslute = %.10f, relative = %.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/init_dot));
-#endif
+        //if(rank==0) printf("%d: %.10f  \t%.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/previous_dot));
+        if(rank==0) printf("%6d: aboslute = %.10f, relative = %.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/init_dot));
+//#endif
 
 //        if(rank==0) printf("%6d: aboslute = %.10f, relative = %.10f \n", i+1, sqrt(current_dot), sqrt(current_dot/init_dot));
 
@@ -2214,9 +2220,6 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     }
 #endif
 
-    // call petsc solver
-//    std::vector<double> u_petsc(rhs.size());
-//    petsc_solve(A, rhs, u_petsc, solver_tol);
 
     return 0;
 }
@@ -2712,6 +2715,11 @@ int saena_object::pGMRES(std::vector<double> &u){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+	if (rank == 0)
+		std::cout << "using petsc AMG solver" << std::endl;
+    // call petsc solver
+    std::vector<double> u_petsc(rhs.size());
+    petsc_solve(A, rhs, u_petsc, solver_tol);
 #ifdef __DEBUG1__
     if(verbose_solve){
         MPI_Barrier(comm);
@@ -2883,6 +2891,7 @@ int saena_object::pGMRES(std::vector<double> &u){
 
             resid = fabs(s[i + 1]) / normb;
 
+                if (rank == 0) printf("resid: %e \t1st resid\n", resid);
 #ifdef __DEBUG1__
             if (verbose_solve) {
                 MPI_Barrier(comm);

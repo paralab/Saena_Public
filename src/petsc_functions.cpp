@@ -976,7 +976,11 @@ int petsc_solve(saena_matrix *A1, vector<value_t> &b1, vector<value_t> &x1, cons
     MPI_Comm comm = A1->comm;
     PETSC_COMM_WORLD = comm;
     PetscInitialize(nullptr, nullptr, nullptr, nullptr);
-
+	CHKERRQ(PetscOptionsInsertString(nullptr,"-ksp_type cg -pc_type gamg -pc_gamg_type agg -pc_gamg_agg_nsmooths 3 -pc_gamg_threshold 0.01 0.01 0.01 -pc_gamg_square_graph 0 -ksp_monitor_true_residual -ksp_max_it 500 -ksp_rtol 1e-6 -ksp_converged_reason"));
+	//CHKERRQ(PetscOptionsInsertString(nullptr,"-ksp_type cg -pc_type gamg -pc_gamg_type agg -pc_gamg_agg_nsmooths 3 -pc_gamg_threshold 0.01 0.01 0.01  -ksp_monitor_true_residual -ksp_max_it 500 -ksp_rtol 1e-6"));
+	//CHKERRQ(PetscOptionsInsertString(nullptr,"-ksp_type gmres -pc_type ml -pc_ml_Threshold 0.01 -pc_ml_CoarsenScheme MIS -pc_ml_maxCoarseSize 1000 -ksp_monitor_true_residual -ksp_max_it 500 -ksp_rtol 1e-6"));
+	//CHKERRQ(PetscOptionsInsertString(nullptr,"-ksp_type gmres -pc_type hypre -pc_hypre_type boomeramg -ksp_monitor_true_residual -ksp_max_it 500 -ksp_rtol 1e-6"));
+	
     int rank = 0;
     MPI_Comm_rank(comm, &rank);
 
@@ -991,22 +995,48 @@ int petsc_solve(saena_matrix *A1, vector<value_t> &b1, vector<value_t> &x1, cons
 
     KSPCreate(PETSC_COMM_WORLD, &ksp);
     KSPSetOperators(ksp, A, A);
-    KSPSetTolerances(ksp, rel_tol, 1.e-50, PETSC_DEFAULT, 1000);
+    //KSPSetTolerances(ksp, rel_tol, 1.e-6, PETSC_DEFAULT, 1000);
 
-//    KSPGetPC(ksp, &pc);
-//    PCSetType(pc, PCHMG);
-//    PCHMGSetInnerPCType(pc, PCGAMG);
-//    PCHMGSetReuseInterpolation(pc,PETSC_TRUE);
-//    PCHMGSetUseSubspaceCoarsening(pc,PETSC_TRUE);
-//    PCHMGUseMatMAIJ(pc,PETSC_FALSE);
-//    PCHMGSetCoarseningComponent(pc,0);
+	// set ksp monitor
+	/*PetscViewerAndFormat *vf;
+	PetscViewerAndFormatCreate(PETSC_VIEWER_STDOUT_WORLD,PETSC_VIEWER_DEFAULT,&vf);	
+	KSPMonitorSet(ksp,(PetscErrorCode (*)(KSP,PetscInt,PetscReal,void*))KSPMonitorDefault,vf,(PetscErrorCode (*)(void**))PetscViewerAndFormatDestroy);
+	KSPMonitorSet(ksp,(PetscErrorCode (*)(KSP,PetscInt,PetscReal,void*))KSPMonitorTrueResidualNorm,vf,(PetscErrorCode (*)(void**))PetscViewerAndFormatDestroy);*/
 
-    KSPGetPC(ksp, &pc);
-    PCSetType(pc, PCGAMG);
+	// set ksp and pc type
+	//KSPSetType(ksp, KSPGMRES);
+    //KSPGetPC(ksp, &pc);
+
+	// using petsc AMG
+    /*PCSetType(pc, PCGAMG);
+	PCGAMGSetType(pc, PCGAMGAGG);
+	PCGAMGSetNSmooths(pc,3);
+	PetscReal v[3] = {0.01, 0.01, 0.01};
+	PCGAMGSetThreshold(pc, v, 3); 
+	PCGAMGSetSquareGraph(pc,0);*/
+
+	// using hypre
+	//PCFactorSetShiftType(pc, MAT_SHIFT_POSITIVE_DEFINITE);
+    //PCSetType(pc, PCHYPRE);
+	//PCHYPRESetType(pc, "boomeramg");
+
+	// using ml
+	//PCFactorSetShiftType(pc, MAT_SHIFT_POSITIVE_DEFINITE);
+    //PCSetType(pc, PCML);
 
     KSPSetFromOptions(ksp);
+    //KSPGetPC(ksp, &pc);
+	//PCFactorSetShiftType(pc, MAT_SHIFT_POSITIVE_DEFINITE);
+	
+	//KSPType ksptype;
+	//KSPGetType(ksp,&ksptype);
+	//PetscPrintf(PETSC_COMM_WORLD,"KSPType: %s\n", ksptype);
+
     KSPSolve(ksp,b,x);
 
+	//KSPConvergedReason reason;
+	//KSPGetConvergedReason(ksp,&reason);
+	//PetscPrintf(PETSC_COMM_WORLD,"KSPConvergedReason: %D\n", reason);
 //    VecView(x, PETSC_VIEWER_STDOUT_WORLD);
 
     VecGetArray(x, &array);
