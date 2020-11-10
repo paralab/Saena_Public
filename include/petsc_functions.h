@@ -35,7 +35,7 @@ int petsc_coarsen_PtAP(restrict_matrix *R, saena_matrix *A, prolong_matrix *P);
 int petsc_coarsen_2matmult(restrict_matrix *R, saena_matrix *A, prolong_matrix *P);
 int petsc_check_matmatmat(restrict_matrix *R, saena_matrix *A, prolong_matrix *P, saena_matrix *Ac);
 
-int petsc_solve(saena_matrix *A, vector<value_t> &rhs, vector<value_t> &u, const double &rel_tol);
+int petsc_solve(saena_matrix *A, vector<value_t> &rhs, vector<value_t> &u, const double &rel_tol, const char in_str[]);
 
 #endif //SAENA_PETSC_FUNCTIONS_H
 

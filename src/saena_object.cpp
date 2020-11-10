@@ -393,7 +393,6 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
                            grids[i + 1].A->density, (grids[i].A->p_order == 1 ? "h-coarsen" : "p-coarsen"));
                 }
             }
-
             // write matrix to file
 //            if(i == 2){
 //                grids[i + 1].A->writeMatrixToFile("saena");
@@ -469,7 +468,7 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
 
 int saena_object::coarsen(Grid *grid, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all, std::vector<int> &order_dif){
 
-#ifdef __DEBUG1__
+//#ifdef __DEBUG1__
     int nprocs = -1, rank = -1;
     MPI_Comm_size(grid->A->comm, &nprocs);
     MPI_Comm_rank(grid->A->comm, &rank);
@@ -482,7 +481,7 @@ int saena_object::coarsen(Grid *grid, std::vector< std::vector< std::vector<int>
 
 //    grid->A->print_info(-1);
     double t1 = 0, t2 = 0;
-#endif
+//#endif
 
     // **************************** create_prolongation ****************************
 

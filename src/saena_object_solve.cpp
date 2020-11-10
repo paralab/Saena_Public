@@ -1837,11 +1837,46 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-	if (rank == 0)
-		std::cout << "using petsc AMG solver" << std::endl;
-    // call petsc solver
+	solver_tol = 1e-6;
+	char *petsc_option;
     std::vector<double> u_petsc(rhs.size());
-    petsc_solve(A, rhs, u_petsc, solver_tol);
+
+    // call gamg
+/*	if (rank == 0)
+		std::cout << "using GAMG solver" << std::endl;
+    u_petsc.clear();
+	petsc_option =  "-ksp_type cg -pc_type gamg"
+					" -pc_mg_galerkin external -pc_gamg_type agg -pc_gamg_agg_nsmooths 1"
+				    " -mg_levels_ksp_type chebyshev -mg_levels_pc_type jacobi -mg_levels_ksp_max_it 3"
+					" -pc_gamg_threshold 0.015 -pc_gamg_sym_graph false -pc_gamg_square_graph 0"
+					" -ksp_monitor_true_residual -ksp_norm_type unpreconditioned -ksp_max_it 500 -ksp_rtol 1e-6 -ksp_converged_reason -ksp_view";
+    petsc_solve(A, rhs, u_petsc, solver_tol, petsc_option);
+*/	
+    // call ml
+/*	if (rank == 0)
+		std::cout << "using ML solver" << std::endl;
+    u_petsc.clear();
+	petsc_option =  "-ksp_type cg -pc_type ml"
+				    " -pc_mg_galerkin external -mg_levels_ksp_type chebyshev -mg_levels_pc_type jacobi -mg_levels_ksp_max_it 3"
+				    " -pc_ml_maxNlevels 4"
+					" -pc_ml_Threshold 0.19 -pc_ml_CoarsenScheme Uncoupled"// -pc_ml_maxCoarseSize 100"
+					" -ksp_monitor_true_residual -ksp_norm_type unpreconditioned -ksp_max_it 500 -ksp_rtol 1e-6 -ksp_converged_reason -ksp_view";
+    petsc_solve(A, rhs, u_petsc, solver_tol, petsc_option);
+*/
+    // call hypre
+/*	if (rank == 0)
+		std::cout << "using HYPRE solver" << std::endl;
+    u_petsc.clear();
+	petsc_option = 	"-ksp_type cg -pc_type hypre -pc_hypre_type boomeramg" 
+				  	" -pc_hypre_boomeramg_max_levels 4 -pc_hypre_boomeramg_relax_type_all Chebyshev -pc_hypre_boomeramg_grid_sweeps_all 3"
+					" -pc_hypre_boomeramg_strong_threshold 0.28 -pc_hypre_boomeramg_coarsen_type HMIS"
+					" -pc_hypre_boomeramg_agg_nl 2 -pc_hypre_boomeramg_agg_num_paths 3"
+					" -ksp_monitor_true_residual -ksp_norm_type unpreconditioned -ksp_max_it 500 -ksp_rtol 1e-6 -ksp_converged_reason -ksp_view"
+					;//" -pc_hypre_boomeramg_print_statistics";// -log_view";
+					//" -pc_hypre_boomeramg_print_debug";// -log_view";
+    petsc_solve(A, rhs, u_petsc, solver_tol, petsc_option);
+*/
+
 #ifdef __DEBUG1__
 //    print_vector(u, -1, "u", comm);
     if(verbose_solve){
@@ -2715,11 +2750,14 @@ int saena_object::pGMRES(std::vector<double> &u){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-	if (rank == 0)
+
+	/*if (rank == 0)
 		std::cout << "using petsc AMG solver" << std::endl;
     // call petsc solver
     std::vector<double> u_petsc(rhs.size());
-    petsc_solve(A, rhs, u_petsc, solver_tol);
+    petsc_solve(A, rhs, u_petsc, solver_tol);*/
+
+
 #ifdef __DEBUG1__
     if(verbose_solve){
         MPI_Barrier(comm);

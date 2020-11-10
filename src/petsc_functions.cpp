@@ -963,7 +963,7 @@ int petsc_saena_vector(saena_vector *v, Vec &w){
 }
 
 
-int petsc_solve(saena_matrix *A1, vector<value_t> &b1, vector<value_t> &x1, const double &rel_tol){
+int petsc_solve(saena_matrix *A1, vector<value_t> &b1, vector<value_t> &x1, const double &rel_tol, const char in_str[]){
 
     Vec            x,b;      /* approx solution, RHS */
     Mat            A;        /* linear system matrix */
@@ -976,7 +976,9 @@ int petsc_solve(saena_matrix *A1, vector<value_t> &b1, vector<value_t> &x1, cons
     MPI_Comm comm = A1->comm;
     PETSC_COMM_WORLD = comm;
     PetscInitialize(nullptr, nullptr, nullptr, nullptr);
-	CHKERRQ(PetscOptionsInsertString(nullptr,"-ksp_type cg -pc_type gamg -pc_gamg_type agg -pc_gamg_agg_nsmooths 3 -pc_gamg_threshold 0.01 0.01 0.01 -pc_gamg_square_graph 0 -ksp_monitor_true_residual -ksp_max_it 500 -ksp_rtol 1e-6 -ksp_converged_reason"));
+	PetscLogDefaultBegin();
+	CHKERRQ(PetscOptionsInsertString(nullptr, in_str));
+	//CHKERRQ(PetscOptionsInsertString(nullptr,"-ksp_type cg -pc_type gamg -pc_gamg_type agg -pc_gamg_agg_nsmooths 3 -pc_gamg_threshold 0.01 0.01 0.01 -pc_gamg_square_graph 0 -ksp_monitor_true_residual -ksp_max_it 500 -ksp_rtol 1e-6 -ksp_converged_reason"));
 	//CHKERRQ(PetscOptionsInsertString(nullptr,"-ksp_type cg -pc_type gamg -pc_gamg_type agg -pc_gamg_agg_nsmooths 3 -pc_gamg_threshold 0.01 0.01 0.01  -ksp_monitor_true_residual -ksp_max_it 500 -ksp_rtol 1e-6"));
 	//CHKERRQ(PetscOptionsInsertString(nullptr,"-ksp_type gmres -pc_type ml -pc_ml_Threshold 0.01 -pc_ml_CoarsenScheme MIS -pc_ml_maxCoarseSize 1000 -ksp_monitor_true_residual -ksp_max_it 500 -ksp_rtol 1e-6"));
 	//CHKERRQ(PetscOptionsInsertString(nullptr,"-ksp_type gmres -pc_type hypre -pc_hypre_type boomeramg -ksp_monitor_true_residual -ksp_max_it 500 -ksp_rtol 1e-6"));
@@ -1025,6 +1027,11 @@ int petsc_solve(saena_matrix *A1, vector<value_t> &b1, vector<value_t> &x1, cons
     //PCSetType(pc, PCML);
 
     KSPSetFromOptions(ksp);
+    KSPGetPC(ksp, &pc);
+	PCGAMGSetNlevels(pc, 6);
+	//PetscInt nn;
+	//PCMGSetLevels(pc, 3, &comm);
+	//std::cout << "levels: " << nn << std::endl;
     //KSPGetPC(ksp, &pc);
 	//PCFactorSetShiftType(pc, MAT_SHIFT_POSITIVE_DEFINITE);
 	
