@@ -8,6 +8,9 @@
 
 #include <random>
 
+#ifdef _USE_PETSC_
+#include "petsc_functions.h"
+#endif
 
 void saena_object::set_parameters(int max_iter, double tol, std::string sm, int preSm, int postSm){
 //    maxLevel = l-1; // maxLevel does not include fine level. fine level is 0.
@@ -23,6 +26,10 @@ MPI_Comm saena_object::get_orig_comm(){
     return grids[0].A->comm;
 }
 
+void saena_object::set_dynamic_levels(const bool &dl /*= true*/){
+    dynamic_levels = dl;
+}
+
 
 int saena_object::setup(saena_matrix* A) {
     int nprocs = -1, rank = -1;
@@ -31,11 +38,13 @@ int saena_object::setup(saena_matrix* A) {
 
 #pragma omp parallel default(none) shared(rank, nprocs)
     if(!rank && omp_get_thread_num()==0)
-        printf("\nnumber of processes = %d\nnumber of threads   = %d\n\n", nprocs, omp_get_num_threads());
+        printf("\nnumber of processes: %d\nnumber of threads:   %d\n", nprocs, omp_get_num_threads());
 
     if(verbose_setup){
         MPI_Barrier(A->comm);
         if(!rank){
+            printf("Operator smoother:   %s\n", PSmoother.c_str());
+            printf("connStrength:        %.2f\n", connStrength);
             printf("_____________________________\n\n");
             printf("level = 0 \nnumber of procs = %d \nmatrix size \t= %d \nnonzero \t= %lu \ndensity \t= %.6f \n",
                    nprocs, A->Mbig, A->nnz_g, A->density);
@@ -159,6 +168,12 @@ int saena_object::setup(saena_matrix* A) {
                            grids[i + 1].A->density, (grids[i].A->p_order == 1 ? "h-coarsen" : "p-coarsen"));
                 }
             }
+
+            // write matrix to file
+//            if(i == 2){
+//                grids[i + 1].A->writeMatrixToFile("saena");
+//            }
+
         }else{
 #ifdef __DEBUG1__
             if(verbose_setup_steps){printf("rank %d is not active for grids[%d].Ac.\n", rank, i);}
@@ -195,7 +210,7 @@ int saena_object::setup(saena_matrix* A) {
         if(!rank){
             std::stringstream buf;
             buf << "_____________________________\n\n"
-                << "number of levels = << " << BLUE << max_level << COLORRESET << " >> (the finest level is 0)\n";
+                << "number of levels = << " << max_level << " >> (the finest level is 0)\n";
             std::cout << buf.str();
             if(doSparsify) printf("final sample size percent = %f\n", 1.0 * sample_prcnt_numer / sample_prcnt_denom);
             print_sep();
@@ -235,11 +250,17 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
 
     #pragma omp parallel default(none) shared(rank, nprocs)
     if(!rank && omp_get_thread_num()==0)
-        printf("\nnumber of processes = %d\nnumber of threads   = %d\n\n", nprocs, omp_get_num_threads());
+        printf("\nnumber of processes: %d\nnumber of threads:   %d\n", nprocs, omp_get_num_threads());
+
+    if(smoother=="chebyshev"){
+        find_eig(*A);
+    }
 
     if(verbose_setup){
         MPI_Barrier(A->comm);
         if(!rank){
+            printf("Operator smoother:   %s\n", PSmoother.c_str());
+            printf("connStrength:        %.2f\n", connStrength);
             printf("_____________________________\n\n");
             printf("level = 0 \nnumber of procs = %d \nmatrix size \t= %d \nnonzero \t= %lu \ndensity \t= %.6f \n",
                    nprocs, A->Mbig, A->nnz_g, A->density);
@@ -265,10 +286,6 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
         MPI_Barrier(A->comm);
     }
 #endif
-
-    if(smoother=="chebyshev"){
-        find_eig(*A);
-    }
 
     if(fabs(sample_sz_percent - 1) < 1e-4)
         doSparsify = false;
@@ -296,12 +313,15 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
 #endif
 
     std::vector< std::vector< std::vector<int> > > map_all;
-    if(!m_l2g.empty())
+    if(!m_l2g.empty()){
         map_all.emplace_back(std::move(m_l2g));
+    }
 
     std::vector< std::vector<int> > g2u_all;
-    if(!m_g2u.empty())
-        g2u_all.emplace_back(std::move(m_g2u));
+    if(!m_g2u.empty()){
+//        g2u_all.emplace_back(std::move(m_g2u));
+        g2u_all.emplace_back(m_g2u);
+    }
 
     bdydof = m_bdydof;
 
@@ -377,6 +397,11 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
                            grids[i + 1].A->density, (grids[i].A->p_order == 1 ? "h-coarsen" : "p-coarsen"));
                 }
             }
+
+            // write matrix to file
+//            if(i == 2){
+//                grids[i + 1].A->writeMatrixToFile("saena");
+//            }
         }else{
 #ifdef __DEBUG1__
             if(verbose_setup_steps){printf("rank %d is not active for grids[%d].Ac.\n", rank, i);}
@@ -477,7 +502,7 @@ int saena_object::coarsen(Grid *grid, std::vector< std::vector< std::vector<int>
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
-    if(verbose_coarsen) print_time(t1, t2, "Prolongation: level "+std::to_string(grid->level), grid->A->comm);
+    if(verbose_coarsen) print_time(t2 - t1, "Prolongation: level "+std::to_string(grid->level), grid->A->comm);
 
 //    MPI_Barrier(grid->A->comm); printf("rank %d: here after create_prolongation!!! \n", rank); MPI_Barrier(grid->A->comm);
 //    print_vector(grid->P.split, 0, "grid->P.split", grid->A->comm);
@@ -500,7 +525,7 @@ int saena_object::coarsen(Grid *grid, std::vector< std::vector< std::vector<int>
 
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
-    if(verbose_coarsen) print_time(t1, t2, "Restriction: level "+std::to_string(grid->level), grid->A->comm);
+    if(verbose_coarsen) print_time(t2 - t1, "Restriction: level "+std::to_string(grid->level), grid->A->comm);
 
 //    MPI_Barrier(grid->A->comm); printf("rank %d: here after transposeP!!! \n", rank); MPI_Barrier(grid->A->comm);
 //    print_vector(grid->R.entry_local, -1, "grid->R.entry_local", grid->A->comm);
@@ -526,7 +551,7 @@ int saena_object::coarsen(Grid *grid, std::vector< std::vector< std::vector<int>
 #ifdef __DEBUG1__
     t2 = omp_get_wtime();
 //    double t22 = MPI_Wtime();
-    if(verbose_coarsen) print_time(t1, t2, "compute_coarsen: level "+std::to_string(grid->level), grid->A->comm);
+    if(verbose_coarsen) print_time(t2 - t1, "compute_coarsen: level "+std::to_string(grid->level), grid->A->comm);
 //    print_time_ave(t22-t11, "compute_coarsen: level "+std::to_string(grid->level), grid->A->comm);
 
 //    MPI_Barrier(grid->A->comm); printf("rank %d: here after compute_coarsen!!! \n", rank); MPI_Barrier(grid->A->comm);
@@ -539,15 +564,21 @@ int saena_object::coarsen(Grid *grid, std::vector< std::vector< std::vector<int>
 //    int rank1;
 //    MPI_Comm_rank(grid->A->comm, &rank1);
 //    printf("Mbig = %u, M = %u, nnz_l = %lu, nnz_g = %lu \n", grid->Ac.Mbig, grid->Ac.M, grid->Ac.nnz_l, grid->Ac.nnz_g);
-//    print_vector(grid->Ac.entry, 0, "grid->Ac.entry", grid->Ac.comm);
+//    if(grid->Ac.active) print_vector(grid->Ac.entry, -1, "grid->Ac.entry", grid->Ac.comm);
 
     if(verbose_setup_steps){
         MPI_Barrier(grid->A->comm); if(!rank) printf("coarsen: end\n"); MPI_Barrier(grid->A->comm);
     }
 #endif
 
-    // **************************** compute_coarsen in PETSc ****************************
+    // **************************** Visualize using PETSc ****************************
+
+//    petsc_viewer(grid->A);
+//    petsc_viewer(&grid->P);
+//    petsc_viewer(&grid->R);
 //    petsc_viewer(&grid->Ac);
+
+    // **************************** compute_coarsen in PETSc ****************************
 
     // this part is only for experiments.
 //    petsc_coarsen(&grid->R, grid->A, &grid->P);
@@ -584,10 +615,44 @@ int saena_object::scale_vector(std::vector<value_t>& v, std::vector<value_t>& w)
 }
 
 
-int saena_object::find_eig(saena_matrix& A){
+int saena_object::find_eig(saena_matrix& A) const{
+
+    // if the linear system is not scaled, scale the matrix only for computing the eigenvalue that is
+    // being used in chebyshev, since chebyshev uses the preconditioned matrix.
+
+    if(!scale)
+        A.scale_matrix(false);
 
 //    find_eig_Elemental(A);
     find_eig_ietl(A);
 
+    if(!scale)
+        A.scale_back_matrix(false);
+
+//    A.print_entry(-1, "A");
+
     return 0;
+}
+
+
+void saena_object::profile_matvecs(){
+    const int iter = 5;
+    double t = 0, t1 = 0, t2 = 0;
+
+    for(int l = 0; l < max_level; ++l){
+        if(grids[l].active) {
+            t = 0;
+            vector<value_t> v(grids[l].A->M, 1);
+            vector<value_t> w(grids[l].A->M);
+            MPI_Barrier(grids[l].A->comm);
+            for(int i = 0; i < iter; ++i){
+                t1 = omp_get_wtime();
+                grids[l].A->matvec(v, w);
+                t2 = omp_get_wtime();
+                t += t2 - t1;
+                swap(v, w);
+            }
+            print_time_all(t / iter, "matvec level " + to_string(l), grids[l].A->comm);
+        }
+    }
 }

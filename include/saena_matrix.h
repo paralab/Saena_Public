@@ -86,15 +86,17 @@ public:
 
     std::vector<value_t> inv_diag;
     std::vector<value_t> inv_sq_diag;
+    std::vector<value_t> inv_diag_orig;
+    std::vector<value_t> inv_sq_diag_orig;
 //    double norm1, normInf, rhoDA;
 
     index_t vIndexSize = 0;
     index_t recvSize   = 0;
-    std::vector<index_t> vIndex;
+    std::vector<index_t> vIndex;        // indices that should be sent during matvec
     std::vector<value_t> vSend;
     std::vector<value_t> vSend2;
     std::vector<value_t> vecValues;
-    std::vector<value_t> vecValues2; // for compressed matvec
+    std::vector<value_t> vecValues2;    // for compressed matvec
 
     std::vector<nnz_t> indicesP_local;
 
@@ -111,13 +113,17 @@ public:
     std::vector<int> sendProcRank;
     std::vector<int> sendProcCount;
 
-    unsigned int num_threads = 1;
+    int num_threads   = 1;
+    int matvec_levels = 1;
     std::vector<nnz_t> iter_local_array;
     std::vector<nnz_t> iter_remote_array;
 //    std::vector<nnz_t> iter_local_array2;
     std::vector<nnz_t> iter_remote_array2;
-    std::vector<index_t> vElement_remote;
+    std::vector<index_t> vElement_remote;           // indices that should be received during matvec
     std::vector<value_t> w_buff; // for matvec3()
+
+    std::vector<value_t> temp1;      // to be used in smoothers
+    std::vector<value_t> temp2;      // to be used in smoothers
 
     bool add_duplicates = true;
     bool assembled = false; // use this parameter to determine which matrix.set() function to use.
@@ -127,11 +133,10 @@ public:
     // shrink_minor: if there is no entry for the coarse matrix on this proc, then shrink.
     bool active_minor = false;    // default = false
 
-    bool enable_shrink   = false; // default = true
+    bool enable_shrink   = true; // default = true
     bool enable_shrink_c = true;  // default = true. enables shrinking for the coarsest level.
     bool do_shrink       = false; // default = false
     bool shrinked        = false; // default = false. if shrinking happens for the matrix, set this to true.
-    bool enable_dummy_matvec = false; // default = true
 
     std::vector<double> matvec_dummy_time;
     int total_active_procs = 0;
@@ -252,8 +257,8 @@ public:
     int set_off_on_diagonal();
     int find_sortings();
     int openmp_setup();
-    int scale_matrix();
-    int scale_back_matrix();
+    int scale_matrix(bool full_scale = true);
+    int scale_back_matrix(bool full_scale = true);
 
     // dummy functions to decide if shrinking should happen
     int set_off_on_diagonal_dummy();
@@ -270,8 +275,23 @@ public:
     int shrink_cpu_minor();
     int shrink_cpu_c(); // for the coarsest level
 
-    int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    inline void matvec(std::vector<value_t>& v, std::vector<value_t>& w){
+        if(switch_to_dense && density >= dense_threshold){
+            std::cout << "dense matvec is commented out!" << std::endl;
+            // uncomment to enable DENSE
+//            if(!dense_matrix_generated){
+//                generate_dense_matrix();
+//            }
+//            dense_matrix.matvec(v, w);
+
+        }else{
+            matvec_sparse(v,w);
+//            matvec_sparse_zfp(v,w);
+        }
+    }
+
     int matvec_sparse(std::vector<value_t>& v, std::vector<value_t>& w);
+    int matvec_sparse_array(value_t *v, value_t *w);    // to be used in ietl.
 
     // for the compression paper
     int matvec_sparse_test(std::vector<value_t>& v, std::vector<value_t>& w);
@@ -294,19 +314,34 @@ public:
 //    int matvec_timing5(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
 //    int matvec_timing5_alltoall(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
 
-    void residual(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res);
-    int residual_negative(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res);
+    // Vector res = A * u - rhs;
+    inline void residual(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res){
+        matvec(u, res);
+        #pragma omp parallel for
+        for(index_t i = 0; i < M; ++i){
+            res[i] -= rhs[i];
+        }
+    }
+
+    // Vector res = rhs - A * u
+    inline void residual_negative(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res){
+        matvec(u, res);
+        #pragma omp parallel for
+        for(index_t i = 0; i < M; i++){
+            res[i] = rhs[i] - res[i];
+        }
+    }
+
     int inverse_diag();
 
     // smoothers
-    int jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp);
-    int chebyshev(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp, std::vector<value_t>& temp2);
+    void jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs);
+    void chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs);
 
     // I/O functions
-    int print_entry(int ran, std::string name = "");
-    int print_info(int ran, std::string name = "");
-    int writeMatrixToFile();
-    int writeMatrixToFile(const char *folder_name);
+    int print_entry(int ran, const std::string &name = "") const;
+    int print_info(int ran, const std::string &name = "") const;
+    int writeMatrixToFile(const std::string &name = "") const;
 
     // erase and destroy
     int set_zero();

@@ -324,10 +324,11 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
     // scale rhs
     // ---------
     if(scale){
-        scale_vector(rhs, A->inv_sq_diag);
+        scale_vector(rhs, A->inv_sq_diag_orig);
     }
 
 #ifdef __DEBUG1__
+//    writeVectorToFile(rhs, "rhs", comm);
 //    print_vector(grids[0].rhs, -1, "rhs after repartition", comm);
     if(verbose_set_rhs){MPI_Barrier(A->comm); if(!rank) printf("set_repartition_rhs: end\n"); MPI_Barrier(A->comm);}
 #endif
@@ -394,7 +395,7 @@ int saena_object::repartition_u_shrink_prepare(Grid *grid){
         grid->sdispls2[i] = grid->scount2[i-1] + grid->sdispls2[i-1];
     }
 
-//    print_vector(grid->sdispls2, "sdispls2, -1, comm);
+//    print_vector(grid->sdispls2, -1, "sdispls2", comm);
 
 //    std::vector<int> rdispls2(nprocs);
     grid->rdispls2.resize(nprocs);
@@ -409,51 +410,93 @@ int saena_object::repartition_u_shrink_prepare(Grid *grid){
 }
 
 
-int saena_object::repartition_u_shrink(std::vector<value_t> &u, Grid &grid){
+void saena_object::repartition_u_shrink(std::vector<value_t> &u, Grid &grid){
     // this is used in vcycle
 
 //    MPI_Comm comm = grid.Ac.comm;
     MPI_Comm comm = grid.Ac.comm_old;
 //    MPI_Comm comm = grid.A->comm;
 
-//    int rank, nprocs;
-//    MPI_Comm_size(comm, &nprocs);
+    int nprocs;
+    MPI_Comm_size(comm, &nprocs);
+
+//    int rank;
 //    MPI_Comm_rank(comm, &rank);
 
-//    MPI_Barrier(grid.A->comm);
-//    printf("rank %d: A->M = %u, A->M_old = %u \n", rank, grid.Ac.M, grid.Ac.M_old);
-//    MPI_Barrier(grid.A->comm);
-//    print_vector(u, 1, "u inside repartition_u_shrink", comm);
-
-    std::vector<value_t> u_old = u;
+    std::vector<value_t> u_old(std::move(u));
     u.resize(grid.Ac.M);
-    MPI_Alltoallv(&u_old[0], &grid.scount2[0], &grid.sdispls2[0], par::Mpi_datatype<value_t>::value(),
-                  &u[0],     &grid.rcount2[0], &grid.rdispls2[0], par::Mpi_datatype<value_t>::value(), comm);
 
-    return 0;
+//    MPI_Alltoallv(&u_old[0], &grid.scount2[0], &grid.sdispls2[0], par::Mpi_datatype<value_t>::value(),
+//                  &u[0],     &grid.rcount2[0], &grid.rdispls2[0], par::Mpi_datatype<value_t>::value(), comm);
+
+    int flag = 0;
+    auto *requests = new MPI_Request[2 * nprocs];
+    auto *statuses = new MPI_Status[2 * nprocs];
+
+    int reqs = 0;
+    for(int i = 0; i < nprocs; ++i){
+        if(grid.rcount2[i] != 0){
+            MPI_Irecv(&u[grid.rdispls2[i]],     grid.rcount2[i], par::Mpi_datatype<value_t>::value(), i, 1, comm, &requests[reqs]);
+//            MPI_Test(&requests[reqs], &flag, &statuses[i]);
+            ++reqs;
+        }
+        if(grid.scount2[i] != 0) {
+            MPI_Isend(&u_old[grid.sdispls2[i]], grid.scount2[i], par::Mpi_datatype<value_t>::value(), i, 1, comm, &requests[reqs]);
+//            MPI_Test(&requests[reqs], &flag, &statuses[i]);
+            ++reqs;
+        }
+    }
+
+    MPI_Waitall(reqs, requests, statuses);
+    delete [] requests;
+    delete [] statuses;
+
+//    print_vector(u, -1, "u", comm);
 }
 
 
-int saena_object::repartition_back_u_shrink(std::vector<value_t> &u, Grid &grid){
+void saena_object::repartition_back_u_shrink(std::vector<value_t> &u, Grid &grid){
     // this is used in vcycle
 
 //    MPI_Comm comm = grid.Ac.comm;
     MPI_Comm comm = grid.Ac.comm_old;
 //    MPI_Comm comm = grid.A->comm;
 
-//    int rank, nprocs;
-//    MPI_Comm_size(comm, &nprocs);
+    int nprocs;
+    MPI_Comm_size(comm, &nprocs);
+
+//    int rank;
 //    MPI_Comm_rank(comm, &rank);
 
-//    print_vector(grid.rcount2, -1, "grid.rcount2", comm);
-//    print_vector(grid.scount2, -1, "grid.scount2", comm);
-
-    std::vector<value_t> u_old = u;
+    std::vector<value_t> u_old(std::move(u));
     u.resize(grid.Ac.M_old);
-    MPI_Alltoallv(&u_old[0], &grid.rcount2[0], &grid.rdispls2[0], par::Mpi_datatype<value_t>::value(),
-                  &u[0],     &grid.scount2[0], &grid.sdispls2[0], par::Mpi_datatype<value_t>::value(), comm);
 
-    return 0;
+//    MPI_Alltoallv(&u_old[0], &grid.rcount2[0], &grid.rdispls2[0], par::Mpi_datatype<value_t>::value(),
+//                  &u[0],     &grid.scount2[0], &grid.sdispls2[0], par::Mpi_datatype<value_t>::value(), comm);
+
+    int flag = 0;
+    auto *requests = new MPI_Request[2 * nprocs];
+    auto *statuses = new MPI_Status[2 * nprocs];
+
+    int reqs = 0;
+    for(int i = 0; i < nprocs; ++i){
+        if(grid.scount2[i] != 0){
+            MPI_Irecv(&u[grid.sdispls2[i]],     grid.scount2[i], par::Mpi_datatype<value_t>::value(), i, 1, comm, &requests[reqs]);
+            MPI_Test(&requests[reqs], &flag, &statuses[i]);
+            ++reqs;
+        }
+        if(grid.rcount2[i] != 0) {
+            MPI_Isend(&u_old[grid.rdispls2[i]], grid.rcount2[i], par::Mpi_datatype<value_t>::value(), i, 1, comm, &requests[reqs]);
+            MPI_Test(&requests[reqs], &flag, &statuses[i]);
+            ++reqs;
+        }
+    }
+
+    MPI_Waitall(reqs, requests, statuses);
+    delete [] requests;
+    delete [] statuses;
+
+//    print_vector(u, -1, "u", comm);
 }
 
 

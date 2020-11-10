@@ -48,17 +48,6 @@ void setIJV(char* file_name, index_t *I, index_t *J, value_t *V, nnz_t nnz_g, nn
 }
 
 
-int dotProduct(std::vector<value_t>& r, std::vector<value_t>& s, value_t* dot, MPI_Comm comm){
-
-    double dot_l = 0;
-    for(index_t i = 0; i < r.size(); i++)
-        dot_l += r[i] * s[i];
-    MPI_Allreduce(&dot_l, dot, 1, par::Mpi_datatype<value_t>::value(), MPI_SUM, comm);
-
-    return 0;
-}
-
-
 // parallel norm
 int pnorm(std::vector<value_t>& r, value_t &norm, MPI_Comm comm){
 
@@ -82,7 +71,8 @@ value_t pnorm(std::vector<value_t>& r, MPI_Comm comm){
     return std::sqrt(norm);
 }
 
-double print_time(double t_start, double t_end, std::string function_name, MPI_Comm comm){
+
+double print_time(double t_start, double t_end, const std::string &function_name, MPI_Comm comm){
 
     int rank, nprocs;
     MPI_Comm_rank(comm, &rank);
@@ -102,15 +92,54 @@ double print_time(double t_start, double t_end, std::string function_name, MPI_C
     return average;
 }
 
+double print_time(double t_dif, const std::string &function_name, MPI_Comm comm, bool print_time /*= false*/, bool print_name /*= true*/, int optype /*= 0*/){
+    // optype (operation type):
+    // 0: average (default)
+    // 1: min
+    // 2: max
 
-double print_time(double t_dif, std::string function_name, MPI_Comm comm){
-
-    int rank, nprocs;
+    int rank = 0, nprocs = 0;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nprocs);
 
-    double min, max, average;
-//    double t_dif = t2 - t1;
+    double timeval = 0.0;
+    switch(optype){
+        case 0:
+            MPI_Reduce(&t_dif, &timeval, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+            timeval /= nprocs;
+            break;
+        case 1:
+            MPI_Reduce(&t_dif, &timeval, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
+            break;
+        case 2:
+            MPI_Reduce(&t_dif, &timeval, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
+            break;
+        default:
+            MPI_Reduce(&t_dif, &timeval, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+            timeval /= nprocs;
+            break;
+    }
+
+    std::cout << std::setprecision(8);
+
+    if (print_time && rank==0){
+        if(print_name){
+            std::cout << function_name << "\n" << timeval << std::endl;
+        }else{
+            std::cout << timeval << std::endl;
+        }
+    }
+
+    return timeval;
+}
+
+double print_time_all(double t_dif, const std::string &function_name, MPI_Comm comm){
+
+    int rank = 0, nprocs = 0;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nprocs);
+
+    double min = 0.0, max = 0.0, average = 0.0;
 
     MPI_Reduce(&t_dif, &min, 1, MPI_DOUBLE, MPI_MIN, 0, comm);
     MPI_Reduce(&t_dif, &max, 1, MPI_DOUBLE, MPI_MAX, 0, comm);
@@ -123,8 +152,30 @@ double print_time(double t_dif, std::string function_name, MPI_Comm comm){
     return average;
 }
 
+double print_time_ave(double t_dif, const std::string &function_name, MPI_Comm comm, bool print_time /*= false*/, bool print_name /*= true*/){
 
-double print_time_ave(double t_dif, std::string function_name, MPI_Comm comm, bool print_time /*= false*/, bool print_name /*= true*/){
+    int rank = 0, nprocs = 0;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nprocs);
+
+    double average = 0.0;
+    MPI_Reduce(&t_dif, &average, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+    average /= nprocs;
+
+    std::cout << std::setprecision(8);
+
+    if (print_time && rank==0){
+        if(print_name){
+            std::cout << function_name << "\n" << average << std::endl;
+        }else{
+            std::cout << average << std::endl;
+        }
+    }
+
+    return average;
+}
+
+double print_time_ave2(double t_dif, const std::string &function_name, MPI_Comm comm, bool print_time /*= false*/, bool print_name /*= true*/){
 
     int rank, nprocs;
     MPI_Comm_rank(comm, &rank);
@@ -138,21 +189,20 @@ double print_time_ave(double t_dif, std::string function_name, MPI_Comm comm, bo
         if(print_name){
             std::cout << function_name << "\n" << std::setprecision(8) << average << std::endl;
         }else{
-            std::cout << std::setprecision(8) << average << std::endl;
+            std::cout << std::setprecision(8) << average << ", ";
         }
     }
 
     return average;
 }
 
-
 double print_time_ave_consecutive(double t_dif, MPI_Comm comm){
 
-    int rank, nprocs;
+    int rank = 0, nprocs = 0;
     MPI_Comm_rank(comm, &rank);
     MPI_Comm_size(comm, &nprocs);
 
-    double average;
+    double average = 0.0;
     MPI_Reduce(&t_dif, &average, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
     average /= nprocs;
 
@@ -180,8 +230,6 @@ double average_iter(index_t iter, MPI_Comm comm){
     MPI_Reduce(&iter, &average, 1, par::Mpi_datatype<index_t>::value(), MPI_SUM, 0, comm);
     return static_cast<double>(average)/nprocs;
 }
-
-
 
 
 int write_agg(std::vector<unsigned long>& v, std::string name, int level, MPI_Comm comm) {
@@ -312,7 +360,94 @@ int read_from_file_rhs(std::vector<value_t>& v, saena_matrix *A, char *file, MPI
     MPI_File fh;
     MPI_Offset offset;
 
-    int mpiopen = MPI_File_open(comm, file, MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+    // check if file exists
+    // ====================
+    std::string filename(file);
+    std::ifstream inFile_check(filename.c_str());
+    if (!inFile_check.is_open()) {
+        if (!rank) std::cout << "\nCould not open the rhs file <" << filename << ">" << std::endl;
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+    }
+    inFile_check.close();
+
+    size_t extIndex = filename.find_last_of('.');
+    if(extIndex == string::npos || extIndex == filename.size() - 1){
+        if (!rank) cout << "The rhs file name does not have an extension!" << endl;
+        MPI_Abort(comm, 1);
+    }
+
+    std::string file_extension = filename.substr(extIndex+1, string::npos); // string::npos -> the end of the string
+    std::string outFileName = filename.substr(0, extIndex) + ".bin";
+
+//    if(rank==0) std::cout << "file_extension: " << file_extension << std::endl;
+//    if(rank==0) std::cout << "outFileName: " << outFileName << std::endl;
+
+    if(file_extension != "bin") {
+
+        std::ifstream inFile_check_bin(outFileName.c_str());
+
+        if (inFile_check_bin.is_open()) {
+//            if (rank == 0)
+//                std::cout <<"A binary file with the same name exists. Using that file instead of the txt file.\n\n";
+            inFile_check_bin.close();
+        } else {
+
+            // write the file in binary by proc 0.
+            if (!rank) {
+
+//                std::cout << "First a binary file with name \"" << outFileName
+//                          << "\" will be created in the same directory. \n\n";
+
+                std::ifstream inFile(filename.c_str());
+
+                // ignore comments
+                while (inFile.peek() == '%') inFile.ignore(2048, '\n');
+
+                // M and N are the size of the matrix with sz entries
+                nnz_t M_in = 0, N_in = 0, sz = 0;
+                inFile >> M_in >> N_in >> sz;
+                assert(M_in == sz);
+                assert(N_in == 1);
+
+//                printf("M = %ld, N = %ld, nnz = %ld \n", M_in, N_in, sz);
+
+                std::ofstream outFile;
+                outFile.open(outFileName.c_str(), std::ios::out | std::ios::binary);
+
+                std::vector<cooEntry> entry_temp1;
+
+                index_t a = 0, b = 0, i = 0;
+                value_t c = 0.0;
+
+                entry_temp1.resize(sz);
+                while (inFile >> a >> b >> c) {
+//                 for mtx format, rows and columns start from 1, instead of 0.
+//                        std::cout << "a = " << a << ", b = " << b << ", value = " << c << std::endl;
+                    entry_temp1[i++] = cooEntry(a - 1, b - 1, c);
+//                    cout << entry_temp1[i] << endl;
+                }
+
+                std::sort(entry_temp1.begin(), entry_temp1.end());
+
+                for (i = 0; i < sz; ++i) {
+//                    std::cout << entry_temp1[i] << std::endl;
+//                    outFile.write((char *) &entry_temp1[i].row, sizeof(index_t));
+//                    outFile.write((char *) &entry_temp1[i].col, sizeof(index_t));
+                    outFile.write((char *) &entry_temp1[i].val, sizeof(value_t));
+                }
+
+                inFile.close();
+                outFile.close();
+            }
+
+        }
+
+        // wait until the binary file being written by proc 0 is ready.
+        MPI_Barrier(comm);
+    }
+
+    int mpiopen = MPI_File_open(comm, outFileName.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
     if(mpiopen){
         if (rank==0) std::cout << "Unable to open the rhs vector file!" << std::endl;
         MPI_Finalize();
@@ -321,8 +456,8 @@ int read_from_file_rhs(std::vector<value_t>& v, saena_matrix *A, char *file, MPI
 
     // check if the size of rhs match the number of rows of A
     struct stat st;
-    stat(file, &st);
-    index_t rhs_size = st.st_size / sizeof(double);
+    stat(outFileName.c_str(), &st);
+    index_t rhs_size = st.st_size / sizeof(value_t);
     if(rhs_size != A->Mbig){
         if(!rank){
             printf("Error: Size of RHS does not match the number of rows of the LHS matrix!\n");

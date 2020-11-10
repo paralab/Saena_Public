@@ -6,6 +6,7 @@
 #include "aux_functions.h"
 #include "saena_vector.h"
 #include "saena_matrix_dense.h"
+#include "grid.h"
 
 #include <memory>
 #include <unordered_map>
@@ -17,6 +18,13 @@
 
 // number of update steps for lazy-update
 #define ITER_LAZY 20
+
+// uncomment to enable timing
+// to have a more accurate timing for PROFILE_TOTAL_PCG, comment out PROFILE_PCG and PROFILE_VCYCLE, since they
+// have barriers and are inside PROFILE_TOTAL_PCG.
+//#define PROFILE_PCG
+//#define PROFILE_TOTAL_PCG
+//#define PROFILE_VCYCLE
 
 class strength_matrix;
 class saena_matrix;
@@ -32,20 +40,25 @@ public:
     // **********************************************
 
     int          max_level                  = 10; // fine grid is level 0.
-    // coarsening will stop if the number of rows on one processor goes below this parameter.
-    unsigned int least_row_threshold        = 20;
-    // coarsening will stop if the number of rows of last level divided by previous level is higher than this parameter,
-    // which means the number of rows was not reduced much.
+    // if dynamic_levels == true: coarsening will stop if the total number of rows goes below this parameter.
+    unsigned int least_row_threshold        = 2000;
+    // if dynamic_levels == true: coarsening will stop if the number of rows of last level divided by previous level is
+    // higher than this parameter, which means the number of rows was not reduced much through coarsening.
     double       row_reduction_up_thrshld   = 0.90;
-    double       row_reduction_down_thrshld = 0.10;
+//    double       row_reduction_down_thrshld = 0.10;
 
     bool repartition         = false; // this parameter will be set to true if the partition of input matrix changed. it will be decided in set_repartition_rhs().
-    bool dynamic_levels      = false;
+    bool dynamic_levels      = true;
     bool adaptive_coarsening = false;
 
     bool scale = true;
 
     saena_matrix *A_coarsest = nullptr;
+
+    // enable deciding the number of levels in the multigrid hierarchy automatically.
+    // if new_size <= least_row_threshold, then stop coarsening.
+    // Also, if new_size / prev_size > row_reduction_up_thrshld, the number of rows was not reduced much through coarsening.
+    void set_dynamic_levels(const bool &dl = true);
 
     // *****************
     // matmat
@@ -58,7 +71,7 @@ public:
     // matmat_thre3 is for when we want to have an exact number of splits. (case2_iter + case3_iter == matmat_thre3)
 
     std::string          coarsen_method  = "recursive"; // 1-basic, 2-recursive, 3-no_overlap
-    const int            matmat_thre1    = 50000000;
+    const int            matmat_thre1    = 100000000;
     index_t              matmat_thre2    = 0;
     static const index_t matmat_thre3    = 40;
     const index_t        matmat_nnz_thre = 200; //default 200
@@ -90,6 +103,8 @@ public:
     index_t *Cmkl_c_scan = nullptr;
     value_t *Cmkl_v      = nullptr;
     bool    use_dcsrmultcsr = true;
+
+    std::vector<cooEntry> C_temp;
 
     index_t case1_iter = 0,       case2_iter = 0,       case3_iter = 0;
     double  case1_iter_ave = 0.0, case2_iter_ave = 0.0, case3_iter_ave = 0.0;
@@ -132,11 +147,13 @@ public:
     // AMG parameters
     // ****************
 
-    int         preSmooth     = 3;
-    int         postSmooth    = 3;
+    int         preSmooth     = 2;
+    int         postSmooth    = 2;
     std::string smoother      = "chebyshev";    // choices: "jacobi", "chebyshev"
     std::string direct_solver = "SuperLU";      // choices: "CG", "SuperLU"
-    float       connStrength  = 0.1;            // connection strength parameter: control coarsening aggressiveness
+    float       connStrength  = 0.3;            // connection strength parameter: control coarsening aggressiveness
+    std::string PSmoother     = "SPAI";         // "jacobi", "SPAI"
+    double      Pomega        = 2.0 / 3;
 
     // ****************
     // SuperLU
@@ -180,6 +197,7 @@ public:
     bool verbose_coarsen          = false;
     bool verbose_pcoarsen         = false;
     bool verbose_compute_coarsen  = false;
+    bool verbose_compute_coarsen2 = false;
     bool verbose_triple_mat_mult  = false;
     bool verbose_matmat           = false;
     bool verbose_fastmm           = false;
@@ -187,6 +205,7 @@ public:
     bool verbose_matmat_A         = false;
     bool verbose_matmat_B         = false;
     bool verbose_matmat_assemble  = false;
+    bool verbose_matmat_timing    = false;
     bool verbose_setup_coarse     = false;
     bool verbose_set_rhs          = false;
 
@@ -230,8 +249,8 @@ public:
 //    int matmat_COO(saena_matrix *A, saena_matrix *B, saena_matrix *C);
 
 //    int reorder_split(vecEntry *arr, index_t low, index_t high, index_t pivot);
-    int reorder_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2);
-    int reorder_back_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2);
+    void reorder_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2);
+    void reorder_back_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2);
     int reorder_counter = 0; // use this to make sure the same number of calls to reorder_split() and reorder_back_split()
 
     // for fast_mm experiments
@@ -256,8 +275,8 @@ public:
 
     // if shrinking happens, u and rhs should be shrunk too.
     int repartition_u_shrink_prepare(Grid *grid);
-    int repartition_u_shrink(std::vector<value_t> &u, Grid &grid);
-    int repartition_back_u_shrink(std::vector<value_t> &u, Grid &grid);
+    void repartition_u_shrink(std::vector<value_t> &u, Grid &grid);
+    void repartition_back_u_shrink(std::vector<value_t> &u, Grid &grid);
 
     // if minor shrinking happens, u and rhs should be shrunk too.
 //    int repartition_u_shrink_minor_prepare(Grid *grid);
@@ -268,7 +287,7 @@ public:
 //    int shrink_u_rhs(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
 //    int unshrink_u(Grid* grid, std::vector<value_t>& u);
 
-    int find_eig(saena_matrix& A);
+    int find_eig(saena_matrix& A) const;
 //    int find_eig_Elemental(saena_matrix& A);
 
     // *****************
@@ -294,8 +313,8 @@ public:
     int solve_CG(std::vector<value_t>& u);
     int solve_pCG(std::vector<value_t>& u);
     int setup_vcycle_memory();
-    int vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
-    int smooth(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs, int iter);
+    void vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
+    void inline smooth(Grid *grid, std::vector<value_t> &u, std::vector<value_t> &rhs, int iter) const;
 
     // *****************
     // GMRES functions
@@ -332,14 +351,13 @@ public:
 
 //    to write saena matrix to a file use related function from saena_matrix class.
 //    int writeMatrixToFileA(saena_matrix* A, std::string name);
-    int writeMatrixToFile(std::vector<cooEntry>& A, const std::string &folder_name, MPI_Comm comm);
+    int writeMatrixToFile(std::vector<cooEntry>& A, const std::string &name, MPI_Comm comm);
     int writeMatrixToFileP(prolong_matrix* P, std::string name);
     int writeMatrixToFileR(restrict_matrix* R, std::string name);
-    int writeVectorToFileul(std::vector<unsigned long>& v, std::string name, MPI_Comm comm);
-    int writeVectorToFileul2(std::vector<unsigned long>& v, std::string name, MPI_Comm comm);
-    int writeVectorToFileui(std::vector<unsigned int>& v, std::string name, MPI_Comm comm);
-//    template <class T>
-//    int writeVectorToFile(std::vector<T>& v, unsigned long vSize, std::string name, MPI_Comm comm);
+
+    template <class T>
+    int writeVectorToFile(std::vector<T>& v, const std::string &name, MPI_Comm comm = MPI_COMM_WORLD,
+                          bool mat_market = false, index_t OFST = 0);
 
     // *****************
     // Misc functions
@@ -349,9 +367,9 @@ public:
 
     int local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEntry> &C);
     int scale_vector(std::vector<value_t>& v, std::vector<value_t>& w);
-    int transpose_locally(cooEntry *A, nnz_t size);
-    int transpose_locally(cooEntry *A, nnz_t size, cooEntry *B);
-    int transpose_locally(cooEntry *A, nnz_t size, index_t row_offset, cooEntry *B);
+    void transpose_locally(cooEntry *A, nnz_t size);
+    void transpose_locally(cooEntry *A, nnz_t size, cooEntry *B);
+    void transpose_locally(cooEntry *A, nnz_t size, const index_t &row_offset, cooEntry *B);
 
     int change_aggregation(saena_matrix* A, std::vector<index_t>& aggregate, std::vector<index_t>& splitNew);
 
@@ -361,49 +379,21 @@ public:
 //    int solve_coarsest_CG_d(saena_matrix* A, std::vector<value_t>& u, std::vector<value_t>& rhs);
 
     template <class T>
-    int scale_vector_scalar(std::vector<T> &v, T a, std::vector<T> &w, bool add = false){
-        // if(add)
-        //   w += a * v
-        // else
-        //   w = a * v
-        // ************
+    int scale_vector_scalar(std::vector<T> &v, T a, std::vector<T> &w, bool add = false);
 
-//        MPI_Comm comm = MPI_COMM_WORLD;
-//        int nprocs, rank;
-//        MPI_Comm_size(comm, &nprocs);
-//        MPI_Comm_rank(comm, &rank);
+    // *****************
+    // profiling parameters
+    // **********************************************
 
-//        MPI_Barrier(comm);
-//        if(!rank) std::cout << __func__ << ", scalar: " << a << std::endl;
-//        MPI_Barrier(comm);
+    int rank_v = 0;
 
-        if(v == w){
-            #pragma omp parallel for
-            for(index_t i = 0; i < v.size(); i++){
-                v[i] *= a;
-            }
-        }else{
+    double superlu_time       = 0.0;
+    double Rtransfer_time     = 0.0;
+    double Ptransfer_time     = 0.0;
+    double vcycle_smooth_time = 0.0;
+    double vcycle_other_time  = 0.0;
 
-            if(add){
-                #pragma omp parallel for
-                for(index_t i = 0; i < v.size(); i++){
-                    w[i] += v[i] * a;
-                }
-            }else{
-                #pragma omp parallel for
-                for(index_t i = 0; i < v.size(); i++){
-                    w[i] = v[i] * a;
-                }
-            }
-
-        }
-
-//        MPI_Barrier(comm);
-//        if(!rank) std::cout << __func__ << ": end" << std::endl;
-//        MPI_Barrier(comm);
-
-        return 0;
-    }
+    void profile_matvecs();
 
     // *****************
     // pcoarsen functions
@@ -417,15 +407,14 @@ public:
     int next_order;
     int prodim;
 
-    // for debugging
-    int rank_v = 0;
-
-    int  next_p_level_random(const std::vector<int>& ind_fine, int order, vector<int> &ind, int *type = NULL);
+    int  next_p_level_random(const std::vector<int>& ind_fine, int order, vector<int> &ind, int *type = nullptr);
     void set_P_from_mesh(int order, std::vector<cooEntry_row> &P_temp, MPI_Comm comm, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map_all);
     int  coarse_p_node_arr(std::vector< std::vector<int> > &map, int order, vector<int> &ind);
     inline int findloc(std::vector<int> &arr, int a);
     inline int mesh_info(int order, std::vector< std::vector< std::vector<int> > > &map_all, MPI_Comm comm);
     void g2umap(int order, std::vector< std::vector<int> > &g2u_all, std::vector< std::vector< std::vector<int> > > &map, MPI_Comm comm);
 };
+
+#include <saena_object.tpp>
 
 #endif //SAENA_SAENA_OBJECT_H

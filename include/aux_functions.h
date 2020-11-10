@@ -113,20 +113,24 @@ long upper_bound2(T *left, T *right, T val){
 void setIJV(char* file_name, index_t* I,index_t* J, value_t* V, nnz_t nnz_g, nnz_t initial_nnz_l, MPI_Comm comm);
 
 
-int dotProduct(std::vector<value_t>& r, std::vector<value_t>& s, double* dot, MPI_Comm comm);
+inline void dotProduct(std::vector<value_t>& r, std::vector<value_t>& s, value_t* dot, MPI_Comm comm){
+    value_t dot_l = 0;
+    for(index_t i = 0; i < r.size(); i++)
+        dot_l += r[i] * s[i];
+    MPI_Allreduce(&dot_l, dot, 1, MPI_DOUBLE, MPI_SUM, comm);
+//    MPI_Allreduce(&dot_l, dot, 1, par::Mpi_datatype<value_t>::value(), MPI_SUM, comm);
+}
+
 
 int pnorm(std::vector<value_t>& r, value_t &norm, MPI_Comm comm);
 value_t pnorm(std::vector<value_t>& r, MPI_Comm comm);
 
-double print_time(double t_start, double t_end, std::string function_name, MPI_Comm comm);
-
-double print_time(double t_diff, std::string function_name, MPI_Comm comm);
-
-double print_time_ave(double t_diff, std::string function_name, MPI_Comm comm, bool print_time = false, bool print_name = true);
-
+double print_time(double t_start, double t_end, const std::string &function_name, MPI_Comm comm);
+double print_time(double t_diff,      const std::string &function_name, MPI_Comm comm, bool print_time = false, bool print_name = true, int optype = 0);
+double print_time_all(double t_diff,  const std::string &function_name, MPI_Comm comm);
+double print_time_ave(double t_diff,  const std::string &function_name, MPI_Comm comm, bool print_time = false, bool print_name = true);
+double print_time_ave2(double t_diff, const std::string &function_name, MPI_Comm comm, bool print_time = false, bool print_name = true);
 double print_time_ave_consecutive(double t_diff, MPI_Comm comm);
-
-double average_time(double t_diff, MPI_Comm comm);
 
 double average_iter(index_t iter, MPI_Comm comm);
 
@@ -308,6 +312,8 @@ int write_to_file_vec(std::vector<T>& v, const std::string &name, MPI_Comm comm)
     if (!rank){
         outFileTxt << v.size() << std::endl;
     }
+
+    outFileTxt << std::setprecision(std::numeric_limits<long double>::digits10 + 1);
 
     // write the vector values
     for (auto i:v) {

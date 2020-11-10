@@ -27,44 +27,48 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
     // Mbig", "nnz_g", "initial_nnz_l", "data"
     // "data" is only required for repartition function.
 
-    int rank, nprocs;
+    int rank = 0, nprocs = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
     read_from_file = true;
 
+    // check if file exists
+    // ====================
     std::string filename(Aname);
-    size_t      extIndex       = filename.find_last_of('.');
-    std::string file_extension = filename.substr(extIndex+1, 3);
+    std::ifstream inFile_check(filename.c_str());
+    if (!inFile_check.is_open()) {
+        if (!rank) std::cout << "\nCould not open the matrix file <" << filename << ">" << std::endl;
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+    }
+    inFile_check.close();
+
+    // find extension of the file
+    // ==========================
+    size_t extIndex = filename.find_last_of('.');
+    if(extIndex == string::npos || extIndex == filename.size() - 1){
+        if (!rank) cout << "The matrix file name does not have an extension!" << endl;
+        MPI_Abort(comm, 1);
+    }
+
+    std::string file_extension = filename.substr(extIndex+1, string::npos); // string::npos -> the end of the string
+    std::string outFileName = filename.substr(0, extIndex) + ".bin";
+
 //    if(rank==0) std::cout << "file_extension: " << file_extension << std::endl;
+//    if(rank==0) std::cout << "outFileName: " << outFileName << std::endl;
 
-    std::string bin_filename = filename.substr(0, extIndex) + ".bin";
-//    if(rank==0) std::cout << "bin_filename: " << bin_filename << std::endl;
-
+    // if the file is not binary, generate its binary file
+    // ===================================================
     if(file_extension != "bin") {
-
-        // check if file exists
-        // ====================
-
-        std::ifstream inFile_check(filename.c_str());
-        if (!inFile_check.is_open()) {
-            if (!rank) std::cout << "\nCould not open file <" << filename << ">" << std::endl;
-            MPI_Finalize();
-            exit(EXIT_FAILURE);
-        }
-        inFile_check.close();
-
-        // ====================
-
         if (file_extension == "mtx") {
 
-            std::ifstream inFile_check_bin(bin_filename.c_str());
+            std::ifstream inFile_check_bin(outFileName.c_str());
 
             if (inFile_check_bin.is_open()) {
 
-                if (rank == 0)
-                    std::cout << "A binary file with the same name exists. Using that file instead of the mtx"
-                                 " file.\n\n";
+//                if (rank == 0)
+//                    std::cout <<"A binary file with the same name exists. Using that file instead of the mtx file.\n\n";
                 inFile_check_bin.close();
 
             } else {
@@ -72,12 +76,47 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
                 // write the file in binary by proc 0.
                 if (rank == 0) {
 
-                    std::cout << "First a binary file with name \"" << bin_filename
-                              << "\" will be created in the same directory. \n\n";
-
-                    std::string outFileName = filename.substr(0, extIndex) + ".bin";
+//                    std::cout << "First a binary file with name \"" << outFileName
+//                              << "\" will be created in the same directory. \n\n";
 
                     std::ifstream inFile(filename.c_str());
+
+                    // the fourth word in the Matrix Market format is the data type of the matrix
+                    // example: %%MatrixMarket matrix coordinate pattern symmetric
+                    // it can be real, complex, pattern, integer
+                    // "pattern" means there is no value, so just consider 1 as the value of the entries.
+                    // if it is not "pattern", then check the next word. If it is "symmetric",
+                    // then set mat_type to "triangle".
+
+                    string mat_type(input_type);
+                    string tmp;
+
+                    if(mat_type.empty()){
+                        inFile >> tmp;
+                        if(tmp == "%%MatrixMarket"){ // check if there is metadata at the first line of the file.
+                            for(int i = 1; i < 4; ++i){
+                                inFile >> tmp;
+                            }
+
+                            if(tmp != "pattern"){
+                                inFile >> tmp;
+                                if(tmp == "symmetric"){
+                                    mat_type = "triangle";
+                                }
+//                                else{
+//                                    std::cerr << "the input type is not valid!" << std::endl;
+//                                    MPI_Finalize();
+//                                    exit(EXIT_FAILURE);
+//                                }
+                            }else{
+                                mat_type = tmp;
+                            }
+                        }
+                        // reset input file position
+                        inFile.seekg(0, ios::beg);
+                    }
+
+//                    cout << mat_type << endl;
 
                     // ignore comments
                     while (inFile.peek() == '%') inFile.ignore(2048, '\n');
@@ -99,7 +138,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
                     index_t a = 0, b = 0, i = 0;
                     value_t c = 0.0;
 
-                    if (input_type.empty()) {
+                    if (mat_type.empty()) {
 
                         entry_temp1.resize(nnz);
                         while (inFile >> a >> b >> c) {
@@ -109,7 +148,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 //                            cout << entry_temp1[i] << endl;
                         }
 
-                    } else if (input_type == "triangle") {
+                    } else if (mat_type == "triangle") {
 
                         entry_temp1.resize(2 * nnz);
                         while (inFile >> a >> b >> c) {
@@ -120,40 +159,45 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
                             // add the lower triangle, not any diagonal entry
                             if (a != b) {
                                 entry_temp1[i++] = cooEntry(b - 1, a - 1, c);
-                                nnz++;
+                                ++nnz;
                             }
                         }
                         entry_temp1.resize(nnz);
 
-                    } else if (input_type == "pattern") { // add 1 for value for a pattern matrix
+                    } else if (mat_type == "pattern") { // add 1 for value for a pattern matrix
 
-                        entry_temp1.resize(nnz);
                         while (inFile >> a >> b) {
                             // for mtx format, rows and columns start from 1, instead of 0.
-//                        std::cout << "a = " << a << ", b = " << b << std::endl;
-                            entry_temp1[i++] = cooEntry(a - 1, b - 1, double(1));
-//                        cout << entry_temp1[i] << endl;
+//                            std::cout << "a = " << a << ", b = " << b << std::endl;
+                            entry_temp1.emplace_back(a - 1, b - 1, 1.0);
+//                            cout << entry_temp1.back() << endl;
+                            if (a != b) {
+                                entry_temp1.emplace_back(b - 1, a - 1, 1.0);
+//                                cout << entry_temp1.back() << endl;
+                            }
                         }
 
-                    } else if (input_type == "tripattern") {
+                        nnz = entry_temp1.size();
+
+                    } else if (mat_type == "tripattern") {
 
                         entry_temp1.resize(2 * nnz);
                         while (inFile >> a >> b) {
                             // for mtx format, rows and columns start from 1, instead of 0.
 //                        std::cout << "a = " << a << ", b = " << b << std::endl;
-                            entry_temp1[i++] = cooEntry(a - 1, b - 1, double(1));
+                            entry_temp1[i++] = cooEntry(a - 1, b - 1, 1.0);
 //                        std::cout << entry_temp1[i] << std::endl;
 
                             // add the lower triangle, not any diagonal entry
                             if (a != b) {
-                                entry_temp1[i++] = cooEntry(b - 1, a - 1, double(1));
+                                entry_temp1[i++] = cooEntry(b - 1, a - 1, 1.0);
                                 nnz++;
                             }
                         }
                         entry_temp1.resize(nnz);
 
                     } else {
-                        std::cerr << "the input type is not acceptable!" << std::endl;
+                        std::cerr << "the input type is not valid!" << std::endl;
                         MPI_Finalize();
                         exit(EXIT_FAILURE);
                     }
@@ -178,23 +222,21 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
         } else if (file_extension == "dat") { // dense matrix
 
-            std::ifstream inFile_check_bin(bin_filename.c_str());
+            std::ifstream inFile_check_bin(outFileName.c_str());
 
             if (inFile_check_bin.is_open()) {
 
-                if (rank == 0)
-                    std::cout << "\nA binary file with the same name exists. Using that file instead of the mtx"
-                                 " file.\n\n";
+//                if (rank == 0)
+//                    std::cout << "\nA binary file with the same name exists. Using that file instead of the mtx"
+//                                 " file.\n\n";
                 inFile_check_bin.close();
 
             } else {
 
                 if (rank == 0) {
 
-                    std::cout << "\nFirst a binary file with name \"" << bin_filename
-                              << "\" will be created in the same directory. \n\n";
-
-                    std::string outFileName = filename.substr(0, extIndex) + ".bin";
+//                    std::cout << "\nFirst a binary file with name \"" << outFileName
+//                              << "\" will be created in the same directory. \n\n";
 
                     std::ifstream inFile(filename.c_str());
 
@@ -212,8 +254,8 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
                     std::vector<cooEntry> entry_temp1;
 
                     std::string line;
-                    double temp;
-                    index_t row = 0, col;
+                    double temp = 0.0;
+                    index_t row = 0, col = 0;
 
                     while (std::getline(inFile, line)) {
                         std::istringstream iss(line);
@@ -232,11 +274,11 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
 //                print_vector(entry_temp1, 0, "entry_temp1", comm);
 
-                    for (nnz_t i = 0; i < entry_temp1.size(); ++i) {
-//                    std::cout << entry_temp1[i] << std::endl;
-                        outFile.write((char *) &entry_temp1[i].row, sizeof(index_t));
-                        outFile.write((char *) &entry_temp1[i].col, sizeof(index_t));
-                        outFile.write((char *) &entry_temp1[i].val, sizeof(value_t));
+                    for (auto const &num : entry_temp1) {
+//                        std::cout << entry_temp1[i] << std::endl;
+                        outFile.write((char *) &num.row, sizeof(index_t));
+                        outFile.write((char *) &num.col, sizeof(index_t));
+                        outFile.write((char *) &num.val, sizeof(value_t));
                     }
 
                     inFile.close();
@@ -253,7 +295,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
     // find number of general nonzeros of the input matrix
     struct stat st;
-    if(stat(bin_filename.c_str(), &st)){
+    if(stat(outFileName.c_str(), &st)){
         if (!rank) std::cout << "\nCould not open file <" << filename << ">" << std::endl;
         MPI_Barrier(comm);
         exit(EXIT_FAILURE);
@@ -263,7 +305,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
     if(nnz_g == 0){
         std::ostringstream errmsg;
-        errmsg << "number of nonzeros is 0 on rank " << rank << "inside function " << __func__ << std::endl;
+        errmsg << "number of nonzeros is 0 on rank " << rank << " inside function " << __func__ << std::endl;
         std::cout << errmsg.str();
         exit(EXIT_FAILURE);
     }
@@ -290,7 +332,7 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
     MPI_File fh;
     MPI_Offset offset;
 
-    int mpiopen = MPI_File_open(comm, bin_filename.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
+    int mpiopen = MPI_File_open(comm, outFileName.c_str(), MPI_MODE_RDONLY, MPI_INFO_NULL, &fh);
     if (mpiopen) {
         if (rank == 0) std::cout << "Unable to open the matrix file!" << std::endl;
         MPI_Finalize();
@@ -1055,112 +1097,8 @@ int saena_matrix::set_zero(){
     return 0;
 }
 
-// Vector res = A*u - rhs;
-void saena_matrix::residual(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res){
-    matvec(u, res);
-#pragma omp parallel for
-    for(index_t i = 0; i < M; ++i){
-        res[i] -= rhs[i];
-    }
-}
 
-// with allreduce
-#if 0
-int saena_matrix::residual(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res){
-    // Vector res = A*u - rhs;
-
-    int nprocs, rank;
-    MPI_Comm_size(comm, &nprocs);
-    MPI_Comm_rank(comm, &rank);
-
-//    print_vector(u, -1, "u", comm);
-//    print_vector(res, -1, "rhs", comm);
-
-//    printf("residual start!!!\n");
-
-    // First check if u is zero or not. If it is zero, matvec is not required.
-    bool zero_vector_local = true;
-//#pragma omp parallel for
-    for(index_t i = 0; i < M; ++i){
-        if(fabs(u[i]) > ALMOST_ZERO){
-            zero_vector_local = false;
-            break;
-        }
-    }
-
-    bool zero_vector = true;
-    MPI_Allreduce(&zero_vector_local, &zero_vector, 1, MPI_CXX_BOOL, MPI_LOR, comm);
-
-    if(zero_vector){
-#pragma omp parallel for
-        for(index_t i = 0; i < M; ++i)
-            res[i] = -rhs[i];
-    } else {
-        matvec(u, res);
-#pragma omp parallel for
-        for(index_t i = 0; i < M; ++i){
-            res[i] -= rhs[i];
-        }
-    }
-
-//    print_vector(res, -1, "res", comm);
-
-    return 0;
-}
-#endif
-
-// Vector res = rhs - A*u
-// The result of this functon is the negative of residual().
-int saena_matrix::residual_negative(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res){
-    matvec(u, res);
-#pragma omp parallel for
-    for(index_t i = 0; i < M; i++){
-        res[i] = rhs[i] - res[i];
-    }
-    return 0;
-}
-
-// with allreduce
-#if 0
-int saena_matrix::residual_negative(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res){
-
-    int nprocs, rank;
-    MPI_Comm_size(comm, &nprocs);
-    MPI_Comm_rank(comm, &rank);
-
-//    printf("residual start!!!\n");
-
-    // First check if u is zero or not. If it is zero, matvec is not required.
-    bool zero_vector_local = true, zero_vector;
-//#pragma omp parallel for
-    for(index_t i = 0; i < M; i++){
-        if(u[i] != 0){
-            zero_vector_local = false;
-            break;
-        }
-    }
-
-    MPI_Allreduce(&zero_vector_local, &zero_vector, 1, MPI_CXX_BOOL, MPI_LOR, comm);
-
-    if(zero_vector){
-        memcpy(&res[0], &rhs[0], M * sizeof(value_t));
-    } else {
-
-        matvec(u, res);
-
-#pragma omp parallel for
-        for(index_t i = 0; i < M; i++){
-            res[i] -= rhs[i];
-        }
-    }
-
-//    print_vector(res, -1, "res", comm);
-
-    return 0;
-}
-#endif
-
-int saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& temp) {
+void saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs) {
 
 // Ax = rhs
 // u = u - (D^(-1))(Au - rhs)
@@ -1173,66 +1111,72 @@ int saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>
 //    MPI_Comm_rank(comm, &rank);
 
     for(int j = 0; j < iter; j++){
-        matvec(u, temp);
+        matvec(u, temp1);
 
         #pragma omp parallel for
         for(index_t i = 0; i < M; i++){
-            temp[i] -= rhs[i];
-            temp[i] *= inv_diag[i] * jacobi_omega;
-            u[i]    -= temp[i];
+            temp1[i] -= rhs[i];
+            temp1[i] *= inv_diag[i] * jacobi_omega;
+            u[i]    -= temp1[i];
         }
     }
-
-    return 0;
 }
 
 
-int saena_matrix::chebyshev(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res, std::vector<value_t>& d){
+void saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs){
 
+#ifdef __DEBUG1__
 //    int rank;
 //    MPI_Comm_rank(comm, &rank);
+//    for(auto &i : inv_diag){
+//        assert(i == 1);     // the matrix is scaled to have diagonal 1.
+//    }
+#endif
 
-    const double alpha = 0.25 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
-    const double beta = eig_max_of_invdiagXA;
+    const double alpha = 0.13 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
+    const double beta  = eig_max_of_invdiagXA;
     const double delta = (beta - alpha) / 2;
     const double theta = (beta + alpha) / 2;
-    const double s1 = theta / delta;
-    const double twos1 = 2 * s1;     // to avoid the multiplication in the "for loop.
-    double       rhok = 1 / s1;
-    double       rhokp1 = 0.0, two_rhokp1 = 0.0, d1 = 0.0, d2 = 0.0;
+    const double s1    = theta / delta;
+    const double twos1 = 2 * s1;     // to avoid the multiplication in the "for" loop.
+          double rhok  = 1 / s1;
+          double rhokp1 = 0.0, two_rhokp1 = 0.0, d1 = 0.0, d2 = 0.0;
+
+    std::vector<value_t>& res = temp1;
+    std::vector<value_t>& d   = temp2;
 
     // first loop
-    residual(u, rhs, res);
+    residual_negative(u, rhs, res);
+
     #pragma omp parallel for
-    for(index_t i = 0; i < u.size(); i++){
-        d[i] = (-res[i] * inv_diag[i]) / theta;
+    for(index_t i = 0; i < u.size(); ++i){
+        d[i] = (res[i] * inv_diag[i]) / theta;
         u[i] += d[i];
 //        if(rank==0) printf("inv_diag[%u] = %f, \tres[%u] = %f, \td[%u] = %f, \tu[%u] = %f \n",
 //                           i, inv_diag[i], i, res[i], i, d[i], i, u[i]);
     }
 
-    for(int i = 1; i < iter; i++){
+    for(int i = 1; i < iter; ++i){
         rhokp1 = 1 / (twos1 - rhok);
         two_rhokp1 = 2 * rhokp1;
         d1     = rhokp1 * rhok;
         d2     = two_rhokp1 / delta;
         rhok   = rhokp1;
-        residual(u, rhs, res);
+
+        residual_negative(u, rhs, res);
 
         #pragma omp parallel for
-        for(index_t j = 0; j < u.size(); j++){
-            d[j] = ( d1 * d[j] ) + ( d2 * (-res[j] * inv_diag[j]));
+        for(index_t j = 0; j < u.size(); ++j){
+            d[j] = ( d1 * d[j] ) + ( d2 * res[j] * inv_diag[j]);
             u[j] += d[j];
 //            if(rank==0) printf("inv_diag[%u] = %f, \tres[%u] = %f, \td[%u] = %f, \tu[%u] = %f \n",
 //                               j, inv_diag[j], j, res[j], j, d[j], j, u[j]);
         }
     }
-
-    return 0;
 }
 
 
-int saena_matrix::print_entry(int ran, const std::string name){
+int saena_matrix::print_entry(int ran, const std::string &name) const{
 
     // if ran >= 0 print_entry the matrix entries on proc with rank = ran
     // otherwise print the matrix entries on all processors in order. (first on proc 0, then proc 1 and so on.)
@@ -1273,7 +1217,7 @@ int saena_matrix::print_entry(int ran, const std::string name){
 }
 
 
-int saena_matrix::print_info(int ran, const std::string name) {
+int saena_matrix::print_info(int ran, const std::string &name) const{
 
     // if ran >= 0 print the matrix info on proc with rank = ran
     // otherwise print the matrix info on all processors in order. (first on proc 0, then proc 1 and so on.)
@@ -1303,18 +1247,9 @@ int saena_matrix::print_info(int ran, const std::string name) {
 }
 
 
-int saena_matrix::writeMatrixToFile(){
-    // the matrix file will be written in the HOME directory.
-
-    int rank = 0;
-    MPI_Comm_rank(comm, &rank);
-    if(rank==0) printf("The matrix file will be written in the HOME directory. \n");
-    writeMatrixToFile("");
-    return 0;
-}
-
-
-int saena_matrix::writeMatrixToFile(const char *folder_name){
+int saena_matrix::writeMatrixToFile(const std::string &name) const{
+    // name: pass the name of the file. The file will be saved in the working directory. To save the file in another
+    //       directory, pass that path.
     // Create txt files with name mat-r0.txt for processor 0, mat-r1.txt for processor 1, etc.
     // Then, concatenate them in terminal: cat mat-r0.mtx mat-r1.mtx > mat.mtx
     // row and column indices of txt files should start from 1, not 0.
@@ -1325,16 +1260,8 @@ int saena_matrix::writeMatrixToFile(const char *folder_name){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
-    const char* homeDir = getenv("HOME");
-
-    std::ofstream outFileTxt;
-    std::string outFileNameTxt = homeDir;
-    outFileNameTxt += "/";
-    outFileNameTxt += folder_name;
-    outFileNameTxt += "/mat-r";
-    outFileNameTxt += std::to_string(rank);
-    outFileNameTxt += ".mtx";
-    outFileTxt.open(outFileNameTxt);
+    std::string outFileNameTxt = name + "-r" + std::to_string(rank) + ".mtx";
+    std::ofstream outFileTxt(outFileNameTxt);
 
     if(rank==0) std::cout << "\nWriting the matrix in: " << outFileNameTxt << std::endl;
 

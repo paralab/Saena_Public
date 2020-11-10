@@ -8,23 +8,24 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # -----------------------------------------------------------------------
 # Build Type
 
-#IF(NOT CMAKE_BUILD_TYPE)
-#        SET(CMAKE_BUILD_TYPE Release)
-#ENDIF()
-
-#set(CMAKE_BUILD_TYPE Debug)
-#set(CMAKE_BUILD_TYPE Release)
-
-#message(--\ Saena:\ CMAKE_BUILD_TYPE:\ ${CMAKE_BUILD_TYPE})
+IF(NOT CMAKE_BUILD_TYPE)
+        SET(CMAKE_BUILD_TYPE Release)
+ENDIF()
 
 IF(CMAKE_BUILD_TYPE STREQUAL Release)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
     set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
+#    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -O3 -axCORE-AVX512,CORE-AVX2,AVX -xSSE4.2 -g -parallel-source-info=2 -shared-intel")
+#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -axCORE-AVX512,CORE-AVX2,AVX -xSSE4.2 -g -parallel-source-info=2 -shared-intel")
 ENDIF()
 
 IF(CMAKE_BUILD_TYPE STREQUAL Debug)
     add_definitions(-D__DEBUG1__)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
 ENDIF()
+
+#message(--\ Saena:\ CMAKE_BUILD_TYPE:\ ${CMAKE_BUILD_TYPE})
 
 # -----------------------------------------------------------------------
 # BOOST
@@ -124,7 +125,7 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_LIB_CORE} ${MKL_LIB_L
 
 include_directories(external/ietl)
 
-set(HEADER_FILES ${HEADER_FILES}
+set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
         include/ietl_saena.h
         )
 
@@ -132,7 +133,7 @@ set(HEADER_FILES ${HEADER_FILES}
 # usort: to sort elements in parallel
 
 include_directories(external/usort/include)
-set(SOURCE_FILES ${SOURCE_FILES}
+set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
         external/usort/src/binUtils.cpp
         external/usort/src/parUtils.cpp
         external/usort/src/sort_profiler.cpp
@@ -143,7 +144,7 @@ set(SOURCE_FILES ${SOURCE_FILES}
 
 #include_directories(external/pugixml/include)
 
-#set(SOURCE_FILES ${SOURCE_FILES}
+#set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
 #        external/pugixml/src/pugixml.cpp
 #        )
 
@@ -165,12 +166,40 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${ZFP_LIB})
 # -----------------------------------------------------------------------
 #PETSc
 
-#set(PETSC_DIR "~/softwares/petsc-3.8.4")
-#set(PETSC_LIB ${PETSC_DIR}/arch-linux2-c-debug/lib/libpetsc.so)
-#include_directories(
-#        ${PETSC_DIR}/include
-#        ${PETSC_DIR}/arch-linux2-c-debug/include
-#)
+option(ENABLE_PETSC OFF)
+
+set(PETSC_DIR $ENV{PETSC_DIR})
+set(PETSC_ARCH $ENV{PETSC_ARCH})
+
+if(ENABLE_PETSC)
+    if(NOT DEFINED ENV{PETSC_DIR})
+        message( FATAL_ERROR "PETSC_DIR is not set! CMake will exit." )
+    endif(NOT DEFINED ENV{PETSC_DIR})
+
+    if(NOT DEFINED ENV{PETSC_ARCH})
+        message( FATAL_ERROR "PETSC_ARCH is not set! CMake will exit." )
+    endif(NOT DEFINED ENV{PETSC_ARCH})
+
+#    set(PETSC_DIR $ENV{PETSC_DIR})
+#    set(PETSC_ARCH $ENV{PETSC_ARCH})
+    message(--\ PETSC_DIR:\ ${PETSC_DIR})
+    message(--\ PETSC_ARCH:\ ${PETSC_ARCH})
+
+    set(PETSC_LIB ${PETSC_DIR}/${PETSC_ARCH}/lib/libpetsc.so)
+    include_directories(
+            ${PETSC_DIR}/include
+            ${PETSC_DIR}/${PETSC_ARCH}/include
+    )
+
+    SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${PETSC_LIB})
+
+    set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES} include/petsc_functions.h)
+    set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES} src/petsc_functions.cpp)
+
+#    add_compile_definitions(_USE_PETSC_) // requires newer cmake versions
+    add_definitions(-D_USE_PETSC_)
+
+endif(ENABLE_PETSC)
 
 # -----------------------------------------------------------------------
 # dollar (profiler)
@@ -193,7 +222,7 @@ include_directories(
 
 include_directories(include)
 
-set(HEADER_FILES ${HEADER_FILES}
+set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
         include/saena.hpp
         include/aux_functions.h
         include/data_struct.h
@@ -208,8 +237,7 @@ set(HEADER_FILES ${HEADER_FILES}
         include/GR_encoder.h
         )
 
-set(SOURCE_FILES ${SOURCE_FILES}
-        ${HEADER_FILES}
+set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
         src/saena.cpp
         src/aux_functions.cpp
         src/data_struct.cpp
@@ -244,8 +272,8 @@ set(SOURCE_FILES ${SOURCE_FILES}
 # NEKTAR++
 
 #ADD_NEKTAR_LIBRARY(Saena
-#        SOURCES ${SOURCE_FILES}
-#        HEADERS ${HEADER_FILES}
+#        SOURCES ${SAENA_SOURCE_FILES}
+#        HEADERS ${SAENA_HEADER_FILES}
 #        SUMMARY "Nektar++ Saena fast multigrid solver library"
 #        DESCRIPTION "This library provides fast multigrid solves.")
 
@@ -257,6 +285,6 @@ set(SOURCE_FILES ${SOURCE_FILES}
 set(CMAKE_INSTALL_RPATH "/usr/local/lib" "${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/lib"
         "${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/${CMAKE_INSTALL_LIBDIR}")
 
-add_library(saena SHARED ${SOURCE_FILES})
+add_library(saena SHARED ${SAENA_SOURCE_FILES})
 target_link_libraries(saena ${SAENA_LIB_DEPENDENCIES})
 install(TARGETS saena DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/ThirdParty/dist/lib)

@@ -13,8 +13,14 @@
 #include <vector>
 #include <set>
 #include <cmath>
-#include <algorithm>
 #include <random>
+
+#ifdef SANEA_USE_PSTL
+#include "pstl/execution"
+#include "pstl/algorithm"
+#else
+#include <algorithm>
+#endif
 
 #include "mpi.h"
 #include <omp.h>
@@ -67,16 +73,16 @@ typedef unsigned char uchar;
 
 void inline print_sep(){
     std::stringstream buf;
-    buf << MAGENTA << "\n******************************************************\n" << COLORRESET;
+    buf << "\n******************************************************\n";
     std::cout << buf.str();
 }
 
 
-inline index_t rem_sz(index_t sz, unsigned int k){
+inline index_t rem_sz(const index_t sz, const unsigned int &k){
     return static_cast<index_t>( sz * ((k+1) / 8.0) );
 }
 
-inline index_t tot_sz(index_t sz, unsigned int k, int q){
+inline index_t tot_sz(const index_t sz, const unsigned int &k, const int &q){
 //    printf("r_sz: %u, \tq: %d, \tsizeof(short): %ld, tot: %ld\n", rem_sz(sz, k), q, sizeof(short), rem_sz(sz, k) + q * sizeof(short));
 //    return rem_sz(sz, k) + q * sizeof(short);
     return (k > 0) ? ( rem_sz(sz, k) + q * sizeof(short) ) : ( sz * sizeof(index_t) );
@@ -92,11 +98,7 @@ public:
 
     cooEntry() = default;
 
-    cooEntry(index_t i, index_t j, value_t v){
-        row = i;
-        col = j;
-        val = v;
-    }
+    cooEntry(index_t i, index_t j, value_t v) : row(i), col(j), val(v){}
 
     bool operator == (const cooEntry& node2) const {
         return (row == node2.row && col == node2.col);
@@ -220,11 +222,7 @@ public:
 
     cooEntry_row() = default;
 
-    cooEntry_row(index_t i, index_t j, value_t v){
-        row = i;
-        col = j;
-        val = v;
-    }
+    cooEntry_row(index_t i, index_t j, value_t v) : row(i), col(j), val(v){}
 
     bool operator == (const cooEntry_row& node2) const {
         return (row == node2.row && col == node2.col);
@@ -554,9 +552,9 @@ public:
     // =======================
 
     CSCMat() = default;
-    int compress_prep_compute(const index_t *v, index_t v_sz, GR_sz &comp_sz);
-    int compress_prep_compute2(const index_t *v, index_t v_sz, GR_sz &comp_sz);
-    int compress_prep();
+    void compress_prep_compute(const index_t *v, index_t v_sz, GR_sz &comp_sz) const;
+    void compress_prep_compute2(const index_t *v, index_t v_sz, GR_sz &comp_sz);
+    void compress_prep();
 };
 
 
@@ -584,19 +582,23 @@ public:
     ~CSCMat_mm(){
         if(free_r){
             delete []r;
+            r = nullptr;
             free_r = false;
         }
         if(free_c){
             delete []col_scan;
+            col_scan = nullptr;
             free_c = false;
         }
         if(free_v){
             delete []v;
+            v = nullptr;
             free_v = false;
         }
     }
 
-    void set_params(index_t _row_sz, index_t _row_offset, index_t _col_sz, index_t _col_offset, nnz_t _nnz){
+    inline void set_params(const index_t &_row_sz, const index_t &_row_offset, const index_t &_col_sz,
+                    const index_t &_col_offset, const nnz_t &_nnz){
         row_sz     = _row_sz;
         row_offset = _row_offset;
         col_sz     = _col_sz;
@@ -604,8 +606,8 @@ public:
         nnz        = _nnz;
     }
 
-    void set_params(index_t _row_sz, index_t _row_offset, index_t _col_sz, index_t _col_offset, nnz_t _nnz,
-                    index_t *_r, value_t *_v, index_t *_col_scan){
+    inline void set_params(const index_t &_row_sz, const index_t &_row_offset, const index_t &_col_sz,
+                    const index_t &_col_offset, const nnz_t &_nnz, index_t *_r, value_t *_v, index_t *_col_scan){
         row_sz     = _row_sz;
         row_offset = _row_offset;
         col_sz     = _col_sz;

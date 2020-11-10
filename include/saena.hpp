@@ -36,9 +36,10 @@ namespace saena {
         int add_duplicates(bool add);
 
         int assemble(bool scale = true);
-        int assemble_writeToFile();
-        int assemble_writeToFile(const char *folder_name);
         int assemble_band_matrix();
+
+        int assemble_writeToFile(const char *folder_name = "");
+        int writeMatrixToFile(const std::string &name = "") const;
 
         saena_matrix* get_internal_matrix();
         MPI_Comm get_comm();
@@ -145,6 +146,7 @@ namespace saena {
         amg();
         ~amg();
 
+        void set_dynamic_levels(const bool &dl = true);
         int set_matrix(saena::matrix* A, saena::options* opts);
         int set_matrix(saena::matrix* A, saena::options* opts, std::vector<std::vector<int>> &l2g, std::vector<int> &g2u, int m_bdydof, std::vector<int> &order_dif); // for Nektar++
 //        int set_rhs(std::vector<value_t> rhs); // note: this function copies the rhs.
@@ -196,7 +198,9 @@ namespace saena {
 
         int lazy_update_counter = 0; // note: for lazy update project. delete it when done.
 
-        int matmat(saena::matrix *A, saena::matrix *B, saena::matrix *C, bool assemble = true, bool print_timing = false);
+        void matmat(saena::matrix *A, saena::matrix *B, saena::matrix *C, bool assemble = true, bool print_timing = false);
+
+        void profile_matvecs();
 
     protected:
         saena_object* m_pImpl;
@@ -209,13 +213,13 @@ namespace saena {
     // second argument is degree-of-freedom on each processor
     int laplacian2D_old(saena::matrix* A, index_t dof_local);
 
-    int laplacian3D(saena::matrix* A, unsigned int mx, unsigned int my, unsigned int mz);
-
-    int laplacian3D_set_rhs(std::vector<double> &rhs, unsigned int mx, unsigned int my, unsigned int mz, MPI_Comm comm);
-
-    int laplacian3D_set_rhs_zero(std::vector<double> &rhs, unsigned int mx, unsigned int my, unsigned int mz, MPI_Comm comm);
-
+    int laplacian3D(saena::matrix* A, index_t mx, index_t my, index_t mz, bool scale = true);
     int laplacian3D_old(saena::matrix* A, index_t dof_local);
+    int laplacian3D_old2(saena::matrix* A, index_t mx, index_t my, index_t mz, bool scale = true);
+
+    int laplacian3D_set_rhs(std::vector<double> &rhs, index_t mx, index_t my, index_t mz, MPI_Comm comm);
+    int laplacian3D_set_rhs_old2(std::vector<double> &rhs, index_t mx, index_t my, index_t mz, MPI_Comm comm);
+    int laplacian3D_set_rhs_zero(std::vector<double> &rhs, unsigned int mx, unsigned int my, unsigned int mz, MPI_Comm comm);
 
     int band_matrix(saena::matrix &A, index_t M, unsigned int bandwidth);
 

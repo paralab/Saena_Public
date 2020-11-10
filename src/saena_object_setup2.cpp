@@ -4,9 +4,7 @@
 #include "prolong_matrix.h"
 #include "restrict_matrix.h"
 #include "grid.h"
-#include "aux_functions.h"
 #include "parUtils.h"
-#include "superlu_ddefs.h"
 
 
 int saena_object::compute_coarsen(Grid *grid) {
@@ -46,14 +44,18 @@ int saena_object::compute_coarsen(Grid *grid) {
         MPI_Barrier(comm);
         if (rank == 0) printf("start of compute_coarsen nprocs: %d \n", nprocs);
         MPI_Barrier(comm);
-        printf("rank %d: A.Mbig = %u, \tA.M = %u, \tA.nnz_g = %lu, \tA.nnz_l = %lu \n", rank, A->Mbig, A->M, A->nnz_g,
-               A->nnz_l);
+    }
+
+    if (verbose_compute_coarsen2) {
         MPI_Barrier(comm);
-        printf("rank %d: P.Mbig = %u, \tP.M = %u, \tP.nnz_g = %lu, \tP.nnz_l = %lu \n", rank, P->Mbig, P->M, P->nnz_g,
-               P->nnz_l);
+        printf("rank %d: A.Mbig = %u, \tA.M = %u, \tA.nnz_g = %lu, \tA.nnz_l = %lu \n",
+                rank, A->Mbig, A->M, A->nnz_g, A->nnz_l);
         MPI_Barrier(comm);
-        printf("rank %d: R.Mbig = %u, \tR.M = %u, \tR.nnz_g = %lu, \tR.nnz_l = %lu \n", rank, R->Mbig, R->M, R->nnz_g,
-               R->nnz_l);
+        printf("rank %d: P.Mbig = %u, \tP.M = %u, \tP.nnz_g = %lu, \tP.nnz_l = %lu \n",
+                rank, P->Mbig, P->M, P->nnz_g, P->nnz_l);
+        MPI_Barrier(comm);
+        printf("rank %d: R.Mbig = %u, \tR.M = %u, \tR.nnz_g = %lu, \tR.nnz_l = %lu \n",
+                rank, R->Mbig, R->M, R->nnz_g, R->nnz_l);
         MPI_Barrier(comm);
     }
 #endif
@@ -82,7 +84,7 @@ int saena_object::compute_coarsen(Grid *grid) {
     A->cpu_shrink_thre2_next_level = -1;
     A->enable_shrink_next_level = false;
 
-    Ac->comm_old  = Ac->comm;
+    Ac->comm_old = Ac->comm;
 
 #ifdef __DEBUG1__
 //    MPI_Barrier(comm);
@@ -95,7 +97,7 @@ int saena_object::compute_coarsen(Grid *grid) {
 
 //    print_vector(Ac->split, 0, "Ac->split", Ac->comm);
     if(verbose_compute_coarsen){
-        MPI_Barrier(comm); printf("compute_coarsen: step 2: rank = %d\n", rank); MPI_Barrier(comm);}
+        MPI_Barrier(comm); if(!rank) printf("compute_coarsen: step 2: rank = %d\n", rank); MPI_Barrier(comm);}
 #endif
 
     // minor shrinking
@@ -113,7 +115,7 @@ int saena_object::compute_coarsen(Grid *grid) {
 
 #ifdef __DEBUG1__
     if(verbose_compute_coarsen){
-        MPI_Barrier(comm); printf("compute_coarsen: step 3: rank = %d\n", rank); MPI_Barrier(comm);
+        MPI_Barrier(comm); if(!rank) printf("compute_coarsen: step 3: rank = %d\n", rank); MPI_Barrier(comm);
     }
 #endif
 
@@ -146,7 +148,7 @@ int saena_object::compute_coarsen(Grid *grid) {
 
 #ifdef __DEBUG1__
     if (verbose_compute_coarsen) {
-        MPI_Barrier(comm); printf("compute_coarsen: step 4: rank = %d\n", rank); MPI_Barrier(comm);
+        MPI_Barrier(comm); if(!rank) printf("compute_coarsen: step 4: rank = %d\n", rank); MPI_Barrier(comm);
     }
 #endif
 
@@ -216,7 +218,7 @@ int saena_object::compute_coarsen(Grid *grid) {
 #ifdef __DEBUG1__
 //    print_vector(Ac->entry, -1, "Ac->entry", A->comm);
     if (verbose_compute_coarsen) {
-        MPI_Barrier(comm); printf("compute_coarsen: step 5: rank = %d\n", rank); MPI_Barrier(comm);
+        MPI_Barrier(comm); if(!rank) printf("compute_coarsen: step 5: rank = %d\n", rank); MPI_Barrier(comm);
     }
 #endif
 
@@ -232,7 +234,7 @@ int saena_object::compute_coarsen(Grid *grid) {
 
 #ifdef __DEBUG1__
     if (verbose_compute_coarsen) {
-        MPI_Barrier(comm); printf("compute_coarsen: step 6: rank = %d\n", rank); MPI_Barrier(comm);
+        MPI_Barrier(comm); if(!rank) printf("compute_coarsen: step 6: rank = %d\n", rank); MPI_Barrier(comm);
     }
 //    Ac->print_info(-1);
 //    Ac->print_entry(-1);
@@ -241,25 +243,27 @@ int saena_object::compute_coarsen(Grid *grid) {
     if(Ac->active_minor) {
 
         comm = Ac->comm;
-        int rank_new;
+        int rank_new = 0;
         MPI_Comm_rank(Ac->comm, &rank_new);
 
         // ********** decide about shrinking **********
         //---------------------------------------------
 
-        if(Ac->enable_shrink_c && !dynamic_levels && grid->level + 1 == max_level){ // coarsest level
-            Ac->decide_shrinking_c();
-        }else if (Ac->enable_shrink && Ac->enable_dummy_matvec && nprocs > 1) {
-//            MPI_Barrier(Ac->comm); if(rank_new==0) printf("start decide shrinking\n"); MPI_Barrier(Ac->comm);
-            Ac->matrix_setup_dummy();
-            Ac->compute_matvec_dummy_time();
-            Ac->decide_shrinking(A->matvec_dummy_time);
-            Ac->erase_after_decide_shrinking();
+        if(nprocs > 1){
+            if(Ac->enable_shrink_c && !dynamic_levels && grid->level + 1 == max_level){ // coarsest level
+                Ac->decide_shrinking_c();
+            }else if (Ac->enable_shrink) {
+//                MPI_Barrier(Ac->comm); if(rank_new==0) printf("start decide shrinking\n"); MPI_Barrier(Ac->comm);
+                Ac->matrix_setup_dummy();
+                Ac->compute_matvec_dummy_time();
+                Ac->decide_shrinking(A->matvec_dummy_time);
+                Ac->erase_after_decide_shrinking();
+            }
         }
 
 #ifdef __DEBUG1__
         if (verbose_compute_coarsen) {
-            MPI_Barrier(comm); printf("compute_coarsen: step 7: rank = %d\n", rank); MPI_Barrier(comm);
+            MPI_Barrier(comm); if(!rank) printf("compute_coarsen: step 7: rank = %d\n", rank); MPI_Barrier(comm);
         }
 #endif
 
@@ -276,7 +280,7 @@ int saena_object::compute_coarsen(Grid *grid) {
 
 #ifdef __DEBUG1__
         if (verbose_compute_coarsen) {
-            MPI_Barrier(comm); printf("compute_coarsen: step 8: rank = %d\n", rank); MPI_Barrier(comm);
+            MPI_Barrier(comm); if(!rank) printf("compute_coarsen: step 8: rank = %d\n", rank); MPI_Barrier(comm);
         }
 #endif
 
@@ -295,15 +299,15 @@ int saena_object::compute_coarsen(Grid *grid) {
 
 #ifdef __DEBUG1__
         if (verbose_compute_coarsen) {
-            MPI_Barrier(comm); printf("compute_coarsen: step 9: rank = %d\n", rank); MPI_Barrier(comm);
+            MPI_Barrier(comm); if(!rank) printf("compute_coarsen: step 9: rank = %d\n", rank); MPI_Barrier(comm);
         }
 #endif
 
         if (Ac->active) {
             Ac->matrix_setup(scale);
 
-            if (Ac->shrinked && Ac->enable_dummy_matvec)
-                Ac->compute_matvec_dummy_time();
+//            if (Ac->shrinked && Ac->enable_dummy_matvec)
+//                Ac->compute_matvec_dummy_time();
 
             if (switch_to_dense && Ac->density > dense_threshold) {
 #ifdef __DEBUG1__
@@ -323,7 +327,7 @@ int saena_object::compute_coarsen(Grid *grid) {
 
 #ifdef __DEBUG1__
     if(verbose_compute_coarsen){
-        MPI_Barrier(comm); printf("compute_coarsen: done! rank = %d\n", rank); MPI_Barrier(comm);
+        MPI_Barrier(comm); if(!rank) printf("compute_coarsen: done! rank = %d\n", rank); MPI_Barrier(comm);
     }
 
     // view matrix Ac
@@ -396,7 +400,7 @@ int saena_object::triple_mat_mult(Grid *grid){
     Rcsc.col_scan = new index_t[Rcsc.col_sz + 1];
 
     std::fill(&Rcsc.col_scan[0], &Rcsc.col_scan[Rcsc.col_sz + 1], 0);
-    Rcsc.col_scan[0] = 1;
+    Rcsc.col_scan[0] = 1; // starts from 1, not 0, because the mkl function indexing starts from 1.
 
     index_t *Rc_tmp = &Rcsc.col_scan[1];
     for(nnz_t i = 0; i < Rcsc.nnz; i++){
@@ -433,7 +437,7 @@ int saena_object::triple_mat_mult(Grid *grid){
 
 //    std::cout << "\nR: nnz: " << Rcsc.nnz << std::endl ;
 //    for(index_t j = 0; j < Rcsc.col_sz; j++){
-//        for(index_t i = Rcsc.col_scan[j]; i < Rcsc.col_scan[j+1]; i++){
+//        for(index_t i = Rcsc.col_scan[j] - 1; i < Rcsc.col_scan[j+1] - 1; i++){ // indexing starts from 1, not 0.
 //            std::cout << std::setprecision(4) << Rcsc.row[i] << "\t" << j << "\t" << Rcsc.val[i] << std::endl;
 //        }
 //    }
@@ -493,23 +497,24 @@ int saena_object::triple_mat_mult(Grid *grid){
             MPI_Barrier(comm);
             if (rank == 0) printf("triple_mat_mult: step 2\n");
             MPI_Barrier(comm);
-//        printf("A: rank %d: nnz: %lu, \tmax_nnz: %lu, \tcol_sz: %u, \tmax_M: %u\n",
-//               rank, Acsc.nnz, Acsc.max_nnz, Acsc.col_sz, Acsc.max_M);
-//        MPI_Barrier(comm);
+//            printf("A: rank %d: nnz: %lu, \tmax_nnz: %lu, \tcol_sz: %u, \tmax_M: %u\n",
+//                   rank, Acsc.nnz, Acsc.max_nnz, Acsc.col_sz, Acsc.max_M);
+//            MPI_Barrier(comm);
         }
 
-//    A->print_entry(0);
-//    printf("A: nnz_l: %ld\tnnz_g: %ld\tM: %d\tM_big: %d\n", A->nnz_l, A->nnz_g, A->M, A->Mbig);
-//    print_array(Acsc.row, Acsc.nnz, 0, "Acsc.row", comm);
-//    print_array(Acsc.val, Acsc.nnz, 0, "Acsc.val", comm);
-//    print_array(Acsc.col_scan, Acsc.col_sz + 1, 0, "Acsc.col_scan", comm);
+//        A->print_entry(0);
+//        printf("A: nnz_l: %ld\tnnz_g: %ld\tM: %d\tM_big: %d\n", A->nnz_l, A->nnz_g, A->M, A->Mbig);
+//        print_array(Acsc.row, Acsc.nnz, 0, "Acsc.row", comm);
+//        print_array(Acsc.val, Acsc.nnz, 0, "Acsc.val", comm);
+//        print_array(Acsc.col_scan, Acsc.col_sz + 1, 0, "Acsc.col_scan", comm);
 
-//    std::cout << "\nA: nnz: " << Acsc.nnz << std::endl ;
-//    for(index_t j = 0; j < Acsc.col_sz; j++){
-//        for(index_t i = Acsc.col_scan[j]; i < Acsc.col_scan[j+1]; i++){
-//            std::cout << std::setprecision(4) << Acsc.row[i] << "\t" << j << "\t" << Acsc.val[i] << std::endl;
-//        }
-//    }
+//        std::cout << "\nA: nnz: " << Acsc.nnz << std::endl ;
+        for(index_t j = 0; j < Acsc.col_sz; j++){
+            for(index_t i = Acsc.col_scan[j] - 1; i < Acsc.col_scan[j+1] - 1; i++){
+                ASSERT(Acsc.row[i] >= 0, Acsc.row[i] << "\t" << j << "\t" << Acsc.val[i]);
+//                std::cout << std::setprecision(4) << Acsc.row[i] << "\t" << j << "\t" << Acsc.val[i] << std::endl;
+            }
+        }
     }
 #endif
 
@@ -534,6 +539,10 @@ int saena_object::triple_mat_mult(Grid *grid){
     // =======================================
 
     matmat_memory_alloc(Rcsc, Acsc);
+    C_temp.reserve(10 * std::max(Acsc.nnz, Rcsc.nnz));
+
+    saena_matrix RA(comm);
+    RA.entry.reserve(std::max(Acsc.nnz, Rcsc.nnz));
 
 #ifdef __DEBUG1__
     if (verbose_triple_mat_mult) {
@@ -547,7 +556,6 @@ int saena_object::triple_mat_mult(Grid *grid){
     // perform the multiplication R * A
     // =======================================
 
-    saena_matrix RA(comm);
     matmat_CSC(Rcsc, Acsc, RA);
 
 #ifdef __DEBUG1__
@@ -638,9 +646,9 @@ int saena_object::triple_mat_mult(Grid *grid){
             MPI_Barrier(comm);
             if (rank == 0) printf("triple_mat_mult: step 7\n");
             MPI_Barrier(comm);
-            printf("RA: rank %d: nnz: %lu, \tmax_nnz: %lu, \tcol_sz: %u, \tmax_M: not needed for lhs of matmat\n",
-                   rank, RAcsc.nnz, RAcsc.max_nnz, RAcsc.col_sz);
-            MPI_Barrier(comm);
+//            printf("RA: rank %d: nnz: %lu, \tmax_nnz: %lu, \tcol_sz: %u, \tmax_M: not needed for lhs of matmat\n",
+//                   rank, RAcsc.nnz, RAcsc.max_nnz, RAcsc.col_sz);
+//            MPI_Barrier(comm);
         }
 
 //    RA.print_entry(0);
@@ -709,22 +717,23 @@ int saena_object::triple_mat_mult(Grid *grid){
             MPI_Barrier(comm);
             if (rank == 0) printf("triple_mat_mult: step 8\n");
             MPI_Barrier(comm);
-//        printf("P: rank %d: nnz: %lu, \tmax_nnz: %lu, \tcol_sz: %u, \tmax_M: %u\n",
-//                rank, Pcsc.nnz, Pcsc.max_nnz, Pcsc.col_sz, Pcsc.max_M);
-//        MPI_Barrier(comm);
-//        print_array(Pcsc.col_scan, Pcsc.col_sz+1, 1, "Pcsc.col_scan", comm);
+//            printf("P: rank %d: nnz: %lu, \tmax_nnz: %lu, \tcol_sz: %u, \tmax_M: %u\n",
+//                    rank, Pcsc.nnz, Pcsc.max_nnz, Pcsc.col_sz, Pcsc.max_M);
+//            MPI_Barrier(comm);
+//            print_array(Pcsc.col_scan, Pcsc.col_sz+1, 1, "Pcsc.col_scan", comm);
         }
 
-//    R->print_entry(0);
-//    printf("R: nnz_l: %ld\tnnz_g: %ld\tM: %d\tM_big: %d\n", R->nnz_l, R->nnz_g, R->M, R->Mbig);
+//        R->print_entry(0);
+//        printf("R: nnz_l: %ld\tnnz_g: %ld\tM: %d\tM_big: %d\n", R->nnz_l, R->nnz_g, R->M, R->Mbig);
 
 //    if (rank == 1) {
 //        std::cout << "\nP transpose: nnz: " << R->nnz_l << std::endl;
-//        for (index_t j = 0; j < R->M; j++) {
-//            for (index_t i = Pcsc.col_scan[j]; i < Pcsc.col_scan[j + 1]; i++) {
+        for (index_t j = 0; j < R->M; j++) {
+            for (index_t i = Pcsc.col_scan[j] - 1; i < Pcsc.col_scan[j + 1] - 1; ++i) {
+                ASSERT(Pcsc.row[i] >= 0, Pcsc.row[i] << "\t" << j + Pcsc.split[rank] << "\t" << Pcsc.val[i]);
 //                std::cout << std::setprecision(4) << Pcsc.row[i] << "\t" << j + Pcsc.split[rank] << "\t" << Pcsc.val[i] << std::endl;
-//            }
-//        }
+            }
+        }
 //    }
     }
 #endif
@@ -750,6 +759,7 @@ int saena_object::triple_mat_mult(Grid *grid){
     // =======================================
 
     matmat_memory_alloc(RAcsc, Pcsc);
+    Ac->entry.reserve(std::max(RAcsc.nnz, Pcsc.nnz));
 
 #ifdef __DEBUG1__
     if (verbose_triple_mat_mult) {
@@ -768,6 +778,8 @@ int saena_object::triple_mat_mult(Grid *grid){
     Ac->comm = A->comm;
     matmat_CSC(RAcsc, Pcsc, *Ac, true);
     Ac->comm = comm_temp;
+
+//    assert(!Ac->entry.empty());
 
 #ifdef __DEBUG1__
 //    print_vector(Ac->entry, -1, "Ac->entry", comm);
@@ -852,10 +864,10 @@ int saena_object::reorder_split(vecEntry *arr, index_t left, index_t right, inde
 */
 
 // This version moves entries of A1 to the begining and A2 to the end of the input array.
-    int saena_object::reorder_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2){
+void saena_object::reorder_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2){
 
 #ifdef __DEBUG1__
-    int rank, nprocs;
+    int rank = 0, nprocs = 0;
     MPI_Comm_size(MPI_COMM_WORLD, &nprocs);
     MPI_Comm_rank(MPI_COMM_WORLD, &rank);
     int verbose_rank = 0;
@@ -871,7 +883,7 @@ int saena_object::reorder_split(vecEntry *arr, index_t left, index_t right, inde
         for (index_t i = A.col_scan[j] - 1; i < A.col_scan[j + 1] - 1; ++i) {
             assert( A.r[i] > 0 );
             assert( A.r[i] <= A.row_sz );
-            ASSERT(fabs(A.v[i]) > ALMOST_ZERO, "rank: " << rank << ", A.v[i]: " << A.v[i]);
+//            ASSERT(fabs(A.v[i]) > ALMOST_ZERO, "rank: " << rank << ", A.v[i]: " << A.v[i]);
 //            std::cout << std::setprecision(4) << i << "\t" << A.r[i] << "\t" << j+A.col_offset+1 << "\t" << A.v[i] << std::endl;
         }
     }
@@ -904,9 +916,8 @@ int saena_object::reorder_split(vecEntry *arr, index_t left, index_t right, inde
     // ========================================================
     // IMPORTANT: An offset should be used to access Ar and Av.
     // ========================================================
-    nnz_t offset = A.col_scan[0] - 1;
 
-    int i, j;
+    nnz_t offset = A.col_scan[0] - 1;
 
     index_t *A1r = &A.r[offset];
     value_t *A1v = &A.v[offset];
@@ -919,15 +930,22 @@ int saena_object::reorder_split(vecEntry *arr, index_t left, index_t right, inde
 
     A2.col_scan = new index_t[A2.col_sz + 1];
     A2.free_c   = true;
+    auto *Ac2_p = &A2.col_scan[1]; // to do scan on it at the end.
+
+#ifdef SANEA_USE_PSTL
+    std::fill(pstl::execution::par_unseq, &A2.col_scan[0], &A2.col_scan[A2.col_sz+1], 0);
+#else
     std::fill(&A2.col_scan[0], &A2.col_scan[A2.col_sz+1], 0);
-//    A2.col_scan[0] = 1;
-    auto Ac2_p = &A2.col_scan[1]; // to do scan on it at the end.
+#endif
 
     // ========================================================
     // form A1 and A2
     // ========================================================
 
 #ifdef __DEBUG1__
+    // check memory allocation
+    assert(A2.col_scan);
+
     // print A in top and bottom split
 /*    for(index_t j = 0; j < A.col_sz; ++j) {
         if(rank==verbose_rank) std::cout << std::endl;
@@ -941,26 +959,24 @@ int saena_object::reorder_split(vecEntry *arr, index_t left, index_t right, inde
     }*/
 #endif
 
+    const int THRSHLD = A1.row_sz;
+    int i = 0, j = 0;
     A1.nnz = 0, A2.nnz = 0;
     for(j = 0; j < A.col_sz; ++j){
-//        if(rank==verbose_rank) std::cout << std::endl;
 //        if(rank==verbose_rank) std::cout << "\n" << A.col_scan[j]-1 << "\t" << A.col_scan[j+1]-1 << std::endl;
         for(i = A.col_scan[j] - 1; i < A.col_scan[j+1] - 1; ++i){
 //            std::cout << i << "\t" << A.r[i] << "\t" << j << "\t" << A.v[i] << std::endl;
 
-            if(A.r[i] <= A1.row_sz){
+            if(A.r[i] <= THRSHLD){
                 A1r[A1.nnz] = A.r[i];
                 A1v[A1.nnz] = A.v[i];
                 ++A1.nnz;
-//                ++it1;
 //                if(rank==verbose_rank) std::cout << std::setprecision(4) << A.r[i] << "\t" << j+1 << "\t" << A.v[i] << "\ttop half: " << std::endl;
             }else{
-                A2r[A2.nnz] = A.r[i] - A1.row_sz;
-//                A2r[A2.nnz] = A.r[i];
+                A2r[A2.nnz] = A.r[i] - THRSHLD;
                 A2v[A2.nnz] = A.v[i];
                 ++A2.nnz;
                 ++Ac2_p[j];
-//                ++it2;
 //                if(rank==verbose_rank) std::cout << std::setprecision(4) << A.r[i] - A1.row_sz << "\t" << j+1 << "\t" << A.v[i] << "\tbottom half: " << std::endl;
             }
 
@@ -1018,8 +1034,8 @@ int saena_object::reorder_split(vecEntry *arr, index_t left, index_t right, inde
 #ifdef __DEBUG1__
 
     if(nprocs > 1) {
-        ASSERT(A1.nnz <= mempool3_sz, "A1.nnz: " << A1.nnz << ", loc_nnz_max: " << mempool3_sz);
-        ASSERT(A2.nnz <= mempool3_sz, "A2.nnz: " << A2.nnz << ", loc_nnz_max: " << mempool3_sz);
+        ASSERT(A1.nnz <= mempool4and5_sz, "A1.nnz: " << A1.nnz << ", loc_nnz_max: " << mempool4and5_sz);
+        ASSERT(A2.nnz <= mempool4and5_sz, "A2.nnz: " << A2.nnz << ", loc_nnz_max: " << mempool4and5_sz);
     }
     ASSERT(A1.nnz + A2.nnz == A.nnz, "A.nnz: " << A.nnz << ", A1.nnz: " << A1.nnz << ", A2.nnz: " << A2.nnz);
 
@@ -1069,33 +1085,49 @@ int saena_object::reorder_split(vecEntry *arr, index_t left, index_t right, inde
 
     // if A1 does not have any nonzero, then free A2's memory and make A2.col_scan point to A.col_scan and return.
     if(A1.nnz == 0){
-        delete []A2.col_scan;
+        delete [] A2.col_scan;
         A2.col_scan = nullptr;
-        A2.free_c = false;
+        A2.free_c   = false;
         A2.col_scan = A1.col_scan;
         A2.r = &A.r[0];
         A2.v = &A.v[0];
 
-        for (j = 0; j < A2.col_sz; ++j) {
-            for (i = A2.col_scan[j] - 1; i < A2.col_scan[j + 1] - 1; ++i) {
-                A2.r[i] -= A1.row_sz;
-            }
+#pragma omp simd
+        for (i = A2.col_scan[0] - 1; i < A2.col_scan[A2.col_sz] - 1; ++i) {
+            A2.r[i] -= THRSHLD;
         }
 
+//        for (j = 0; j < A2.col_sz; ++j) {
+//            for (i = A2.col_scan[j] - 1; i < A2.col_scan[j + 1] - 1; ++i) {
+//                A2.r[i] -= A1.row_sz;
+//            }
+//        }
+
+#ifdef __DEBUG1__
         goto reorder_split_end;
+#endif
+        return;
     }
 
     // if A2 does not have any nonzero, then free its memory and return.
     if(A2.nnz == 0){
-        delete []A2.col_scan;
+        delete [] A2.col_scan;
         A2.col_scan = nullptr;
-        A2.free_c = false;
+        A2.free_c   = false;
+
+#ifdef __DEBUG1__
         goto reorder_split_end;
+#endif
+        return;
     }
 
     A2.col_scan[0] += 1;
     for(i = 1; i <= A.col_sz; ++i){
         A2.col_scan[i] += A2.col_scan[i-1]; // scan on A2.col_scan
+    }
+
+#pragma omp simd
+    for(i = 1; i <= A.col_sz; ++i){
         A1.col_scan[i] -= A2.col_scan[i] - 1; // subtract A2.col_scan from A1.col_scan to have the correct scan for A1
     }
 
@@ -1106,11 +1138,17 @@ int saena_object::reorder_split(vecEntry *arr, index_t left, index_t right, inde
 
     // First put A1 at the beginning of A, then put A2 at the end A.
     // A1 points to A, so no need to copy A1 into A.
-//    memcpy(&A.r[offset],          &A1r[0], A1.nnz * sizeof(index_t));
-//    memcpy(&A.v[offset],          &A1v[0], A1.nnz * sizeof(value_t));
+//    memcpy(&A.r[offset], &A1r[0], A1.nnz * sizeof(index_t));
+//    memcpy(&A.v[offset], &A1v[0], A1.nnz * sizeof(value_t));
 
+#ifdef SANEA_USE_PSTL
+    const int ST = offset + A1.nnz;
+    std::copy(pstl::execution::par_unseq, &A.r[ST], &A.r[ST + A2.nnz], &A2r[0]);
+    std::copy(pstl::execution::par_unseq, &A.v[ST], &A.v[ST + A2.nnz], &A2v[0]);
+#else
     memcpy(&A.r[offset + A1.nnz], &A2r[0], A2.nnz * sizeof(index_t));
     memcpy(&A.v[offset + A1.nnz], &A2v[0], A2.nnz * sizeof(value_t));
+#endif
 
     // set r and v for A2
     A2.r = &A.r[A1.col_scan[A.col_sz] - 1];
@@ -1141,9 +1179,9 @@ int saena_object::reorder_split(vecEntry *arr, index_t left, index_t right, inde
     }
 #endif
 
+#ifdef __DEBUG1__
     reorder_split_end:
 
-#ifdef __DEBUG1__
     {
         // assert A1
 //        std::cout << "\nA1: nnz: " << A1.nnz << std::endl;
@@ -1203,10 +1241,9 @@ int saena_object::reorder_split(vecEntry *arr, index_t left, index_t right, inde
     }
 #endif
 
-    return 0;
 }
 
-int saena_object::reorder_back_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2){
+void saena_object::reorder_back_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2){
 
 #ifdef __DEBUG1__
 //    int rank;
@@ -1221,14 +1258,23 @@ int saena_object::reorder_back_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2)
     assert(A.nnz == (A1.nnz + A2.nnz));
 #endif
 
+    const int THRSHLD = A1.row_sz;
+
     // if A1.nnz==0 it means A2 was the whole A, so we only need to return row indices to their original values.
     if(A1.nnz == 0) {
-        for (int j = 0; j < A2.col_sz; ++j) {
-            for (int i = A2.col_scan[j] - 1; i < A2.col_scan[j + 1] - 1; ++i) {
-                A2.r[i] += A1.row_sz;
-            }
+
+#pragma omp simd
+        for (int i = A2.col_scan[0] - 1; i < A2.col_scan[A2.col_sz] - 1; ++i) {
+            A2.r[i] += THRSHLD;
         }
-        return 0;
+
+//        for (int j = 0; j < A2.col_sz; ++j) {
+//            for (int i = A2.col_scan[j] - 1; i < A2.col_scan[j + 1] - 1; ++i) {
+//                A2.r[i] += THRSHLD;
+//            }
+//        }
+
+        return;
     }
 
     // ========================================================
@@ -1239,11 +1285,13 @@ int saena_object::reorder_back_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2)
     auto *Ar_temp = &mempool4[0];
     auto *Av_temp = &mempool5[0];
 
-//    auto *Ar_temp = new index_t[A.nnz];
-//    auto *Av_temp = new value_t[A.nnz];
-
+#ifdef SANEA_USE_PSTL
+    std::copy(pstl::execution::par_unseq, &Ar_temp[0], &Ar_temp[0 + A.nnz], &A.r[offset]);
+    std::copy(pstl::execution::par_unseq, &Av_temp[0], &Av_temp[0 + A.nnz], &A.v[offset]);
+#else
     memcpy(&Ar_temp[0], &A.r[offset], sizeof(index_t) * A.nnz);
     memcpy(&Av_temp[0], &A.v[offset], sizeof(value_t) * A.nnz);
+#endif
 
 #ifdef __DEBUG1__
 //    for(index_t i = offset; i < offset + nnz; i++){
@@ -1281,14 +1329,18 @@ int saena_object::reorder_back_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2)
 
     index_t *Ac = A1.col_scan; // Will add A2.col_scan to A1.col_scan for each column to have Ac.
 
-    int i;
-    nnz_t iter0 = offset, iter1 = 0, iter2 = A1.col_scan[A.col_sz] - offset - 1;
-    nnz_t nnz_col;
+    int i = 0;
+    nnz_t nnz_col = 0, iter0 = offset, iter1 = 0, iter2 = A1.col_scan[A.col_sz] - offset - 1;
     for(int j = 0; j < A.col_sz; ++j){
         nnz_col = A1.col_scan[j+1] - A1.col_scan[j];
         if(nnz_col != 0){
+#ifdef SANEA_USE_PSTL
+            std::copy(pstl::execution::par_unseq, &A.r[iter0], &A.r[iter0 + nnz_col], &Ar_temp[iter1]);
+            std::copy(pstl::execution::par_unseq, &A.v[iter0], &A.v[iter0 + nnz_col], &Av_temp[iter1]);
+#else
             memcpy(&A.r[iter0], &Ar_temp[iter1], sizeof(index_t) * nnz_col);
             memcpy(&A.v[iter0], &Av_temp[iter1], sizeof(value_t) * nnz_col);
+#endif
             iter1 += nnz_col;
             iter0 += nnz_col;
         }
@@ -1296,15 +1348,21 @@ int saena_object::reorder_back_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2)
         nnz_col = A2.col_scan[j+1] - A2.col_scan[j];
         if(nnz_col != 0){
 
+            #pragma omp simd
             for(i = 0; i < nnz_col; ++i){
 //                A.r[iter0 + i] = Ar_temp[iter2 + i];
-                A.r[iter0 + i] = Ar_temp[iter2 + i] + A1.row_sz;
-                A.v[iter0 + i] = Av_temp[iter2 + i];
+                A.r[iter0 + i] = Ar_temp[iter2 + i] + THRSHLD;
+//                A.v[iter0 + i] = Av_temp[iter2 + i];
 //                std::cout << Ar_temp[iter2 + i] << "\t" << j+1 << "\t" << Av_temp[iter2 + i] << std::endl;
             }
 
 //            memcpy(&Ar[iter0],  &Ar_temp[iter2], sizeof(index_t) * nnz_col);
-//            memcpy(&A.v[iter0], &Av_temp[iter2], sizeof(value_t) * nnz_col);
+
+#ifdef SANEA_USE_PSTL
+            std::copy(pstl::execution::par_unseq, &A.v[iter0], &A.v[iter0 + nnz_col], &Av_temp[iter2]);
+#else
+            memcpy(&A.v[iter0], &Av_temp[iter2], sizeof(value_t) * nnz_col);
+#endif
             iter2 += nnz_col;
             iter0 += nnz_col;
         }
@@ -1356,32 +1414,20 @@ int saena_object::reorder_back_split(CSCMat_mm &A, CSCMat_mm &A1, CSCMat_mm &A2)
 
     // ========================================================
 #endif
-
-    return 0;
 }
 
 
-int saena_object::transpose_locally(cooEntry *A, nnz_t size){
-
+void saena_object::transpose_locally(cooEntry *A, nnz_t size){
     transpose_locally(A, size, 0, A);
-
-    return 0;
 }
 
-int saena_object::transpose_locally(cooEntry *A, nnz_t size, cooEntry *B){
-
+void saena_object::transpose_locally(cooEntry *A, nnz_t size, cooEntry *B){
     transpose_locally(A, size, 0, B);
-
-    return 0;
 }
 
-int saena_object::transpose_locally(cooEntry *A, nnz_t size, index_t row_offset, cooEntry *B){
-
+void saena_object::transpose_locally(cooEntry *A, nnz_t size, const index_t &row_offset, cooEntry *B){
     for(nnz_t i = 0; i < size; i++){
-        B[i] = cooEntry(A[i].col, A[i].row+row_offset, A[i].val);
+        B[i] = cooEntry(A[i].col, A[i].row + row_offset, A[i].val);
     }
-
     std::sort(&B[0], &B[size]);
-
-    return 0;
 }

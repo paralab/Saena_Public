@@ -29,19 +29,14 @@ public:
     std::vector<index_t> split;
     std::vector<index_t> splitNew;
 
-//    std::vector<unsigned long> row;
-//    std::vector<unsigned long> col;
-//    std::vector<double> values;
-
     std::vector<cooEntry> entry;
-    std::vector<cooEntry> entry_local;
-    std::vector<cooEntry> entry_remote;
-    std::vector<index_t> row_local; //it will be used for finding the row-wise ordering. then, it will be freed.
-//    std::vector<index_t> row_remote;
-//    std::vector<index_t> col_remote; // index starting from 0, instead of the original column index
+    std::vector<index_t> row_local;
+    std::vector<index_t> col_local;
+    std::vector<value_t> val_local;
+    std::vector<index_t> row_remote;
+    std::vector<index_t> col_remote;
+    std::vector<value_t> val_remote;
 //    std::vector<unsigned long> col_remote2; //original col index
-//    std::vector<double> values_local;
-//    std::vector<double> values_remote;
 //    std::vector<unsigned long> col_local;
 
     std::vector<index_t> nnzPerRow_local;
@@ -90,19 +85,21 @@ public:
 
     bool verbose_prolong_setup = false;
 
+    double tloc = 0, trem = 0, tcomm = 0, ttot = 0;    // for timing matvec
+    index_t matvec_comm_sz = 0;                        // for profiling matvec communication size (average on all procs)
+
     prolong_matrix();
-    prolong_matrix(MPI_Comm com);
+    explicit prolong_matrix(MPI_Comm com);
     ~prolong_matrix();
 
     int findLocalRemote();
     int openmp_setup();
-    int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec(std::vector<value_t>& v, std::vector<value_t>& w);
 
     int print_entry(int ran);
     int print_info(int ran);
 
-    int writeMatrixToFile();
-    int writeMatrixToFile(const char *folder_name);
+    int writeMatrixToFile(const std::string &name = "") const;
 };
 
 #endif //SAENA_PROLONG_MATRIX_H

@@ -19,7 +19,9 @@ int saena_matrix::repartition_nnz_initial(){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+#ifdef __DEBUG1__
     if(verbose_repartition && rank==0) printf("repartition - step 1!\n");
+#endif
 
     if(Mbig == 0){
         std::cout << "Number of rows of the matrix is 0 in " << __func__ << std::endl;
@@ -33,128 +35,165 @@ int saena_matrix::repartition_nnz_initial(){
 
 //    if(rank==0) printf("\n", nnz_g, Mbig);
 
-    // *************************** find splitters ****************************
-    // split the matrix row-wise by splitters, so each processor get almost equal number of nonzeros
+    split.resize(nprocs + 1);
 
-    // definition of buckets: bucket[i] = [ firstSplit[i] , firstSplit[i+1] ). Number of buckets = n_buckets
-    int n_buckets = 0;
+    if(nprocs > 1) {
+        // *************************** find splitters ****************************
+        // split the matrix row-wise by splitters, so each processor get almost equal number of nonzeros
 
-    if (Mbig > nprocs*nprocs) {
-        if (nprocs < 1000)
-            n_buckets = nprocs*nprocs;
-        else
-            n_buckets = 1000*nprocs;
-    } else if(nprocs <= Mbig) {
-        n_buckets = Mbig;
-    } else { // nprocs > Mbig
-        // it may be better to set nprocs=Mbig and work only with the first Mbig processors.
-        if(rank == 0)
-            std::cout << "number of tasks cannot be greater than the number of rows of the matrix." << std::endl;
-        MPI_Finalize();
-    }
+        // definition of buckets: bucket[i] = [ firstSplit[i] , firstSplit[i+1] ). Number of buckets = n_buckets
+        int n_buckets = 0;
+
+        if (Mbig > nprocs * nprocs) {
+            if (nprocs < 1000)
+                n_buckets = nprocs * nprocs;
+            else
+                n_buckets = 1000 * nprocs;
+        } else if (nprocs <= Mbig) {
+            n_buckets = Mbig;
+        } else { // nprocs > Mbig
+            // it may be better to set nprocs=Mbig and work only with the first Mbig processors.
+            if (rank == 0)
+                std::cout << "number of tasks cannot be greater than the number of rows of the matrix." << std::endl;
+            MPI_Finalize();
+        }
 
 //    if (rank==0) std::cout << "n_buckets = " << n_buckets << ", Mbig = " << Mbig << std::endl;
 
-    std::vector<index_t> splitOffset(n_buckets);
-    auto  baseOffset = index_t(floor(1.0 * Mbig / n_buckets));
-    float offsetRes  = float(1.0 * Mbig / n_buckets) - baseOffset;
+        std::vector<index_t> splitOffset(n_buckets);
+        auto baseOffset = index_t(floor(1.0 * Mbig / n_buckets));
+        float offsetRes = float(1.0 * Mbig / n_buckets) - baseOffset;
 //    if (rank==0) std::cout << "baseOffset = " << baseOffset << ", offsetRes = " << offsetRes << std::endl;
-    float offsetResSum = 0;
-    splitOffset[0] = 0;
-    for(index_t i = 1; i < n_buckets; ++i){
-        splitOffset[i] = baseOffset;
-        offsetResSum  += offsetRes;
-        if (offsetResSum >= 1){
-            splitOffset[i]++;
-            offsetResSum -= 1;
+        float offsetResSum = 0;
+        splitOffset[0] = 0;
+        for (index_t i = 1; i < n_buckets; ++i) {
+            splitOffset[i] = baseOffset;
+            offsetResSum += offsetRes;
+            if (offsetResSum >= 1) {
+                splitOffset[i]++;
+                offsetResSum -= 1;
+            }
         }
-    }
 
+#ifdef __DEBUG1__
 //    print_vector(splitOffset, 0, "splitOffset", comm);
+        if (verbose_repartition && rank == 0) printf("repartition - step 2!\n");
+#endif
 
-    if(verbose_repartition && rank==0) printf("repartition - step 2!\n");
+        std::vector<index_t> firstSplit(n_buckets + 1);
+        firstSplit[0] = 0;
+        for (index_t i = 1; i < n_buckets; ++i) {
+            firstSplit[i] = firstSplit[i - 1] + splitOffset[i];
+        }
+        firstSplit[n_buckets] = Mbig;
 
-    std::vector<index_t > firstSplit(n_buckets+1);
-    firstSplit[0] = 0;
-    for(index_t i = 1; i < n_buckets; ++i){
-        firstSplit[i] = firstSplit[i-1] + splitOffset[i];
-    }
-    firstSplit[n_buckets] = Mbig;
+        splitOffset.clear();
+        splitOffset.shrink_to_fit();
 
-    splitOffset.clear();
-    splitOffset.shrink_to_fit();
-
+#ifdef __DEBUG1__
 //    print_vector(data, -1, "data", comm);
 //    std::sort(data.begin(), data.end(), row_major);
 //    print_vector(data, -1, "data", comm);
+#endif
 
-    index_t least_bucket, last_bucket;
-    least_bucket = (index_t) lower_bound2(&firstSplit[0], &firstSplit[n_buckets], data[0].row);
-    last_bucket  = (index_t) lower_bound2(&firstSplit[0], &firstSplit[n_buckets], data.back().row);
-    last_bucket++;
+        index_t least_bucket = 0, last_bucket = 0;
+        least_bucket = lower_bound2(&firstSplit[0], &firstSplit[n_buckets], data[0].row);
+        last_bucket  = lower_bound2(&firstSplit[0], &firstSplit[n_buckets], data.back().row);
+        last_bucket++;
 
+#ifdef __DEBUG1__
 //    if (rank==0) std::cout << "least_bucket:" << least_bucket << ", last_bucket = " << last_bucket << std::endl;
+#endif
 
-    // H_l is the histogram of (local) nnz of buckets
-    std::vector<index_t> H_l(n_buckets, 0);
-    H_l[least_bucket]++; // add the first element to local histogram (H_l) here.
+        // H_l is the histogram of (local) nnz of buckets
+        std::vector<index_t> H_l(n_buckets, 0);
+        H_l[least_bucket]++; // add the first element to local histogram (H_l) here.
 
-    for(nnz_t i = 1; i < initial_nnz_l; i++){
-        if(data[i].row >= firstSplit[least_bucket+1]){
-            least_bucket += lower_bound2(&firstSplit[least_bucket], &firstSplit[last_bucket], data[i].row);
+        for (nnz_t i = 1; i < initial_nnz_l; i++) {
+            if (data[i].row >= firstSplit[least_bucket + 1]) {
+                least_bucket += lower_bound2(&firstSplit[least_bucket], &firstSplit[last_bucket], data[i].row);
 //            if (rank==0) std::cout << "row = " << data[i].row << ", least_bucket = " << least_bucket << std::endl;
+            }
+            H_l[least_bucket]++;
         }
-        H_l[least_bucket]++;
-    }
 
+#ifdef __DEBUG1__
 //    print_vector(H_l, 0, "H_l", comm);
+#endif
 
-    // H_g is the histogram of (global) nnz per bucket
-    std::vector<index_t> H_g(n_buckets);
-    MPI_Allreduce(&H_l[0], &H_g[0], n_buckets, par::Mpi_datatype<index_t>::value(), MPI_SUM, comm);
+        // H_g is the histogram of (global) nnz per bucket
+        std::vector<index_t> H_g(n_buckets);
+        MPI_Allreduce(&H_l[0], &H_g[0], n_buckets, par::Mpi_datatype<index_t>::value(), MPI_SUM, comm);
 
-    H_l.clear();
-    H_l.shrink_to_fit();
+        H_l.clear();
+        H_l.shrink_to_fit();
 
+#ifdef __DEBUG1__
 //    print_vector(H_g, 0, "H_g", comm);
+#endif
 
-    std::vector<index_t> H_g_scan(n_buckets);
-    H_g_scan[0] = H_g[0];
-    for (index_t i=1; i<n_buckets; i++)
-        H_g_scan[i] = H_g[i] + H_g_scan[i-1];
+        std::vector<index_t> H_g_scan(n_buckets);
+        H_g_scan[0] = H_g[0];
+        for (index_t i = 1; i < n_buckets; i++)
+            H_g_scan[i] = H_g[i] + H_g_scan[i - 1];
 
-    H_g.clear();
-    H_g.shrink_to_fit();
+        H_g.clear();
+        H_g.shrink_to_fit();
 
+#ifdef __DEBUG1__
 //    print_vector(H_g_scan, 0, "H_g_scan", comm);
+        if (verbose_repartition && rank == 0) printf("repartition - step 3!\n");
+#endif
 
-    if(verbose_repartition && rank==0) printf("repartition - step 3!\n");
+        // -------------------------------------------
+        // determine number of rows on each proc based on having almost the same number of nonzeros per proc.
 
-    index_t procNum = 0;
-    split.resize(nprocs+1);
-    split[0] = 0;
-    for (index_t i = 1; i < n_buckets; ++i){
-        //if (rank==0) std::cout << "(procNum+1)*nnz_g/nprocs = " << (procNum+1)*nnz_g/nprocs << std::endl;
-        if (H_g_scan[i] > ((procNum+1) * nnz_g / nprocs)){
-            ++procNum;
-            split[procNum] = firstSplit[i];
+        const nnz_t NNZ_PROC = nnz_g / nprocs;
+
+        index_t procNum = 0;
+        split[0] = 0;
+        for (index_t i = 1; i < n_buckets; ++i) {
+            // allocate at least 1 row to the remaining processors
+            if(Mbig - firstSplit[i + 1] < nprocs - (procNum + 1)){
+                for(; i < n_buckets; ++i){
+                    procNum++;
+                    split[procNum] = firstSplit[i];
+                }
+                break;
+            }
+
+//            if (rank==0) std::cout << "(procNum+1)*NNZ_PROC = " << (procNum+1)*NNZ_PROC << ", procNum = " << procNum << std::endl;
+            if (H_g_scan[i] > ((procNum + 1) * NNZ_PROC)) {
+                ++procNum;
+                split[procNum] = firstSplit[i];
+            }
         }
-    }
-    split[nprocs] = Mbig;
-    split_old = split;
+        split[nprocs] = Mbig;
 
-    H_g_scan.clear();
-    H_g_scan.shrink_to_fit();
-    firstSplit.clear();
-    firstSplit.shrink_to_fit();
+//        if(!rank) printf("procNum = %d, n_buckets = %d\n", procNum, n_buckets);
+        assert((procNum+1 == nprocs) || (procNum == nprocs));
 
+        // if there are dense rows in the matrix, the above loop may not allocate rows for the matrices (which is done in
+        // split). If that happens then assign one row to the matrices without any row.
+//        int it = 0;
+//        for (int i = nprocs; i >= procNum; --i) {
+//            split[i] = Mbig - it;
+//            ++it;
+//        }
+
+        H_g_scan.clear();
+        H_g_scan.shrink_to_fit();
+        firstSplit.clear();
+        firstSplit.shrink_to_fit();
+
+#ifdef __DEBUG1__
 //    MPI_Barrier(comm);
 //    print_vector(split, 0, "split before", comm);
 //    MPI_Barrier(comm);
 
-    // todo: return split to its original form
-    // update split to make zfp work, since it only works on arrays of size 4k,
-    // if Mbig is 4k, then each split[i] should be a multiple of 4.
+        // todo: return split to its original form
+        // update split to make zfp work, since it only works on arrays of size 4k,
+        // if Mbig is 4k, then each split[i] should be a multiple of 4.
 //    if(Mbig / nprocs > 4){
 //        for(index_t i = 1; i < nprocs; ++i){
 //            split[i] += (4 - (split[i] % 4)) % 4;
@@ -164,9 +203,13 @@ int saena_matrix::repartition_nnz_initial(){
 //    MPI_Barrier(comm);
 //    print_vector(split, 0, "split", comm);
 //    MPI_Barrier(comm);
+#endif
 
-    // set the number of rows for each process
-    M = split[rank+1] - split[rank];
+        // set the number of rows for each process
+        M = split[rank + 1] - split[rank];
+        assert(M != 0);
+
+#ifdef __DEBUG1__
 //    M_old = M;
 
 //    if(M % 4){
@@ -174,21 +217,23 @@ int saena_matrix::repartition_nnz_initial(){
 //        exit(EXIT_FAILURE);
 //    }
 
-    if(verbose_repartition && rank==0) printf("repartition - step 4!\n");
+        if (verbose_repartition && rank == 0) printf("repartition - step 4!\n");
 
 //    unsigned int M_min_global;
 //    MPI_Allreduce(&M, &M_min_global, 1, MPI_UNSIGNED, MPI_MIN, comm);
+#endif
 
-    // *************************** exchange data ****************************
+        // *************************** exchange data ****************************
 
-    if(nprocs != 1){
-        index_t least_proc, last_proc;
+        index_t least_proc = 0, last_proc = 0;
         least_proc = (index_t) lower_bound2(&split[0], &split[nprocs], data[0].row);
         last_proc  = (index_t) lower_bound2(&split[0], &split[nprocs], data.back().row);
         last_proc++;
 
+#ifdef __DEBUG1__
 //        if (rank==1) std::cout << "\nleast_proc:" << least_proc << ", last_proc = " << last_proc << std::endl;
 //        print_vector(split, 1, "split", comm);
+#endif
 
         // todo: check if data is sorted row-major, then remove lower_bound and add if statement.
         std::vector<int> send_size_array(nprocs, 0);
@@ -200,37 +245,45 @@ int saena_matrix::repartition_nnz_initial(){
                 least_proc += lower_bound2(&split[least_proc], &split[last_proc], data[i].row);
             }
 //            if(rank==2) printf("row = %u, %u \n", data[i].row, least_proc);
-            send_size_array[least_proc]++;
+            ++send_size_array[least_proc];
         }
 
+#ifdef __DEBUG1__
 //        print_vector(send_size_array, 0, "send_size_array", comm);
+#endif
 
         std::vector<int> recv_size_array(nprocs);
         MPI_Alltoall(&send_size_array[0], 1, MPI_INT, &recv_size_array[0], 1, MPI_INT, comm);
 
+#ifdef __DEBUG1__
 //        print_vector(recv_size_array, 0, "recv_size_array", comm);
+#endif
 
         std::vector<int> send_offset(nprocs);
-//        std::vector<index_t > sOffset(nprocs);
         send_offset[0] = 0;
         for (int i=1; i<nprocs; i++)
             send_offset[i] = send_size_array[i-1] + send_offset[i-1];
 
+#ifdef __DEBUG1__
 //        print_vector(send_offset, 0, "send_offset", comm);
+#endif
 
         std::vector<int> recv_offset(nprocs);
         recv_offset[0] = 0;
         for (int i = 1; i < nprocs; i++)
             recv_offset[i] = recv_size_array[i-1] + recv_offset[i-1];
 
+#ifdef __DEBUG1__
 //        print_vector(recv_offset, 0, "recv_offset", comm);
-
         if(verbose_repartition && rank==0) printf("repartition - step 5!\n");
+#endif
 
         nnz_l = recv_offset[nprocs-1] + recv_size_array[nprocs-1];
-//        printf("rank=%d \t A.nnz_l=%lu \t A.nnz_g=%lu \n", rank, nnz_l, nnz_g);
 
+#ifdef __DEBUG1__
+//        printf("rank=%d \t A.nnz_l=%lu \t A.nnz_g=%lu \n", rank, nnz_l, nnz_g);
         if(verbose_repartition && rank==0) printf("repartition - step 6!\n");
+#endif
 
         entry.resize(nnz_l);
 //        MPI_Alltoallv(sendBuf, sendSizeArray, sOffset, cooEntry::mpi_datatype(), &entry[0], recvSizeArray, rOffset, cooEntry::mpi_datatype(), comm);
@@ -240,20 +293,29 @@ int saena_matrix::repartition_nnz_initial(){
         data.clear();
         data.shrink_to_fit();
     }else{
+        M = Mbig;
+        split[0] = 0;
+        split[1] = Mbig;
         nnz_l = initial_nnz_l;
         entry.swap(data);
     }
 
-    std::sort(entry.begin(), entry.end());
-//    print_vector(entry, -1, "entry", comm);
+    split_old = split;
 
+    std::sort(entry.begin(), entry.end());
+
+#ifdef __DEBUG1__
+//    print_vector(entry, -1, "entry", comm);
 //    print_entry(0);
 //    MPI_Barrier(comm); printf("repartition: rank = %d, Mbig = %u, M = %u, nnz_g = %u, nnz_l = %u \n", rank, Mbig, M, nnz_g, nnz_l); MPI_Barrier(comm);
+#endif
 
     active = true;
     active_minor = true;
 
+#ifdef __DEBUG1__
     if(verbose_repartition && rank==0) printf("repartition - step 7!\n");
+#endif
 
     return 0;
 }
@@ -665,6 +727,8 @@ int saena_matrix::repartition_nnz(){
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
+//    assert(!entry.empty());
+
     if(verbose_repartition){
         MPI_Barrier(comm);
         printf("repartition_nnz - step1! rank = %d, Mbig = %u, M = %u, nnz_g = %lu, nnz_l = %lu \n",
@@ -722,19 +786,23 @@ int saena_matrix::repartition_nnz(){
         firstSplit[i] = firstSplit[i-1] + splitOffset[i];
     firstSplit[n_buckets] = Mbig;
 
+#ifdef __DEBUG1__
 //    print_vector(firstSplit, 0, "firstSplit", comm);;
+#endif
 
     splitOffset.clear();
     splitOffset.shrink_to_fit();
 
     std::sort(entry.begin(), entry.end(), row_major);
 
-    long least_bucket, last_bucket;
+    index_t least_bucket = 0, last_bucket = 0;
     least_bucket = lower_bound2(&firstSplit[0], &firstSplit[n_buckets], entry[0].row);
     last_bucket  = lower_bound2(&firstSplit[0], &firstSplit[n_buckets], entry.back().row);
     last_bucket++;
 
+#ifdef __DEBUG1__
 //    if (rank==0) std::cout << "least_bucket:" << least_bucket << ", last_bucket = " << last_bucket << std::endl;
+#endif
 
     // H_l is the histogram of (local) nnz of buckets
     std::vector<index_t > H_l(n_buckets, 0);
@@ -773,9 +841,19 @@ int saena_matrix::repartition_nnz(){
     // determine number of rows on each proc based on having almost the same number of nonzeros per proc.
 
     split_old = split;
-    long procNum = 0;
-    for (index_t i = 1; i < n_buckets; i++){
+    int procNum = 0;
+    for (index_t i = 1; i < n_buckets; ++i){
+        // allocate at least 1 row to the remaining processors
+        if(Mbig - firstSplit[i + 1] < nprocs - (procNum + 1)){
+            for(; i < n_buckets; ++i){
+                procNum++;
+                split[procNum] = firstSplit[i];
+            }
+            break;
+        }
+
         if (H_g_scan[i] > (procNum+1)*nnz_g/nprocs){
+//            if(!rank) printf("%d, %d, %ld, %d, %d\n", i, H_g_scan[i], (procNum+1)*nnz_g/nprocs, procNum, firstSplit[i]);
             procNum++;
             split[procNum] = firstSplit[i];
         }
@@ -791,6 +869,8 @@ int saena_matrix::repartition_nnz(){
 
     // set the number of rows for each process
     M = split[rank+1] - split[rank];
+
+    assert(M != 0);
 
     if(verbose_repartition && rank==0) printf("repartition_nnz - step 4!\n");
 
@@ -842,25 +922,25 @@ int saena_matrix::repartition_nnz(){
         for (int i = 1; i < nprocs; i++)
             recv_offset[i] = recv_size_array[i - 1] + recv_offset[i - 1];
 
-//    print_vector(recv_offset, 0, "recv_offset", comm);
+//        print_vector(recv_offset, 0, "recv_offset", comm);
 
         if (verbose_repartition && rank == 0) printf("repartition_nnz - step 5!\n");
 
         nnz_l = recv_offset[nprocs - 1] + recv_size_array[nprocs - 1];
-//    printf("rank=%d \t A.nnz_l=%u \t A.nnz_g=%u \n", rank, nnz_l, nnz_g);
+//        printf("rank=%d \t A.nnz_l=%u \t A.nnz_g=%u \n", rank, nnz_l, nnz_g);
 
         if (verbose_repartition && rank == 0) printf("repartition_nnz - step 6!\n");
 
-        std::vector<cooEntry> entry_old = entry;
+        std::vector<cooEntry> entry_old(std::move(entry));
         entry.resize(nnz_l);
         entry.shrink_to_fit();
 
         MPI_Alltoallv(&entry_old[0], &send_size_array[0], &send_offset[0], cooEntry::mpi_datatype(),
-                      &entry[0], &recv_size_array[0], &recv_offset[0], cooEntry::mpi_datatype(), comm);
+                      &entry[0],     &recv_size_array[0], &recv_offset[0], cooEntry::mpi_datatype(), comm);
 
-        std::sort(entry.begin(), entry.end());
     }
 
+    std::sort(entry.begin(), entry.end());
 //    print_vector(entry, -1, "entry", comm);
 
     if(verbose_repartition) {

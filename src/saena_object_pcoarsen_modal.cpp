@@ -369,7 +369,7 @@ void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_
 
     // get universal number of dof
     // any other better way?
-    int g2u_f_univ_size = 0;
+/*    int g2u_f_univ_size = 0;
     int g2u_f_size = g2u_f.size();
 
     MPI_Allreduce(&g2u_f_size, &g2u_f_univ_size, 1, MPI_INT, MPI_SUM, comm);
@@ -443,6 +443,7 @@ void saena_object::set_P_from_mesh(int order, vector<cooEntry_row> &P_temp, MPI_
     //cout << map.size() << " " << map.at(0).size() << "\n";
     //skip bdy node
     //vector<int> skip;
+*/
 
     // loop over all elements
     // elemno is the local element number
@@ -578,6 +579,10 @@ inline int saena_object::mesh_info(int order, vector< vector< vector<int> > > &m
             }
         }
 
+        if (map_all.size() > 2) {
+            map_all.erase(map_all.begin());
+            map_all.shrink_to_fit();
+        }
 
 #ifdef __DEBUG1__
         if(verbose_pcoarsen) {
@@ -744,6 +749,11 @@ void saena_object::g2umap(int order, vector< vector<int> > &g2u_all, vector< vec
         g2u_all[g2u_all.size()-1].emplace_back(g2u_next_coarse_node[i]);
     }
     //std::cout << map_all.size() << " " << map_all.at(map_all.size()-1).size() << " " << map_all.at(map_all.size()-1).at(0).size() << std::endl;
+
+    if (g2u_all.size() > 2) {
+        g2u_all.erase(g2u_all.begin());
+        g2u_all.shrink_to_fit();
+    }
 
 #ifdef __DEBUG1__
     if(verbose_pcoarsen) {
