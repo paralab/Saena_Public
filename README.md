@@ -1,5 +1,24 @@
 # Saena
 
+## Dependencies
+There are some dependencies which are installed automatically by running the `install.sh` file.
+Some of those dependencies are `ZFP` and `SuperLU`. `SuperLU` also depends on `ParMETIS`.
+The other ones that may be needed to be installed before compiling Saena are the following.
+
+#### 1- Boost:
+For `Linux` this may help:
+
+`sudo apt-get install libboost-all-dev`
+
+#### 2- Intel MKL:
+If you don't already have `Intel MKL` on your machine, it can be installed in a couple of ways explained on its website:
+
+`https://software.intel.com/en-us/get-started-with-mkl-for-linux`
+
+The easiest way may be installing the standalone version:
+
+`https://software.seek.intel.com/performance-libraries`
+
 ## Installation instructions to use Saena as a stand-alone solver
 
 1- The CMakeLists.txt is written in a way to use Saena inside Nektar++. To use it as a stand-alone solver remove CMakeLists.txt and rename CMakeLists_standalone.txt to CMakeLists.txt.
