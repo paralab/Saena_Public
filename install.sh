@@ -35,4 +35,5 @@ cd ..
 # Saena
 cmake ..
 make -j$(nproc)
+make -j$(nproc) install
 cd ..
