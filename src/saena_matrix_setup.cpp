@@ -35,6 +35,7 @@ int saena_matrix::setup_initial_data(){
 
     if(data_coo.size() != 0) {
         // read this: https://stackoverflow.com/questions/5034211/c-copy-set-to-vector
+		
         data_unsorted.resize(data_coo.size());
         for (it = data_coo.begin(); it != data_coo.end(); ++it) {
             data_unsorted[iter++] = *it;

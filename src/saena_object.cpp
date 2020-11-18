@@ -249,6 +249,7 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
         printf("\nnumber of processes: %d\nnumber of threads:   %d\n", nprocs, omp_get_num_threads());
 
     if(smoother=="chebyshev"){
+		//TODO
         find_eig(*A);
     }
 

@@ -22,9 +22,9 @@
 // uncomment to enable timing
 // to have a more accurate timing for PROFILE_TOTAL_PCG, comment out PROFILE_PCG and PROFILE_VCYCLE, since they
 // have barriers and are inside PROFILE_TOTAL_PCG.
-//#define PROFILE_PCG
+#define PROFILE_PCG
 //#define PROFILE_TOTAL_PCG
-//#define PROFILE_VCYCLE
+#define PROFILE_VCYCLE
 
 class strength_matrix;
 class saena_matrix;
@@ -146,7 +146,7 @@ public:
     int         postSmooth    = 2;
     std::string smoother      = "chebyshev";    // choices: "jacobi", "chebyshev"
     std::string direct_solver = "SuperLU";      // choices: "CG", "SuperLU"
-    float       connStrength  = 0.3;            // connection strength parameter: control coarsening aggressiveness
+    float       connStrength  = 0.19;            // connection strength parameter: control coarsening aggressiveness
     std::string PSmoother     = "SPAI";         // "jacobi", "SPAI"
     double      Pomega        = 2.0 / 3;
 
@@ -304,6 +304,7 @@ public:
     // **********************************************
 
     int solve(std::vector<value_t>& u);
+	int solve_petsc(std::vector<value_t>& u);
     int solve_smoother(std::vector<value_t>& u);
     int solve_CG(std::vector<value_t>& u);
     int solve_pCG(std::vector<value_t>& u);
@@ -387,6 +388,7 @@ public:
     double Ptransfer_time     = 0.0;
     double vcycle_smooth_time = 0.0;
     double vcycle_other_time  = 0.0;
+    double first_smooth_time  = 0.0;
 
     void profile_matvecs();
 

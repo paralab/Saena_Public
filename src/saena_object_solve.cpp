@@ -1091,6 +1091,8 @@ void saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value
 #ifdef PROFILE_VCYCLE
         time_smooth_pre2 = omp_get_wtime();
         vcycle_smooth_time += time_smooth_pre2 - time_smooth_pre1;
+		if (grid->level == 0)
+			first_smooth_time += time_smooth_pre2 - time_smooth_pre1;
 #endif
 //    }
 
@@ -1343,6 +1345,8 @@ void saena_object::vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value
 #ifdef PROFILE_VCYCLE
         time_smooth_post2 = omp_get_wtime();
         vcycle_smooth_time += time_smooth_post2 - time_smooth_post1;
+		if (grid->level == 0)
+			first_smooth_time += time_smooth_post2 - time_smooth_post1;
 #endif
 //    }
 
@@ -1825,6 +1829,62 @@ int saena_object::solve_CG(std::vector<value_t>& u){
     return 0;
 }
 
+int saena_object::solve_petsc(std::vector<value_t>& u) {
+
+    auto *A = grids[0].A;
+    vector<value_t> &rhs = grids[0].rhs;
+
+    MPI_Comm comm = A->comm;
+    int nprocs = 0, rank = 0;
+    MPI_Comm_size(comm, &nprocs);
+    MPI_Comm_rank(comm, &rank);
+	
+	solver_tol = 1e-6;
+	
+	char *petsc_option;
+    //std::vector<double> u_petsc(rhs.size());
+    u.assign(A->M, 0);
+
+    // call gamg
+	if (rank == 0)
+		std::cout << "using GAMG solver" << std::endl;
+    //u_petsc.clear();
+	petsc_option =  "-ksp_type cg -pc_type gamg"
+					" -pc_gamg_type agg -pc_gamg_agg_nsmooths 1"
+				    " -mg_levels_ksp_type chebyshev -mg_levels_pc_type jacobi -mg_levels_ksp_max_it 3"
+					//" -pc_gamg_threshold 0.015 -pc_gamg_sym_graph false -pc_gamg_square_graph 0"
+					" -pc_gamg_threshold 0.5,0.5,0.5,0.5 -pc_gamg_sym_graph false -pc_gamg_square_graph 0"
+					" -ksp_monitor_true_residual -ksp_norm_type unpreconditioned -ksp_max_it 10 -ksp_rtol 1e-6 -ksp_converged_reason -ksp_view";
+    petsc_solve(A, rhs, u, solver_tol, petsc_option);
+	
+    // call ml
+/*	if (rank == 0)
+		std::cout << "using ML solver" << std::endl;
+    u_petsc.clear();
+	petsc_option =  "-ksp_type cg -pc_type ml"
+				    " -pc_mg_galerkin external -mg_levels_ksp_type chebyshev -mg_levels_pc_type jacobi -mg_levels_ksp_max_it 3"
+				    " -pc_ml_maxNlevels 4"
+					" -pc_ml_Threshold 0.19 -pc_ml_CoarsenScheme Uncoupled"// -pc_ml_maxCoarseSize 100"
+					" -ksp_monitor_true_residual -ksp_norm_type unpreconditioned -ksp_max_it 500 -ksp_rtol 1e-6 -ksp_converged_reason -ksp_view";
+    petsc_solve(A, rhs, u_petsc, solver_tol, petsc_option);
+*/
+    // call hypre
+/*	if (rank == 0)
+		std::cout << "using HYPRE solver" << std::endl;
+    u_petsc.clear();
+	petsc_option = 	"-ksp_type cg -pc_type hypre -pc_hypre_type boomeramg" 
+				  	" -pc_hypre_boomeramg_max_levels 4 -pc_hypre_boomeramg_relax_type_all Chebyshev -pc_hypre_boomeramg_grid_sweeps_all 3"
+					" -pc_hypre_boomeramg_strong_threshold 0.28 -pc_hypre_boomeramg_coarsen_type HMIS"
+					" -pc_hypre_boomeramg_agg_nl 2 -pc_hypre_boomeramg_agg_num_paths 3"
+					" -ksp_monitor_true_residual -ksp_norm_type unpreconditioned -ksp_max_it 500 -ksp_rtol 1e-6 -ksp_converged_reason -ksp_view"
+					;//" -pc_hypre_boomeramg_print_statistics";// -log_view";
+					//" -pc_hypre_boomeramg_print_debug";// -log_view";
+    petsc_solve(A, rhs, u_petsc, solver_tol, petsc_option);
+*/
+
+    return 0;
+}
+
 
 int saena_object::solve_pCG(std::vector<value_t>& u){
 
@@ -1838,8 +1898,9 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
     MPI_Comm_rank(comm, &rank);
 
 	solver_tol = 1e-6;
-	char *petsc_option;
-    std::vector<double> u_petsc(rhs.size());
+
+//	char *petsc_option;
+//    std::vector<double> u_petsc(rhs.size());
 
     // call gamg
 /*	if (rank == 0)
@@ -2105,11 +2166,15 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         // solve A * rho = r, in which rho is initialized to the 0 vector.
         // **************************************************************
 
-#ifdef PROFILE_PCG
-        double time_vcycle1 = omp_get_wtime();
-#endif
+//#ifdef PROFILE_PCG
+        //double time_vcycle1 = omp_get_wtime();
+//#endif
 
         std::fill(rho.begin(), rho.end(), 0);
+#ifdef PROFILE_PCG
+		MPI_Barrier(comm);
+        double time_vcycle1 = omp_get_wtime();
+#endif
         vcycle(&grids[0], rho, r);
 
 #ifdef PROFILE_PCG
@@ -2210,12 +2275,13 @@ int saena_object::solve_pCG(std::vector<value_t>& u){
         // i = 2: max time
 
 #ifdef PROFILE_VCYCLE
-        if(!rank) printf("\nRtransfer\nPtransfer\nsmooth\nsuperlu\nvcycle_other\n");
+        if(!rank) printf("\nRtransfer\nPtransfer\nsmooth\nsuperlu\nvcycle_other\nfirst_level_smooth\n");
         print_time(Rtransfer_time / (i+1),     "Rtransfer",    comm, true, false, k);
         print_time(Ptransfer_time / (i+1),     "Ptransfer",    comm, true, false, k);
         print_time(vcycle_smooth_time / (i+1), "smooth",       comm, true, false, k);
         print_time(superlu_time / (i+1),       "superlu",      comm, true, false, k);
         print_time(vcycle_other_time / (i+1),  "vcycle_other", comm, true, false, k);
+        print_time(first_smooth_time / (i+1),  "first_level_smooth", comm, true, false, k);
 #endif
 
 #ifdef PROFILE_PCG

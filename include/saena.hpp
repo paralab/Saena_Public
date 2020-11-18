@@ -165,6 +165,7 @@ namespace saena {
         // After calling solve, it will be the solution.
         int solve(std::vector<value_t>& u, saena::options* opts);
         int solve_smoother(std::vector<value_t>& u, saena::options* opts);
+        int solve_petsc(std::vector<value_t>& u);
         int solve_CG(std::vector<value_t>& u, saena::options* opts);
         int solve_pCG(std::vector<value_t>& u, saena::options* opts);
         // if solver is made based of a matrix, let's call it A, and there is an updated version of A, let's call it B,

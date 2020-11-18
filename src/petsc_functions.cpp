@@ -389,8 +389,11 @@ int petsc_saena_matrix(saena_matrix *A, Mat &B){
     MatAssemblyBegin(B, MAT_FINAL_ASSEMBLY);
     MatAssemblyEnd(B,   MAT_FINAL_ASSEMBLY);
 
-//    int rank;
-//    MPI_Comm_rank(comm, &rank);
+    int rank;
+    MPI_Comm_rank(comm, &rank);
+    if(!rank)
+        std::cout << "finish matrix assembly" << std::endl;
+	
 //    MatInfo info;
 //    MatGetInfo(B, MAT_GLOBAL_SUM,&info);
 //    if(!rank){
@@ -988,6 +991,8 @@ int petsc_solve(saena_matrix *A1, vector<value_t> &b1, vector<value_t> &x1, cons
 
     petsc_saena_matrix(A1, A);
     petsc_std_vector(b1, b, A1->split[rank], comm);
+	A1->erase();
+	if (!rank) std::cout << "destroy saena matrix" << std::endl;
     MatCreateVecs(A, &x, NULL);
     VecSet(x, 0.0);
 
@@ -1028,7 +1033,7 @@ int petsc_solve(saena_matrix *A1, vector<value_t> &b1, vector<value_t> &x1, cons
 
     KSPSetFromOptions(ksp);
     KSPGetPC(ksp, &pc);
-	PCGAMGSetNlevels(pc, 6);
+	PCGAMGSetNlevels(pc, 10);
 	//PetscInt nn;
 	//PCMGSetLevels(pc, 3, &comm);
 	//std::cout << "levels: " << nn << std::endl;
@@ -1039,6 +1044,7 @@ int petsc_solve(saena_matrix *A1, vector<value_t> &b1, vector<value_t> &x1, cons
 	//KSPGetType(ksp,&ksptype);
 	//PetscPrintf(PETSC_COMM_WORLD,"KSPType: %s\n", ksptype);
 
+	if (!rank) std::cout << "ksp solve" << std::endl;
     KSPSolve(ksp,b,x);
 
 	//KSPConvergedReason reason;
