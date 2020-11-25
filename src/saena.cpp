@@ -966,6 +966,8 @@ with Dirichlet boundary conditions f(x) defined on the boundary
    x = 0, x = 1, y = 0, y = 1, z = 0, z = 1.
 */
 
+// NOTE: mx is the node number
+// node index = 0,1,2,...,mx-1
     MPI_Comm comm = A->get_comm();
     int rank = 0, nprocs = 0;
     MPI_Comm_size(comm, &nprocs);
@@ -986,13 +988,13 @@ with Dirichlet boundary conditions f(x) defined on the boundary
 
 //        printf("\nrank %d: mx = %d, my = %d, mz = %d, Hx = %f, Hy = %f, Hz = %f\n", rank, mx, my, mz, Hx, Hy, Hz);
 
-//        HyHzdHx = Hy * Hz / Hx;
-//        HxHzdHy = Hx * Hz / Hy;
-//        HxHydHz = Hx * Hy / Hz;
+//        HyHzdHx =  (Hy * Hz / Hx);
+//        HxHzdHy =  (Hx * Hz / Hy);
+//        HxHydHz =  (Hx * Hy / Hz);
 
-        HyHzdHx = 1;
-        HxHzdHy = 1;
-        HxHydHz = 1;
+        HyHzdHx = 1.0 / (Hx*Hx);
+        HxHzdHy = 1.0 / (Hy*Hy);
+        HxHydHz = 1.0 / (Hz*Hz);
 
         // split the 3D grid by only the z axis. So put the whole x and y grids on processors, but split z by the number of processors.
         xs = 0;
@@ -1024,7 +1026,7 @@ with Dirichlet boundary conditions f(x) defined on the boundary
                     if (i==0 || j==0 || k==0 || i==XMAX || j==YMAX || k==ZMAX) {
 //                        v[0] = 2.0*(HxHydHz + HxHzdHy + HyHzdHx);
 //                        MatSetValuesStencil(B,1,&row,1,&row,v,INSERT_VALUES);
-                        A->set(node, node, 2.0*(HxHydHz + HxHzdHy + HyHzdHx));
+                        A->set(node, node, 1.0);//2.0*(HxHydHz + HxHzdHy + HyHzdHx));
 //                        cout << node << "\t" << 2.0*(HxHydHz + HxHzdHy + HyHzdHx) << endl;
                     } else {
 //                        v[0] = -HxHydHz;col[0].i = i; col[0].j = j; col[0].k = k-1;
@@ -1036,7 +1038,7 @@ with Dirichlet boundary conditions f(x) defined on the boundary
 //                        v[6] = -HxHydHz;col[6].i = i; col[6].j = j; col[6].k = k+1;
 //                        ierr = MatSetValuesStencil(B,1,&row,7,col,v,INSERT_VALUES);CHKERRQ(ierr);
 
-                        if(k - 1 != 0){
+                       if(k - 1 != 0){
                             A->set(node, node - (mx * my), -HxHydHz);
                         }
 
@@ -1128,6 +1130,17 @@ int saena::laplacian3D_set_rhs(std::vector<double> &rhs, index_t mx, index_t my,
             for (j=ys; j<ys+ym; j++) {
                 for (i=xs; i<xs+xm; i++) {
                     rhs[iter++] = TWOELVEPISQ * sin(TWOPI * i * Hx) * sin(TWOPI * j * Hy) * sin(TWOPI * k * Hz);
+					//std::cout << "\n";	
+					//std::cout << i << " " << j << " " << k << std::endl;
+					//std::cout << sin(TWOPI * i * Hx) << " " << sin(TWOPI * j * Hx) << " " << sin(TWOPI * k * Hx) << std::endl;
+					//std::cout << TWOELVEPISQ * sin(TWOPI * i * Hx) * sin(TWOPI * j * Hy) * sin(TWOPI * k * Hz) << " " << rhs[iter] << "\n";	
+					//iter ++;
+/*                    rhs[iter] = 12 * PETSC_PI * PETSC_PI
+                                * sin(2 * PETSC_PI * (((value_t) i ) * Hx))
+                                * sin(2 * PETSC_PI * (((value_t) j ) * Hy))
+                                * sin(2 * PETSC_PI * (((value_t) k ) * Hz))
+                                * Hx * Hy * Hz;
+					iter ++;*/
                 }
             }
         }
@@ -1192,14 +1205,9 @@ int saena::laplacian3D_check_solution(std::vector<double> &u, index_t mx, index_
         }
     }
 
-    cout << "\nnorm of diff = " << sqrt(dif) << endl;
-
-//    rhs[iter] = 12 * PETSC_PI * PETSC_PI
-//                * sin(2 * PETSC_PI * (((value_t) i + 0.5) * Hx))
-//                * sin(2 * PETSC_PI * (((value_t) j + 0.5) * Hy))
-//                * sin(2 * PETSC_PI * (((value_t) k + 0.5) * Hz))
-//                * Hx * Hy * Hz;
-    // sin(2 * PETSC_PI * i) * sin(2 * PETSC_PI * j)  * sin(2 * PETSC_PI * k)
+    double dif_tot = 0.0;
+    MPI_Reduce(&dif, &dif_tot, 1, MPI_DOUBLE, MPI_SUM, 0, comm);
+    if(!rank) cout << "\nnorm of diff = " << sqrt(dif / (mx*my*mz)) << endl;
 
     return 0;
 }
