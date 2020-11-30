@@ -202,7 +202,6 @@ if(ENABLE_PETSC)
 
 #    add_compile_definitions(_USE_PETSC_) // requires newer cmake versions
     add_definitions(-D_USE_PETSC_)
-
 endif(ENABLE_PETSC)
 
 # -----------------------------------------------------------------------
@@ -229,6 +228,7 @@ include_directories(include)
 set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
         include/saena.hpp
         include/aux_functions.h
+        include/aux_functions2.h
         include/data_struct.h
         include/saena_matrix.h
         include/saena_matrix_dense.h
@@ -244,6 +244,7 @@ set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
 set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
         src/saena.cpp
         src/aux_functions.cpp
+        src/aux_functions2.cpp
         src/data_struct.cpp
         src/strength_matrix.cpp
         src/prolong_matrix.cpp
