@@ -270,7 +270,7 @@ int saena_matrix::remove_boundary_nodes() {
     MPI_Comm_rank(comm, &rank);
 
 #ifdef __DEBUG1__
-    int rank_v = 1;
+    int rank_v = 0;
 //    data = data_with_bound;
 //    print_vector(data_with_bound, rank_v, "data_with_bound", comm);
 #endif
@@ -317,10 +317,14 @@ int saena_matrix::remove_boundary_nodes() {
         bound_val.emplace_back(data_with_bound[i].val);
     }
 
-    // update the column indices to the new indices after removing the boundary nodes
-    for(auto &d : data){
-//        if(rank == rank_v) cout << d.col << "\t" << m[d.col] << endl;
-        d.col = m[d.col];
+    if(bound_row.empty()){ // there is no diagonal boundary point
+        remove_boundary = false;
+    }else{
+        // update the column indices to the new indices after removing the boundary nodes
+        for(auto &d : data){
+//            if(rank == rank_v) cout << d.col << "\t" << m[d.col] << endl;
+            d.col = m[d.col];
+        }
     }
 
 #ifdef __DEBUG1__
