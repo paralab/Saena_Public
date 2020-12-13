@@ -269,7 +269,6 @@ set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
         src/saena_object_lazy.cpp
         src/saena_object_repart_shrink.cpp
         src/saena_object_sparsify.cpp
-        src/saena_object_elemental.cpp
         src/saena_object_write2file.cpp
         )
 
