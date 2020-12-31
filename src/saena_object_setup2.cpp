@@ -68,9 +68,7 @@ int saena_object::compute_coarsen(Grid *grid) {
     Ac->M_old = Ac->M;
 
     // set dense parameters
-    Ac->density         = (static_cast<float>(Ac->nnz_g) / Ac->Mbig) / Ac->Mbig;
-    Ac->switch_to_dense = switch_to_dense;
-    Ac->dense_threshold = dense_threshold;
+    Ac->density = (static_cast<float>(Ac->nnz_g) / Ac->Mbig) / Ac->Mbig;
 
     // set shrink parameters
     Ac->last_M_shrink       = A->last_M_shrink;
@@ -201,8 +199,7 @@ int saena_object::compute_coarsen(Grid *grid) {
 //            printf("\nerror: wrong sparsifier!");
 //        }
 
-        std::vector<cooEntry> Ac_orig(Ac->entry);
-        Ac->entry.clear();
+        std::vector<cooEntry> Ac_orig(std::move(Ac->entry));
         if (Ac->active_minor) {
             if (sparsifier == "majid") {
                 sparsify_majid(Ac_orig, Ac->entry, norm_frob_sq, sample_size, max_val, Ac->comm);
@@ -273,7 +270,7 @@ int saena_object::compute_coarsen(Grid *grid) {
                 Ac->matrix_setup_dummy();
                 Ac->compute_matvec_dummy_time();
                 Ac->decide_shrinking(A->matvec_dummy_time);
-                Ac->erase_after_decide_shrinking();
+                Ac->erase_after_shrink();
             }
         }
 
@@ -283,15 +280,17 @@ int saena_object::compute_coarsen(Grid *grid) {
         }
 #endif
 
+        Ac->density = (Ac->nnz_g / double(Ac->Mbig)) / (Ac->Mbig);
+
         // decide to partition based on number of rows or nonzeros.
-        if (switch_repartition && Ac->density >= repartition_threshold) {
+        if (switch_repart && Ac->density >= repart_thre) {
             if (!rank){
-                printf("equi-ROW partition for the next level: density = %f, repartition_threshold = %f \n",
-                       Ac->density, repartition_threshold);
+                printf("equi-ROW partition for the next level: \ndensity = %.2f, repart_thre = %.2f \n",
+                       Ac->density, repart_thre);
             }
-            Ac->repartition_row(); // based on number of rows
+            Ac->repart(true);
         } else {
-            Ac->repartition_nnz(); // based on number of nonzeros
+            Ac->repart(false);
         }
 
 #ifdef __DEBUG1__
@@ -325,15 +324,15 @@ int saena_object::compute_coarsen(Grid *grid) {
 //            if (Ac->shrinked && Ac->enable_dummy_matvec)
 //                Ac->compute_matvec_dummy_time();
 
-            if (switch_to_dense && Ac->density > dense_threshold) {
+            if (switch_to_dense && Ac->density > density_thre && Ac->Mbig <= dense_sz_thre) {
 #ifdef __DEBUG1__
                 if (verbose_compute_coarsen) {
 //                    Ac->print_info(-1);
 //                    Ac->print_entry(-1);
-                    if(!rank) printf("Switch to dense: density = %f, dense_thres = %f\n", Ac->density, dense_threshold);
+                    if(!rank) printf("Switch to dense: density = %f, dense_thres = %f, dense_sz_thre= %d\n",
+                            Ac->density, density_thre, dense_sz_thre);
                 }
 #endif
-
                 Ac->generate_dense_matrix();
             }
         }
@@ -355,7 +354,7 @@ int saena_object::compute_coarsen(Grid *grid) {
 } // compute_coarsen()
 
 
-int saena_object::triple_mat_mult(Grid *grid){
+int saena_object::triple_mat_mult(Grid *grid, bool symm /*=true*/){
 
     saena_matrix    *A  = grid->A;
     prolong_matrix  *P  = &grid->P;
@@ -755,7 +754,7 @@ int saena_object::triple_mat_mult(Grid *grid){
 #endif
 
     // =======================================
-    // prepare A for compression
+    // prepare P for compression
     // =======================================
 
     if(nprocs > 1) {
@@ -789,10 +788,13 @@ int saena_object::triple_mat_mult(Grid *grid){
     // perform the multiplication RA * P
     // =======================================
 
-//    saena_matrix RAP;
     MPI_Comm comm_temp = Ac->comm;
     Ac->comm = A->comm;
-    matmat_CSC(RAcsc, Pcsc, *Ac, true);
+    if(symm){
+        matmat_CSC(RAcsc, Pcsc, *Ac);
+    }else{
+        matmat_CSC(RAcsc, Pcsc, *Ac, true); // transpose the result
+    }
     Ac->comm = comm_temp;
 
 //    assert(!Ac->entry.empty());

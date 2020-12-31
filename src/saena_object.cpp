@@ -40,14 +40,28 @@ int saena_object::setup(saena_matrix* A) {
     if(!rank && omp_get_thread_num()==0)
         printf("\nnumber of processes: %d\nnumber of threads:   %d\n", nprocs, omp_get_num_threads());
 
+    if(smoother=="chebyshev"){
+        find_eig(*A);
+    }
+
+    if(A->remove_boundary){
+        remove_boundary = A->remove_boundary;
+        std::swap(bound_row, A->bound_row);
+        std::swap(bound_val, A->bound_val);
+    }
+
     if(verbose_setup){
         MPI_Barrier(A->comm);
         if(!rank){
-            printf("Operator smoother:   %s\n", PSmoother.c_str());
+            printf("Operator Smoother:   %s\n", PSmoother.c_str());
             printf("connStrength:        %.2f\n", connStrength);
+            printf("Remove Boundary:     %s\n", remove_boundary ? "True" : "False");
             printf("_____________________________\n\n");
             printf("level = 0 \nnumber of procs = %d \nmatrix size \t= %d \nnonzero \t= %lu \ndensity \t= %.6f \n",
                    nprocs, A->Mbig, A->nnz_g, A->density);
+            if(A->use_dense){
+                printf("dense structure = True\n");
+            }
         }
         MPI_Barrier(A->comm);
     }
@@ -71,10 +85,6 @@ int saena_object::setup(saena_matrix* A) {
     }
 #endif
 
-    if(smoother=="chebyshev"){
-        find_eig(*A);
-    }
-
     if(fabs(sample_sz_percent - 1) < 1e-4)
         doSparsify = false;
 
@@ -86,9 +96,7 @@ int saena_object::setup(saena_matrix* A) {
     }
 #endif
 
-    A->switch_to_dense = switch_to_dense;
-    A->dense_threshold = dense_threshold;
-    if(switch_to_dense && A->density > dense_threshold) {
+    if(switch_to_dense && A->density > density_thre && A->Mbig <= dense_sz_thre) {
         A->generate_dense_matrix();
     }
 
@@ -166,6 +174,9 @@ int saena_object::setup(saena_matrix* A) {
                            "\ndensity \t= %.6f \ncoarsen method \t= %s\n",
                            grids[i + 1].level, grids[i + 1].A->total_active_procs, grids[i + 1].A->Mbig, grids[i + 1].A->nnz_g,
                            grids[i + 1].A->density, (grids[i].A->p_order == 1 ? "h-coarsen" : "p-coarsen"));
+                    if(grids[i + 1].A->use_dense){
+                        printf("dense structure = True\n");
+                    }
                 }
             }
 
@@ -256,14 +267,24 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
         find_eig(*A);
     }
 
+    if(A->remove_boundary){
+        remove_boundary = A->remove_boundary;
+        std::swap(bound_row, A->bound_row);
+        std::swap(bound_val, A->bound_val);
+    }
+
     if(verbose_setup){
         MPI_Barrier(A->comm);
         if(!rank){
             printf("Operator smoother:   %s\n", PSmoother.c_str());
             printf("connStrength:        %.2f\n", connStrength);
+            printf("Remove Boundary:     %s\n", remove_boundary ? "True" : "False");
             printf("_____________________________\n\n");
             printf("level = 0 \nnumber of procs = %d \nmatrix size \t= %d \nnonzero \t= %lu \ndensity \t= %.6f \n",
                    nprocs, A->Mbig, A->nnz_g, A->density);
+            if(A->use_dense){
+                printf("dense structure = True\n");
+            }
         }
         MPI_Barrier(A->comm);
     }
@@ -298,9 +319,7 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
     }
 #endif
 
-    A->switch_to_dense = switch_to_dense;
-    A->dense_threshold = dense_threshold;
-    if(switch_to_dense && A->density > dense_threshold) {
+    if(switch_to_dense && A->density > density_thre && A->Mbig <= dense_sz_thre) {
         A->generate_dense_matrix();
     }
 
@@ -395,6 +414,9 @@ int saena_object::setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, s
                            "\ndensity \t= %.6f \ncoarsen method \t= %s\n",
                            grids[i + 1].level, grids[i + 1].A->total_active_procs, grids[i + 1].A->Mbig, grids[i + 1].A->nnz_g,
                            grids[i + 1].A->density, (grids[i].A->p_order == 1 ? "h-coarsen" : "p-coarsen"));
+                    if(grids[i + 1].A->use_dense){
+                        printf("dense structure = True\n");
+                    }
                 }
             }
 
@@ -650,7 +672,7 @@ void saena_object::profile_matvecs(){
     const int iter = 5;
     double t = 0, t1 = 0, t2 = 0;
 
-    for(int l = 0; l < max_level; ++l){
+    for(int l = 0; l <= max_level; ++l){
         if(grids[l].active) {
             t = 0;
             vector<value_t> v(grids[l].A->M, 1);
@@ -666,4 +688,132 @@ void saena_object::profile_matvecs(){
             print_time_all(t / iter, "matvec level " + to_string(l), grids[l].A->comm);
         }
     }
+}
+
+void saena_object::profile_matvecs_breakdown(){
+    const int iter = 5;
+    double t = 0, t1 = 0, t2 = 0;
+
+#ifdef __DEBUG1__
+    // for testing the correctness of different matvec implementations
+/*
+    if(grids[0].active) {
+        int rank = 0;
+        MPI_Comm_rank(grids[0].A->comm, &rank);
+        vector<value_t> v(grids[0].A->M);
+        for(int i = 0; i < grids[0].A->M; ++i){
+            v[i] = i + grids[0].A->split[rank];
+        }
+        vector<value_t> w1(grids[0].A->M), w2(grids[0].A->M);
+        grids[0].A->matvec_sparse_test_orig(v, w1);
+        grids[0].A->matvec_sparse_test4(v, w2);
+        for(int i = 0; i < grids[0].A->M; ++i){
+            ASSERT(w1[i] == w2[i], "rank " << rank << ": i = " << i << ": " << w1[i] << " != " << w2[i]);
+        }
+    }
+*/
+#endif
+
+    for(int l = 0; l <= max_level; ++l){
+        if(grids[l].active) {
+            int rank = 0;
+            MPI_Comm_rank(grids[l].A->comm, &rank);
+            if(!rank) printf("\nlevel %d:", l);
+            vector<value_t> v(grids[l].A->M, 0.123);
+            vector<value_t> w(grids[l].A->M);
+
+            // warm up
+            for(int i = 0; i < iter; ++i){
+                t1 = omp_get_wtime();
+                grids[l].A->matvec_sparse_test_orig(v, w);
+                t2 = omp_get_wtime();
+                t += t2 - t1;
+                swap(v, w);
+            }
+
+            t = 0;
+            grids[l].A->matvec_time_init();
+            MPI_Barrier(grids[l].A->comm);
+            for(int i = 0; i < iter; ++i){
+                t1 = omp_get_wtime();
+                grids[l].A->matvec_sparse_test_orig(v, w);
+                t2 = omp_get_wtime();
+                t += t2 - t1;
+                swap(v, w);
+            }
+//            print_time_all(t / iter, "matvec level " + to_string(l), grids[l].A->comm);
+//            grids[l].A->matvec_time_print(); // for matvec test2 and test3
+            grids[l].A->matvec_time_print2(); // average
+//            grids[l].A->matvec_time_print3(); // min, average and max for all parts of matvec
+        }
+    }
+}
+
+void saena_object::remove_boundary_rhs(std::vector<value_t> &rhs_large, std::vector<value_t> &rhs0, MPI_Comm comm){
+    int rank = 0, nprocs = 0;
+    MPI_Comm_rank(comm, &rank);
+    MPI_Comm_size(comm, &nprocs);
+    rank_v = 1;
+
+//    int ii = 0;
+//    if(rank == 1)
+//        ii = 17;
+//    for(auto &r : rhs_large){
+//        r = ii++;
+//    }
+
+//    print_vector(rhs_large, -1, "rhs_large", comm);
+
+    index_t Mbig_l = rhs_large.size(), Mbig = 0;
+    MPI_Allreduce(&Mbig_l, &Mbig, 1, par::Mpi_datatype<index_t>::value(), MPI_SUM, comm);
+    index_t ofst = Mbig / nprocs;
+
+    // initial split. it will get updated later
+    vector<index_t> split(nprocs + 1);
+    for(int i = 0; i < nprocs; ++i){
+        split[i] = i * ofst;
+    }
+    split[nprocs] = Mbig;
+
+//    vector<value_t> rhs_large_s; // sorted
+//    par::sampleSort(rhs_large, rhs_large_s, split, comm);
+
+//    if(rank == rank_v) cout << "bound_row.size(): " << bound_row.size() << ", rhs_large.size(): " << rhs_large.size() << endl;
+//    print_vector(bound_row, rank_v, "bound_row", comm);
+//    print_vector(bound_val, rank_v, "bound_val", comm);
+
+    rhs0.resize(rhs_large.size() - bound_row.size());
+    bound_sol.resize(bound_row.size());
+
+    index_t it1 = 0, it2 = 0;
+    for(index_t i = 0; i < rhs_large.size(); ++i){
+//        if(rank==rank_v) cout << i << "\t" << it1 << "\t" << bound_row[it1] << endl;
+        if(bound_row[it1] == i){
+            bound_sol[it1] = rhs_large[i] / bound_val[it1];
+            it1++;
+        }else{
+            rhs0[it2++] = rhs_large[i];
+        }
+    }
+
+//    print_vector(bound_sol, rank_v, "bound_sol", comm);
+//    if(rank==rank_v) cout << "here" << endl;
+}
+
+void saena_object::add_boundary_sol(std::vector<value_t> &u){
+    std::vector<value_t> u_small;
+    std::swap(u, u_small);
+    const index_t SZ = u_small.size() + bound_sol.size();
+    u.resize(SZ);
+
+    index_t it1 = 0, it2 = 0;
+    for(int i = 0; i < SZ; ++i){
+        if(i != bound_row[it1]){
+            u[i] = u_small[it2++];
+        }else{
+            u[i] = bound_sol[it1++];
+        }
+    }
+//    ASSERT(it1 - 1 < bound_row.size(), it1 - 1 << "\t" << bound_row.size());
+//    ASSERT(it2 - 1 < u_small.size(),   it2 - 1 << "\t" << u_small.size());
 }

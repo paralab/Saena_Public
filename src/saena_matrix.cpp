@@ -354,6 +354,18 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
     remove_duplicates();
 
+    if(remove_boundary){
+        remove_boundary_nodes();
+
+        index_t Mbig_local = 0;
+        if(!data.empty())
+            Mbig_local = data.back().row;
+        MPI_Allreduce(&Mbig_local, &Mbig, 1, par::Mpi_datatype<index_t>::value(), MPI_MAX, comm);
+        Mbig++; // since indices start from 0, not 1.
+    }else{
+        data = std::move(data_with_bound);
+    }
+
     // after removing duplicates, initial_nnz_l and nnz_g will be smaller, so update them.
     initial_nnz_l = data.size();
     MPI_Allreduce(&initial_nnz_l, &nnz_g, 1, par::Mpi_datatype<nnz_t>::value(), MPI_SUM, comm);
@@ -362,9 +374,9 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
     // Since data[] has row-major order, the last element on the last process is the number of rows.
     // Broadcast it from the last process to the other processes.
 
-    cooEntry last_element = data.back();
-    Mbig = last_element.row + 1; // since indices start from 0, not 1.
-    MPI_Bcast(&Mbig, 1, par::Mpi_datatype<index_t>::value(), nprocs-1, comm);
+//    cooEntry last_element = data.back();
+//    Mbig = last_element.row + 1; // since indices start from 0, not 1.
+//    MPI_Bcast(&Mbig, 1, par::Mpi_datatype<index_t>::value(), nprocs-1, comm);
 
     if(verbose_saena_matrix){
         MPI_Barrier(comm);
@@ -625,6 +637,8 @@ int saena_matrix::erase(){
     sendProcRank.clear();
     sendProcCount.clear();
     sendProcCount.clear();
+    requests.clear();
+    statuses.clear();
 
     entry.shrink_to_fit();
     split.shrink_to_fit();
@@ -646,6 +660,8 @@ int saena_matrix::erase(){
     sendProcRank.shrink_to_fit();
     sendProcCount.shrink_to_fit();
     sendProcCount.shrink_to_fit();
+    requests.shrink_to_fit();
+    statuses.shrink_to_fit();
 
 #ifdef SAENA_USE_ZFP
     if(free_zfp_buff){
@@ -696,14 +712,12 @@ int saena_matrix::erase2(){
     sendProcCount.clear();
     vIndex.clear();
     vSend.clear();
-    vSend2.clear();
     vecValues.clear();
-    vecValues2.clear();
+//    vSend2.clear();
+//    vecValues2.clear();
     indicesP_local.clear();
     recvCount.clear();
-    recvCountScan.clear();
     sendCount.clear();
-    sendCountScan.clear();
     iter_local_array.clear();
     iter_remote_array.clear();
 //    iter_local_array2.clear();
@@ -731,14 +745,12 @@ int saena_matrix::erase2(){
     sendProcCount.shrink_to_fit();
     vIndex.shrink_to_fit();
     vSend.shrink_to_fit();
-    vSend2.shrink_to_fit();
     vecValues.shrink_to_fit();
-    vecValues2.shrink_to_fit();
+//    vSend2.shrink_to_fit();
+//    vecValues2.shrink_to_fit();
     indicesP_local.shrink_to_fit();
     recvCount.shrink_to_fit();
-    recvCountScan.shrink_to_fit();
     sendCount.shrink_to_fit();
-    sendCountScan.shrink_to_fit();
     iter_local_array.shrink_to_fit();
     iter_remote_array.shrink_to_fit();
 //    iter_local_array2.shrink_to_fit();
@@ -765,7 +777,6 @@ int saena_matrix::erase2(){
 //    shrinked = false;
 //    active = true;
     assembled = false;
-    freeBoolean = false;
 
     return 0;
 }
@@ -849,14 +860,12 @@ int saena_matrix::erase_keep_remote2(){
     sendProcCount.clear();
     vIndex.clear();
     vSend.clear();
-    vSend2.clear();
     vecValues.clear();
-    vecValues2.clear();
+//    vSend2.clear();
+//    vecValues2.clear();
     indicesP_local.clear();
     recvCount.clear();
-    recvCountScan.clear();
     sendCount.clear();
-    sendCountScan.clear();
     iter_local_array.clear();
     iter_remote_array.clear();
 //    iter_local_array2.clear();
@@ -880,7 +889,6 @@ int saena_matrix::erase_keep_remote2(){
 //    assembled = false;
 //    shrinked = false;
 //    active = true;
-    freeBoolean = false;
 
     return 0;
 }
@@ -888,131 +896,43 @@ int saena_matrix::erase_keep_remote2(){
 
 int saena_matrix::erase_after_shrink() {
 
+    nnz_l_local = 0;
+    nnz_l_remote = 0;
+    numRecvProc = 0;
+    numSendProc = 0;
+    vIndexSize = 0;
+    recvSize = 0;
+
     row_local.clear();
     col_local.clear();
     values_local.clear();
-
     row_remote.clear();
-    col_remote.clear();
-    col_remote2.clear();
+//    col_remote.clear();
+//    col_remote2.clear();
     values_remote.clear();
 
     vElement_remote.clear();
-
-//    nnzPerRow_local.clear();
-//    nnzPerCol_remote.clear();
-//    inv_diag.clear();
-//    vdispls.clear();
-//    rdispls.clear();
-//    recvProcRank.clear();
-//    recvProcCount.clear();
-//    sendProcRank.clear();
-//    sendProcCount.clear();
-//    vIndex.clear();
-//    vSend.clear();
-//    vecValues.clear();
-//    vSendULong.clear();
-//    vecValuesULong.clear();
-//    indicesP_local.clear();
-//    indicesP_remote.clear();
-//    recvCount.clear();
-//    recvCountScan.clear();
-//    sendCount.clear();
-//    sendCountScan.clear();
-//    iter_local_array.clear();
-//    iter_remote_array.clear();
-//    iter_local_array2.clear();
-//    iter_remote_array2.clear();
-//    w_buff.clear();
-
-    return 0;
-}
-
-
-int saena_matrix::erase_after_decide_shrinking() {
-
-//    row_local.clear();
-    col_local.clear();
-    values_local.clear();
-
-    row_remote.clear();
-    col_remote.clear();
-    col_remote2.clear();
-    values_remote.clear();
-
-    vElement_remote.clear();
-
-//    nnzPerRow_local.clear();
+    nnzPerRow_local.clear();
     nnzPerCol_remote.clear();
-//    inv_diag.clear();
-//    vdispls.clear();
-//    rdispls.clear();
+    nnzPerProcScan.clear();
+    recvCount.clear();
+    indicesP_local.clear();
+    sendCount.clear();
     recvProcRank.clear();
     recvProcCount.clear();
     sendProcRank.clear();
     sendProcCount.clear();
-//    vIndex.clear();
-//    vSend.clear();
-//    vecValues.clear();
-//    vSendULong.clear();
-//    vecValuesULong.clear();
-//    indicesP_local.clear();
-//    indicesP_remote.clear();
-//    recvCount.clear();
-//    recvCountScan.clear();
-//    sendCount.clear();
-//    sendCountScan.clear();
-//    iter_local_array.clear();
-//    iter_remote_array.clear();
-//    iter_local_array2.clear();
-//    iter_remote_array2.clear();
-//    w_buff.clear();
-
+    vdispls.clear();
+    rdispls.clear();
+    vIndex.clear();
+    vSend.clear();
+    vecValues.clear();
     return 0;
 }
 
 
 int saena_matrix::erase_lazy_update(){
-
     data_coo.clear();
-
-    /*
-    entry.clear();
-    values_local.clear();
-    row_local.clear();
-    values_remote.clear();
-    row_remote.clear();
-    col_local.clear();
-    col_remote.clear();
-    col_remote2.clear();
-    nnzPerRow_local.clear();
-    nnzPerCol_remote.clear();
-    inv_diag.clear();
-    vdispls.clear();
-    rdispls.clear();
-    recvProcRank.clear();
-    recvProcCount.clear();
-    sendProcRank.clear();
-    sendProcCount.clear();
-    vElementRep_remote.clear();
-    vIndex.clear();
-    vSend.clear();
-    vecValues.clear();
-    vSendULong.clear();
-    vecValuesULong.clear();
-    indicesP_local.clear();
-    indicesP_remote.clear();
-    recvCount.clear();
-    recvCountScan.clear();
-    sendCount.clear();
-    sendCountScan.clear();
-    iter_local_array.clear();
-    iter_remote_array.clear();
-    iter_local_array2.clear();
-    iter_remote_array2.clear();
-    vElement_remote.clear();
-    w_buff.clear();
-*/
     return 0;
 }
 
