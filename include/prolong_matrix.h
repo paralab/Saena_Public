@@ -40,13 +40,14 @@ public:
 //    std::vector<unsigned long> col_local;
 
     std::vector<index_t> nnzPerRow_local;
-    std::vector<index_t> nnzPerRowScan_local;
+//    std::vector<index_t> nnzPerRowScan_local;
     std::vector<index_t> nnzPerCol_remote;
     std::vector<index_t> vElement_remote;
-    std::vector<index_t> vElement_remote_t;
-    std::vector<index_t> vElementRep_local;
-    std::vector<index_t> vElementRep_remote;
+//    std::vector<index_t> vElement_remote_t;
+//    std::vector<index_t> vElementRep_local;
+//    std::vector<index_t> vElementRep_remote;
 //    std::vector<unsigned int> nnz_row_remote;
+    std::vector<nnz_t> nnzPerProcScan; // number of remote nonzeros on each proc. used in matvec
 
     int vIndexSize   = 0;
     int vIndexSize_t = 0;
@@ -68,6 +69,8 @@ public:
     std::vector<int> sendProcRank_t;
     std::vector<int> sendProcCount;
     std::vector<int> sendProcCount_t;
+    std::vector<int> recvCount;
+
     int recvSize      = 0;
     int recvSize_t    = 0;
     int numRecvProc   = 0;
@@ -81,7 +84,10 @@ public:
     std::vector<value_t> w_buff; // for matvec
 
     std::vector<nnz_t> indicesP_local;
-    std::vector<nnz_t> indicesP_remote;
+//    std::vector<nnz_t> indicesP_remote;
+
+    vector<MPI_Request> mv_req;
+    vector<MPI_Status>  mv_stat;
 
     bool verbose_prolong_setup = false;
 
@@ -95,6 +101,8 @@ public:
     int findLocalRemote();
     int openmp_setup();
     void matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec2(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec_omp(std::vector<value_t>& v, std::vector<value_t>& w);
 
     int print_entry(int ran);
     int print_info(int ran);

@@ -36,6 +36,14 @@ public:
     std::vector<int> rdispls2;
     std::vector<int> sdispls2;
 
+    std::vector<int> rcount3; // store nonzero rcounts2
+    std::vector<int> scount3; // store nonzero scounts2
+    std::vector<int> rproc_id; // store the index of nonzero rcounts2
+    std::vector<int> sproc_id; // store the index of nonzero scounts2
+
+    std::vector<MPI_Request> requests;  // used in repart_u() and repart_back_u()
+    std::vector<value_t> u_old;         // used in repart_u() and repart_back_u()
+
     std::vector<value_t> res;
     std::vector<value_t> uCorr;
 //    std::vector<value_t> res_coarse;
@@ -49,6 +57,10 @@ public:
     }
 
     ~Grid() = default;
+
+    void repart_u_prepare();
+    void repart_u(std::vector<value_t> &u);
+    void repart_back_u(std::vector<value_t> &u);
 };
 
 #endif //SAENA_GRID_H

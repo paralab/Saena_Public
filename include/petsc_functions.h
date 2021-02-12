@@ -12,6 +12,7 @@
 PetscErrorCode ComputeMatrix(KSP ksp, Mat J, Mat jac, void *ctx);
 PetscErrorCode ComputeRHS(KSP ksp,Vec b,void *ctx);
 
+int petsc_write_mat_file(const saena_matrix *A1);
 int petsc_viewer(const Mat &A);
 int petsc_viewer(const saena_matrix *A);
 int petsc_viewer(const prolong_matrix *P);
@@ -36,6 +37,7 @@ int petsc_coarsen_2matmult(restrict_matrix *R, saena_matrix *A, prolong_matrix *
 int petsc_check_matmatmat(restrict_matrix *R, saena_matrix *A, prolong_matrix *P, saena_matrix *Ac);
 
 int petsc_solve(const saena_matrix *A, const vector<value_t> &rhs, vector<value_t> &u, const double &rel_tol);
+int petsc_solve(saena_matrix *A1, vector<value_t> &b1, vector<value_t> &x1, const double &rel_tol, const char in_str[], string pc_type);
 
 #endif //SAENA_PETSC_FUNCTIONS_H
 

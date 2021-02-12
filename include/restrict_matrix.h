@@ -48,13 +48,16 @@ public:
     std::vector<index_t> vElementRep_local;
     std::vector<index_t> vElementRep_remote;
     std::vector<index_t> nnzPerCol_remote;
-    std::vector<nnz_t> nnzPerRowScan_local;
+//    std::vector<nnz_t> nnzPerRowScan_local;
+    std::vector<nnz_t>   nnzPerProcScan; // number of remote nonzeros on each proc. used in matvec
+
     std::vector<int> vdispls;
     std::vector<int> rdispls;
     std::vector<int> recvProcRank;
     std::vector<int> recvProcCount;
     std::vector<int> sendProcRank;
     std::vector<int> sendProcCount;
+    std::vector<int> recvCount;
     index_t vIndexSize  = 0;
     index_t recvSize    = 0;
     int numRecvProc = 0;
@@ -70,6 +73,9 @@ public:
     std::vector<nnz_t> indicesP_local;
 //    std::vector<nnz_t> indicesP_remote;
 
+    vector<MPI_Request> mv_req;
+    vector<MPI_Status>  mv_stat;
+
 //    bool arrays_defined = false; // set to true if transposeP function is called. it will be used for destructor.
 
     bool verbose_restrict_setup = false;
@@ -84,9 +90,11 @@ public:
     int transposeP(prolong_matrix* P);
     int openmp_setup();
     void matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec2(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec_omp(std::vector<value_t>& v, std::vector<value_t>& w);
 
-    int print_entry(int ran);
-    int print_info(int ran);
+    int print_entry(int ran) const;
+    int print_info(int ran) const;
 
     int writeMatrixToFile(const std::string &name = "") const;
 };

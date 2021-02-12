@@ -490,14 +490,14 @@ int saena::amg::set_shrink_values(std::vector<int> sh_val_vec) {
 }
 
 
-int saena::amg::switch_repartition(bool val) {
-    m_pImpl->switch_repartition = val;
+int saena::amg::switch_repart(bool val) {
+    m_pImpl->switch_repart = val;
     return 0;
 }
 
 
-int saena::amg::set_repartition_threshold(float thre){
-    m_pImpl->set_repartition_threshold(thre);
+int saena::amg::set_repart_thre(float thre){
+    m_pImpl->set_repart_thre(thre);
     return 0;
 }
 
@@ -509,13 +509,13 @@ int saena::amg::switch_to_dense(bool val) {
 
 
 int saena::amg::set_dense_threshold(float thre){
-    m_pImpl->dense_threshold = thre;
+    m_pImpl->density_thre = thre;
     return 0;
 }
 
 
 double saena::amg::get_dense_threshold(){
-    return m_pImpl->dense_threshold;
+    return m_pImpl->density_thre;
 }
 
 
@@ -552,13 +552,25 @@ int saena::amg::solve_CG(std::vector<value_t>& u, saena::options* opts){
     return 0;
 }
 
+int saena::amg::solve_petsc(std::vector<value_t>& u){
+    m_pImpl->solve_petsc(u);
+    Grid *g = &m_pImpl->grids[0];
+    g->rhs_orig->return_vec(u);
+    return 0;
+}
 
 int saena::amg::solve_pCG(std::vector<value_t>& u, saena::options* opts){
     m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pCG(u);
-    Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u);
+
+    if(m_pImpl->remove_boundary){
+//        m_pImpl->add_boundary_sol(u); // TODO: this part should be fixed
+    } else {
+        Grid *g = &m_pImpl->grids[0];
+        g->rhs_orig->return_vec(u);
+    }
+
     return 0;
 }
 
@@ -703,4 +715,8 @@ void saena::amg::matmat(saena::matrix *A, saena::matrix *B, saena::matrix *C, bo
 
 void saena::amg::profile_matvecs(){
     m_pImpl->profile_matvecs();
+}
+
+void saena::amg::profile_matvecs_breakdown(){
+    m_pImpl->profile_matvecs_breakdown();
 }
