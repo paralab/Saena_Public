@@ -246,6 +246,7 @@ set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
         src/aux_functions.cpp
         src/aux_functions2.cpp
         src/data_struct.cpp
+        src/grid.cpp
         src/strength_matrix.cpp
         src/prolong_matrix.cpp
         src/restrict_matrix.cpp
