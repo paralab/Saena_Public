@@ -82,6 +82,9 @@ public:
     nnz_t   nnz_max = 0; // biggest nnz on all the processors
     index_t M_max   = 0; // biggest M on all the processors
 
+    index_t M_orig    = 0; // before removing boundary nodes
+    index_t Mbig_orig = 0; // before removing boundary nodes
+
     int p_order = 1;
     int prodim = 2;
 
@@ -229,8 +232,7 @@ public:
     explicit saena_matrix(MPI_Comm com);
     ~saena_matrix();
 
-    int read_file(const char* Aname);
-    int read_file(const char* Aname, const std::string &input_type);
+    int read_file(const string &filename, const std::string &input_type = "");
 
     void set_comm(MPI_Comm com);
 
@@ -291,6 +293,8 @@ public:
 
     inline void matvec(std::vector<value_t>& v, std::vector<value_t>& w);
     void matvec_sparse(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec_sparse2(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec_sparse3(std::vector<value_t>& v, std::vector<value_t>& w);
     void matvec_sparse_array(value_t *v, value_t *w);    // to be used in ietl.
     void matvec_sparse_array2(value_t *v, value_t *w);   // to be used in ietl.
 
