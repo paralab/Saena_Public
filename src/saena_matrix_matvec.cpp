@@ -78,6 +78,7 @@ int saena_matrix::matvec_sparse(std::vector<value_t>& v, std::vector<value_t>& w
 
 //    if(nprocs > 1){
         // Wait for the receive communication to finish.
+#if 0
         MPI_Waitall(numRecvProc, requests, statuses);
 
 //        print_vector(vecValues, 1, "vecValues", comm);
@@ -138,10 +139,35 @@ int saena_matrix::matvec_sparse(std::vector<value_t>& v, std::vector<value_t>& w
 //                w[row_remote[iter]] += values_remote[iter] * vecValues[j];
 //            }
 //        }
+#endif
 
-        MPI_Waitall(numSendProc, numRecvProc+requests, numRecvProc+statuses);
-        delete [] requests;
-        delete [] statuses;
+    nnz_t iter;
+    int np = 0;
+    int recv_proc = 0, recv_proc_idx = 0;
+    while(np < numRecvProc){
+        MPI_Waitany(numRecvProc, &requests[0], &recv_proc_idx, MPI_STATUS_IGNORE);
+        ++np;
+
+        recv_proc = recvProcRank[recv_proc_idx];
+//        if(rank==1) printf("recv_proc_idx = %d, recv_proc = %d, np = %d, numRecvProc = %d, recvCount[recv_proc] = %d\n",
+//                              recv_proc_idx, recv_proc, np, numRecvProc, recvCount[recv_proc]);
+
+        iter = nnzPerProcScan[recv_proc];
+        value_t *vecValues_p        = &vecValues[rdispls[recv_proc]];
+        auto    *nnzPerCol_remote_p = &nnzPerCol_remote[rdispls[recv_proc]];
+        for (index_t j = 0; j < recvCount[recv_proc]; ++j) {
+//            if(rank==1) printf("%u\n", nnzPerCol_remote_p[j]);
+            for (index_t i = 0; i < nnzPerCol_remote_p[j]; ++i, ++iter) {
+//                if(rank==1) printf("%ld \t%u \t%u \t%f \t%f\n",
+//                iter, row_remote[iter], col_remote2[iter], values_remote[iter], vecValues[rdispls[recv_proc] + j]);
+                w[row_remote[iter]] += values_remote[iter] * vecValues_p[j];
+            }
+        }
+    }
+
+    MPI_Waitall(numSendProc, numRecvProc+requests, numRecvProc+statuses);
+    delete [] requests;
+    delete [] statuses;
 //    }
 
 //    tcomm = MPI_Wtime() - tcomm;
