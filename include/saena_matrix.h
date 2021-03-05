@@ -69,9 +69,8 @@ private:
     bool verbose_shrink            = false;
 
 public:
-    MPI_Comm comm            = MPI_COMM_WORLD;
-    MPI_Comm comm_old        = MPI_COMM_WORLD;
-    MPI_Comm comm_horizontal = MPI_COMM_WORLD;
+    MPI_Comm comm     = MPI_COMM_WORLD;
+    MPI_Comm comm_old = MPI_COMM_WORLD;
 
     index_t Mbig    = 0; // global number of rows
     index_t Nbig    = 0; // global number of columns
@@ -130,7 +129,7 @@ public:
 //    std::vector<value_t> vSend2;
 //    std::vector<value_t> vecValues2;    // for compressed matvec
 
-    std::vector<nnz_t> indicesP_local;
+//    std::vector<nnz_t> indicesP_local;
 
     int numRecvProc = 0;
     int numSendProc = 0;
@@ -345,10 +344,10 @@ public:
     int erase_update_local(); // use this for compute_coarsen_update_Ac()
     int erase_keep_remote2(); // use this for compute_coarsen_update_Ac()
     int erase_after_shrink();
-    int erase_after_decide_shrinking();
+//    int erase_after_decide_shrinking();
     int erase_lazy_update();
     int erase_no_shrink_to_fit();
-    int destroy();
+    void destroy();
 };
 
 #endif //SAENA_SAENA_MATRIX_H

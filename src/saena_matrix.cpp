@@ -335,7 +335,9 @@ int saena_matrix::read_file(const string &filename, const std::string &input_typ
 
     offset = rank * nnz_t(floor(1.0 * nnz_g / nprocs)) * (2*sizeof(index_t) + sizeof(value_t));
 
-    MPI_File_read_at(fh, offset, datap, initial_nnz_l, cooEntry_row::mpi_datatype(), &status);
+    auto dt = cooEntry_row::mpi_datatype();
+    MPI_File_read_at(fh, offset, datap, initial_nnz_l, dt, &status);
+    MPI_Type_free(&dt);
 
 //    int count;
 //    MPI_Get_count(&status, MPI_UNSIGNED_LONG, &count);
@@ -599,8 +601,10 @@ int saena_matrix::set3(unsigned int* row, unsigned int* col, double* val, unsign
 */
 
 
-int saena_matrix::destroy(){
-    return 0;
+void saena_matrix::destroy(){
+    erase();
+//    if(comm != MPI_COMM_WORLD && comm != MPI_COMM_NULL)
+//        MPI_Comm_free(&comm);
 }
 
 
@@ -708,7 +712,6 @@ int saena_matrix::erase2(){
     vecValues.clear();
 //    vSend2.clear();
 //    vecValues2.clear();
-    indicesP_local.clear();
     recvCount.clear();
     sendCount.clear();
     iter_local_array.clear();
@@ -741,7 +744,6 @@ int saena_matrix::erase2(){
     vecValues.shrink_to_fit();
 //    vSend2.shrink_to_fit();
 //    vecValues2.shrink_to_fit();
-    indicesP_local.shrink_to_fit();
     recvCount.shrink_to_fit();
     sendCount.shrink_to_fit();
     iter_local_array.shrink_to_fit();
@@ -856,7 +858,6 @@ int saena_matrix::erase_keep_remote2(){
     vecValues.clear();
 //    vSend2.clear();
 //    vecValues2.clear();
-    indicesP_local.clear();
     recvCount.clear();
     sendCount.clear();
     iter_local_array.clear();
@@ -909,7 +910,6 @@ int saena_matrix::erase_after_shrink() {
     nnzPerCol_remote.clear();
     nnzPerProcScan.clear();
     recvCount.clear();
-    indicesP_local.clear();
     sendCount.clear();
     recvProcRank.clear();
     recvProcCount.clear();
@@ -1111,7 +1111,7 @@ int saena_matrix::print_entry(int ran, const std::string &name) const{
                 std::cout << "\nmatrix " << name << " on proc " << ran << std::endl;
 //                printf("\nmatrix on proc = %d \n", ran);
                 printf("nnz = %lu \n", nnz_l);
-                for (auto i:entry) {
+                for (const auto &i : entry) {
                     std::cout << iter << "\t" << i << std::endl;
                     iter++;
                 }
@@ -1123,7 +1123,7 @@ int saena_matrix::print_entry(int ran, const std::string &name) const{
                     std::cout << "\nmatrix " << name << " on proc " << proc << std::endl;
 //                    printf("\nmatrix on proc = %d \n", proc);
                     printf("nnz = %lu \n", nnz_l);
-                    for (auto i:entry) {
+                    for (const auto &i : entry) {
                         std::cout << iter << "\t" << i << std::endl;
                         iter++;
                     }

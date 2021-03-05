@@ -139,10 +139,6 @@ int print_vector(const std::vector<T> &v, const int ran, const std::string &name
     // if ran >= 0 print the vector elements on proc with rank = ran
     // otherwise print the vector elements on all processors in order. (first on proc 0, then proc 1 and so on.)
 
-    if(v.empty()){
-        return 0;
-    }
-
     int rank = -1, nprocs = -1;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
@@ -152,8 +148,8 @@ int print_vector(const std::vector<T> &v, const int ran, const std::string &name
     if(ran >= 0) {
         if (rank == ran) {
             printf("\n%s on proc = %d, size = %ld: \n", name.c_str(), ran, v.size());
-            for (auto i:v) {
-                buffer << iter << "\t" << i;
+            for (const auto &i : v) {
+                buffer << iter << "\t" << std::setprecision(16) << i;
                 std::cout << buffer.str() << std::endl;
                 buffer.str("");
                 iter++;
@@ -165,8 +161,8 @@ int print_vector(const std::vector<T> &v, const int ran, const std::string &name
             MPI_Barrier(comm);
             if (rank == proc) {
                 printf("\n%s on proc = %d, size = %ld: \n", name.c_str(), proc, v.size());
-                for (auto i:v) {
-                    buffer << iter << "\t" << i;
+                for (const auto &i : v) {
+                    buffer << iter << "\t" << std::setprecision(16) << i;
                     std::cout << buffer.str() << std::endl;
                     buffer.str("");
                     iter++;

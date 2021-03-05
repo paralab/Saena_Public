@@ -286,7 +286,6 @@ int saena_matrix::remove_boundary_nodes() {
 #ifdef __DEBUG1__
     int rank_v = 1;
 //    print_vector(split, rank_v, "split", comm);
-//    data = data_with_bound;
 //    print_vector(data_with_bound, rank_v, "data_with_bound", comm);
 #endif
 
@@ -330,20 +329,15 @@ int saena_matrix::remove_boundary_nodes() {
 //            if(rank == rank_v) std::cout << "new row idx: " << data_with_bound[i].row - ofst - bound_row.size() << std::endl;
 #endif
             new_idx[data_with_bound[i].row - ofst] = data_with_bound[i].row - bound_row.size() - ofst;
-            data.emplace_back(data_with_bound[i].row - bound_row.size(), data_with_bound[i].col, data_with_bound[i].val);
+            data.emplace_back(data_with_bound[i].row - bound_row.size() - ofst, data_with_bound[i].col, data_with_bound[i].val);
             while(i + 1 < SZ && data_with_bound[i].row == data_with_bound[i + 1].row){
                 ++i;
-                data.emplace_back(data_with_bound[i].row - bound_row.size(),
+                data.emplace_back(data_with_bound[i].row - bound_row.size() - ofst,
                                   data_with_bound[i].col,
                                   data_with_bound[i].val);
             }
         }
     }
-
-//    print_array(new_idx, M, rank_v, "new_idx", comm);
-//    print_vector(data, -1, "data", comm);
-//    print_vector(bound_row, -1, "bound_row", comm);
-//    print_vector(bound_val, -1, "bound_val", comm);
 
     // if the last nonzero is left, it means the last row of the matrix had only one nozero, otherwise the whole row
     // would have been added in the previous while loop
@@ -353,8 +347,17 @@ int saena_matrix::remove_boundary_nodes() {
         bound_val.emplace_back(data_with_bound[i].val);
     }
 
+//    printf("rank %d: total points = %d, boundary points = %ld, interior points = %ld\n",
+//           rank, M_orig, bound_row.size(), M_orig - bound_row.size());
+
+//    print_array(new_idx, M, rank_v, "new_idx", comm);
+//    print_vector(data, -1, "data before update", comm);
+//    print_vector(bound_row, -1, "bound_row", comm);
+//    print_vector(bound_val, -1, "bound_val", comm);
+
     if(bound_row.empty()){ // there is no diagonal boundary point
         remove_boundary = false;
+        data = move(data_with_bound);
     }else{
         // update the column indices to the new indices after removing the boundary nodes
         if(nprocs == 1){
@@ -541,13 +544,13 @@ int saena_matrix::matrix_setup(bool scale /*= false*/) {
 
         // *************************** find sortings ****************************
 
-        find_sortings();
+//        find_sortings();
 
         // *************************** find start and end of each thread for matvec ****************************
         // also, find nnz per row for local and remote matvec
 
         openmp_setup();
-        w_buff.resize(num_threads*M); // allocate for w_buff for matvec3()
+        w_buff.resize(num_threads * M); // allocate for w_buff for matvec3()
 
         // *************************** scale ****************************
         // scale the matrix to have its diagonal entries all equal to 1.
@@ -814,6 +817,10 @@ int saena_matrix::set_off_on_diagonal(){
 
         assert(nnz_l == entry.size());
 
+        // store local entries in this vector for sorting in row-major order.
+        // then split it to row_loc, col_loc, val_loc.
+        vector<cooEntry_row> ent_loc_row;
+
         nnz_t i = 0;
         while(i < nnz_l) {
 //            if(rank==rank_v) cout << endl << entry[i] << endl;
@@ -824,9 +831,7 @@ int saena_matrix::set_off_on_diagonal(){
 //                    if(rank==rank_v) printf("entry[i].row = %d, split[rank] = %d, dif = %d - local\n", entry[i].row, split[rank], entry[i].row - split[rank]);
 //                    if(rank==rank_v) cout << entry[i] << endl;
                     ++nnzPerRow_local[entry[i].row - split[rank]];
-                    row_local.emplace_back(entry[i].row - split[rank]);
-                    col_local.emplace_back(entry[i].col);
-                    values_local.emplace_back(entry[i].val);
+                    ent_loc_row.emplace_back(entry[i].row - split[rank], entry[i].col, entry[i].val);
                     ++i;
                 }
 
@@ -857,7 +862,7 @@ int saena_matrix::set_off_on_diagonal(){
             }
         } // for i
 
-        nnz_l_local     = row_local.size();
+        nnz_l_local     = ent_loc_row.size();
         nnz_l_remote    = row_remote.size();
         col_remote_size = vElement_remote.size();
 
@@ -873,6 +878,23 @@ int saena_matrix::set_off_on_diagonal(){
         recvCount[rank] = 0;
 
 //        print_vector(recvCount, 0, "recvCount", comm);
+
+        // sort local entries in row-major order and remote entries in column-major order
+        sort(ent_loc_row.begin(), ent_loc_row.end());
+
+//        print_vector(ent_loc_row, -1, "ent_loc_row", comm);
+
+        row_local.resize(nnz_l_local);
+        col_local.resize(nnz_l_local);
+        values_local.resize(nnz_l_local);
+        for(i = 0; i < nnz_l_local; ++i){
+            row_local[i]    = ent_loc_row[i].row;
+            col_local[i]    = ent_loc_row[i].col;
+            values_local[i] = ent_loc_row[i].val;
+        }
+
+        ent_loc_row.clear();
+        ent_loc_row.shrink_to_fit();
 
         if(nprocs != 1){
 
@@ -1033,7 +1055,7 @@ int saena_matrix::find_sortings(){
             printf("matrix_setup: rank = %d, find_sortings \n", rank);
             MPI_Barrier(comm);
         }
-
+/*
         indicesP_local.resize(nnz_l_local);
 #pragma omp parallel for
         for (nnz_t i = 0; i < nnz_l_local; i++)
@@ -1041,6 +1063,7 @@ int saena_matrix::find_sortings(){
 
         index_t *row_localP = &*row_local.begin();
         std::sort(&indicesP_local[0], &indicesP_local[nnz_l_local], sort_indices(row_localP));
+*/
 
 //    if(rank==0)
 //        for(index_t i=0; i<nnz_l_local; i++)

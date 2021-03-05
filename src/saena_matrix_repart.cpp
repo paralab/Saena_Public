@@ -33,8 +33,8 @@ int saena_matrix::repartition_nnz_initial(){
     last_M_shrink = Mbig;
 //    last_nnz_shrink = nnz_g;
 
-    if(split.size() != nprocs + 1)
-        split.resize(nprocs + 1);
+    split_b.swap(split);
+    split.resize(nprocs + 1);
 
     if(nprocs > 1) {
         // *************************** find splitters ****************************
@@ -146,9 +146,6 @@ int saena_matrix::repartition_nnz_initial(){
 
         // -------------------------------------------
         // determine number of rows on each proc based on having almost the same number of nonzeros per proc.
-
-        split_b.swap(split);
-        split.resize(nprocs + 1);
 
         const nnz_t NNZ_PROC = nnz_g / nprocs;
 
@@ -291,10 +288,12 @@ int saena_matrix::repartition_nnz_initial(){
         if(verbose_repart && rank == 0) printf("repartition - step 6!\n");
 #endif
 
+        auto dt = cooEntry::mpi_datatype();
         entry.resize(nnz_l);
-        MPI_Alltoallv(&data[0],  &send_size_array[0], &send_offset[0], cooEntry::mpi_datatype(),
-                      &entry[0], &recv_size_array[0], &recv_offset[0], cooEntry::mpi_datatype(), comm);
+        MPI_Alltoallv(&data[0],  &send_size_array[0], &send_offset[0], dt,
+                      &entry[0], &recv_size_array[0], &recv_offset[0], dt, comm);
 
+        MPI_Type_free(&dt);
         data.clear();
         data.shrink_to_fit();
     }else{
@@ -954,9 +953,12 @@ int saena_matrix::repart(bool repart_row /*= false*/){
         std::vector<cooEntry> entry_old(std::move(entry));
         entry.resize(nnz_l);
 
-        MPI_Alltoallv(&entry_old[0], &send_size_array[0], &send_offset[0], cooEntry::mpi_datatype(),
-                      &entry[0],     &recv_size_array[0], &recv_offset[0], cooEntry::mpi_datatype(), comm);
+        auto dt = cooEntry::mpi_datatype();
 
+        MPI_Alltoallv(&entry_old[0], &send_size_array[0], &send_offset[0], dt,
+                      &entry[0],     &recv_size_array[0], &recv_offset[0], dt, comm);
+
+        MPI_Type_free(&dt);
     }
 
     std::sort(entry.begin(), entry.end());

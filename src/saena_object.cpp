@@ -16,11 +16,28 @@ void saena_object::set_parameters(int max_iter, double tol, std::string sm, int 
 //    maxLevel = l-1; // maxLevel does not include fine level. fine level is 0.
     solver_max_iter = max_iter;
     solver_tol      = tol;
-    smoother        = sm;
+    smoother        = std::move(sm);
     preSmooth       = preSm;
     postSmooth      = postSm;
 }
 
+void saena_object::destroy_mpi_comms(){
+    for(int l = max_level - 1; l >= 0; --l){
+        if(grids[l].active && grids[l].A->shrinked) {
+            if(grids[l].A->comm != MPI_COMM_NULL && grids[l].A->comm != MPI_COMM_WORLD)
+                MPI_Comm_free(&grids[l].A->comm);
+        }
+    }
+
+    // last level is accessed differently, through Ac
+    if(max_level > 0){
+        int l = max_level - 1;
+        if(grids[l + 1].active && grids[l].Ac.shrinked) {
+            if(grids[l].Ac.comm != MPI_COMM_NULL && grids[l].Ac.comm != MPI_COMM_WORLD)
+                MPI_Comm_free(&grids[l].Ac.comm);
+        }
+    }
+}
 
 MPI_Comm saena_object::get_orig_comm(){
     return grids[0].A->comm;
@@ -755,13 +772,6 @@ void saena_object::remove_boundary_rhs(std::vector<value_t> &rhs_large, std::vec
     MPI_Comm_size(comm, &nprocs);
     rank_v = 1;
 
-//    int ii = 0;
-//    if(rank == 1)
-//        ii = 17;
-//    for(auto &r : rhs_large){
-//        r = ii++;
-//    }
-
 //    print_vector(rhs_large, -1, "rhs_large", comm);
 
     index_t Mbig_l = rhs_large.size(), Mbig = 0;
@@ -797,7 +807,7 @@ void saena_object::remove_boundary_rhs(std::vector<value_t> &rhs_large, std::vec
     }
 
 //    print_vector(bound_sol, rank_v, "bound_sol", comm);
-//    if(rank==rank_v) cout << "here" << endl;
+//    print_vector(rhs0, rank_v, "rhs after removing boundary", comm);
 }
 
 void saena_object::add_boundary_sol(std::vector<value_t> &u){

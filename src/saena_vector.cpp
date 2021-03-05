@@ -167,12 +167,15 @@ int saena_vector::remove_duplicates() {
     // check for dupliactes on boundary points of the processors
     // ---------------------------------------------------------
     // receive first element of your left neighbor and check if it is equal to your last element.
+    auto dt = vecEntry::mpi_datatype();
     vecEntry first_element_neighbor;
     if(rank != nprocs-1)
-        MPI_Recv(&first_element_neighbor, 1, vecEntry::mpi_datatype(), rank+1, 0, comm, MPI_STATUS_IGNORE);
+        MPI_Recv(&first_element_neighbor, 1, dt, rank+1, 0, comm, MPI_STATUS_IGNORE);
 
     if(rank!= 0)
-        MPI_Send(&data[0], 1, vecEntry::mpi_datatype(), rank-1, 0, comm);
+        MPI_Send(&data[0], 1, dt, rank-1, 0, comm);
+
+    MPI_Type_free(&dt);
 
     vecEntry last_element = data.back();
     if(rank != nprocs-1){
@@ -493,7 +496,7 @@ int saena_vector::print_entry(int ran){
     // if ran >= 0 print_entry the vector entries on proc with rank = ran
     // otherwise print the vector entries on all processors in order. (first on proc 0, then proc 1 and so on.)
 
-    int rank, nprocs;
+    int rank = 0, nprocs = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
@@ -502,8 +505,8 @@ int saena_vector::print_entry(int ran){
         if (rank == ran) {
             printf("\nvector on proc = %d \n", ran);
             printf("nnz = %lu \n", data.size());
-            for (auto i:data) {
-                std::cout << iter << "\t" << i << std::endl;
+            for (const auto &i : data) {
+                std::cout << iter << "\t" << std::setprecision(16) << i << std::endl;
                 iter++;
             }
         }
@@ -513,8 +516,8 @@ int saena_vector::print_entry(int ran){
             if (rank == proc) {
                 printf("\nvector on proc = %d \n", proc);
                 printf("nnz = %lu \n", data.size());
-                for (auto i:data) {
-                    std::cout << iter << "\t" << i << std::endl;
+                for (const auto &i : data) {
+                    std::cout << iter << "\t" << std::setprecision(16) << i << std::endl;
                     iter++;
                 }
             }

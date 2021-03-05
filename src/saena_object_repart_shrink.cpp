@@ -195,15 +195,17 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
         split[nprocs] = Mbig;
 
 //        print_vector(split, 0, "split", comm);
+//        printf("rhs_large.size before repart = %ld\n", rhs_large.size());
 
         repart_vector(rhs_large, split, comm);
 
+//        printf("rhs_large.size after repart = %ld\n", rhs_large.size());
 //        print_vector(rhs_large, -1, "rhs_large after repart", comm);
 
         remove_boundary_rhs(rhs_large, rhs, rhs1->comm);
-    }
 
-//    print_vector(rhs, -1, "rhs after repart", comm);
+//        print_vector(rhs, -1, "rhs after remove_boundary_rhs", comm);
+    }
 
     Mbig_l = rhs.size();
     MPI_Allreduce(&Mbig_l, &Mbig, 1, par::Mpi_datatype<index_t>::value(), MPI_SUM, comm);
@@ -214,7 +216,7 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
 
     repart_vector(rhs, A->split, comm);
 
-//    print_vector(rhs, -1, "rhs after remove_boundary_rhs", comm);
+//    print_vector(rhs, -1, "rhs after final repart", comm);
 
 #if 0
     // ************** repartition rhs, based on A.split **************
@@ -379,7 +381,7 @@ int saena_object::repart_vector(vector<value_t> &v, vector<index_t> &split, MPI_
     if(verbose_repart_vec){MPI_Barrier(comm); if(!rank) printf("repart_vec: start\n"); MPI_Barrier(comm);}
 #endif
 
-//    print_vector(split, 0, "split", comm);
+//    print_vector(split, rank_v, "split", comm);
 //    print_vector(v, -1, "v", comm);
 
     // ************** repartition v, based on A.split **************
@@ -408,27 +410,29 @@ int saena_object::repart_vector(vector<value_t> &v, vector<index_t> &split, MPI_
     end_proc   = lower_bound2(&*split_init.begin(), &*split_init.end(), end);
     if(split_init[rank + 1] == split[rank + 1])
         end_proc--;
-//    if(rank == 3) printf("\nstart_proc = %u, end_proc = %u \n", start_proc, end_proc);
+
+//    if(rank == rank_v) printf("\nstart_proc = %u, end_proc = %u \n", start_proc, end_proc);
+    assert(start_proc <= end_proc);
 
     grids[0].rcount.assign(nprocs, 0);
     if(start_proc < end_proc){
 //        if(rank==1) printf("start_proc = %u, end_proc = %u\n", start_proc, end_proc);
 //        if(rank==1) printf("split_init[start_proc+1] = %u, split[rank] = %u\n", split_init[start_proc+1], split[rank]);
-        grids[0].rcount[start_proc] = split_init[start_proc + 1] - split[rank];
-        grids[0].rcount[end_proc]   = split[rank+1] - split_init[end_proc];
+        if(start_proc < nprocs)
+            grids[0].rcount[start_proc] = split_init[start_proc + 1] - split[rank];
+        if(end_proc < nprocs)
+            grids[0].rcount[end_proc]   = split[rank+1] - split_init[end_proc];
 
-        for(int i = start_proc+1; i < end_proc; i++){
+        const int max_proc = min(nprocs, end_proc);
+        for(int i = start_proc+1; i < max_proc; i++){
 //            if(rank==ran) printf("split_init[i+1] = %lu, split_init[i] = %lu\n", split_init[i+1], split_init[i]);
             grids[0].rcount[i] = split_init[i + 1] - split_init[i];
         }
 
     }else if(start_proc == end_proc){
 //        grids[0].rcount[start_proc] = split[start_proc + 1] - split[start_proc];
-        grids[0].rcount[start_proc] = split[rank + 1] - split[rank];
-    }else{
-        printf("error in repart_vec function: start_proc > end_proc\n");
-        MPI_Finalize();
-        return -1;
+        if (start_proc < nprocs)
+            grids[0].rcount[start_proc] = split[rank + 1] - split[rank];
     }
 
 #ifdef __DEBUG1__
@@ -447,23 +451,24 @@ int saena_object::repart_vector(vector<value_t> &v, vector<index_t> &split, MPI_
         end_proc--;
 
 //    if(rank == rank_v) printf("\nstart_proc = %d, end_proc = %d, start = %d, end = %d\n", start_proc, end_proc, start, end);
+    assert(start_proc <= end_proc);
 
     grids[0].scount.assign(nprocs, 0);
     if(end_proc > start_proc){
 //        if(rank==1) printf("start_proc = %u, end_proc = %u\n", start_proc, end_proc);
 //        if(rank==1) printf("split_init[rank+1] = %u, split[end_proc] = %u\n", split_init[rank+1], split[end_proc]);
-        grids[0].scount[start_proc] = split[start_proc+1] - split_init[rank];
-        grids[0].scount[end_proc] = split_init[rank + 1] - split[end_proc];
+        if(start_proc < nprocs)
+            grids[0].scount[start_proc] = split[start_proc+1] - split_init[rank];
+        if(end_proc < nprocs)
+            grids[0].scount[end_proc] = split_init[rank + 1] - split[end_proc];
 
-        for(int i = start_proc+1; i < end_proc; i++){
+        const int max_proc = min(nprocs, end_proc);
+        for(int i = start_proc+1; i < max_proc; ++i){
             grids[0].scount[i] = split[i+1] - split[i];
         }
-    } else if(start_proc == end_proc)
-        grids[0].scount[start_proc] = split_init[rank + 1] - split_init[rank];
-    else{
-        printf("error in repart_vec function: start_proc > end_proc\n");
-        MPI_Abort(comm, 1);
-        return -1;
+    } else if(start_proc == end_proc) {
+        if (start_proc < nprocs)
+            grids[0].scount[start_proc] = split_init[rank + 1] - split_init[rank];
     }
 
 #ifdef __DEBUG1__
@@ -498,8 +503,10 @@ int saena_object::repart_vector(vector<value_t> &v, vector<index_t> &split, MPI_
 
     // todo: replace Alltoall with a for loop of send and recv.
     if(repartition){
-        vector<value_t> v_tmp = v;
-        v.resize(split[rank + 1] - split[rank]);
+        vector<value_t> v_tmp;
+        v_tmp.swap(v);
+        if(split[rank + 1] - split[rank] > 0)
+            v.resize(split[rank + 1] - split[rank]);
         MPI_Alltoallv(&v_tmp[0], &grids[0].scount[0], &grids[0].sdispls[0], par::Mpi_datatype<value_t>::value(),
                       &v[0],     &grids[0].rcount[0], &grids[0].rdispls[0], par::Mpi_datatype<value_t>::value(), comm);
     }
@@ -517,12 +524,12 @@ bool saena_object::active(int l){
 }
 
 int saena_object::set_shrink_levels(std::vector<bool> sh_lev_vec) {
-    shrink_level_vector = sh_lev_vec;
+    shrink_level_vector = std::move(sh_lev_vec);
     return 0;
 }
 
 int saena_object::set_shrink_values(std::vector<int> sh_val_vec) {
-    shrink_values_vector = sh_val_vec;
+    shrink_values_vector = std::move(sh_val_vec);
     return 0;
 }
 
@@ -534,7 +541,7 @@ int saena_object::set_repart_thre(float thre) {
 
 int saena_object::repartition_u(std::vector<value_t>& u0){
 
-    int rank;
+    int rank = 0;
     MPI_Comm_rank(grids[0].A->comm, &rank);
 //    MPI_Comm_size(grids[0].A->comm, &nprocs);
 
@@ -554,7 +561,7 @@ int saena_object::repartition_u(std::vector<value_t>& u0){
 int saena_object::repartition_back_u(std::vector<value_t>& u0){
 
     MPI_Comm comm = grids[0].A->comm;
-    int rank, nprocs;
+    int rank = 0, nprocs = 0;
     MPI_Comm_rank(grids[0].A->comm, &rank);
     MPI_Comm_size(grids[0].A->comm, &nprocs);
 

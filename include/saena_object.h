@@ -159,7 +159,7 @@ public:
     std::string smoother      = "chebyshev";    // choices: "jacobi", "chebyshev"
     std::string direct_solver = "SuperLU";      // choices: "CG", "SuperLU"
     float       connStrength  = 0.3;            // connection strength parameter: control coarsening aggressiveness
-    std::string PSmoother     = "SPAI";       // "jacobi", "SPAI"
+    std::string PSmoother     = "jacobi";       // "jacobi", "SPAI"
     double      Pomega        = 2.0 / 3;        // For jacobi it is usually 2/3 for 2D and 6/7 for 3D.
 
     // ****************
@@ -229,9 +229,12 @@ public:
 
     saena_object()  = default;
     ~saena_object() = default;
-    int destroy(){
+
+    void destroy_mpi_comms();
+
+    void destroy(){
         destroy_SuperLU();
-        return 0;
+        destroy_mpi_comms();
     }
 
     MPI_Comm get_orig_comm();
