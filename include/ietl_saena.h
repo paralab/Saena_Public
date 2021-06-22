@@ -42,15 +42,15 @@ int find_eig_ietl(Matrix& A){
 
 //    MPI_Barrier(A.comm);
 //    for(unsigned long i = 0; i < A.nnz_l_local; i++) {
-//        if(rank==0) printf("%lu \t%u \t%f \tietl, local \n", i, A.row_local[i], (A.values_local[i]*A.inv_diag[A.row_local[i]] - A.entry[i].val * A.inv_diag[A.entry[i].row - A.split[rank]]));
-//        if(rank==0) printf("%lu \t%u \t%f \t%f \t%f \tietl, local \n", i, A.row_local[i]+A.split[rank], A.values_local[i], A.inv_diag[A.row_local[i]], A.values_local[i]*A.inv_diag[A.row_local[i]]);
-//        A.values_local[i] *= A.inv_diag[A.row_local[i]];
+//        if(rank==0) printf("%lu \t%u \t%f \tietl, local \n", i, A.row_local[i], (A.val_local[i]*A.inv_diag[A.row_local[i]] - A.entry[i].val * A.inv_diag[A.entry[i].row - A.split[rank]]));
+//        if(rank==0) printf("%lu \t%u \t%f \t%f \t%f \tietl, local \n", i, A.row_local[i]+A.split[rank], A.val_local[i], A.inv_diag[A.row_local[i]], A.val_local[i]*A.inv_diag[A.row_local[i]]);
+//        A.val_local[i] *= A.inv_diag[A.row_local[i]];
 //    }
 
 //    MPI_Barrier(A.comm);
 //    for(unsigned long i = 0; i < A.nnz_l_remote; i++) {
-//        if(rank==0) printf("%lu \t%u \t%f \t%f \t%f \tietl, remote \n", i, A.row_remote[i], A.values_remote[i], A.inv_diag[A.row_remote[i]], A.values_remote[i]*A.inv_diag[A.row_remote[i]]);
-//        A.values_remote[i] *= A.inv_diag[A.row_remote[i]];
+//        if(rank==0) printf("%lu \t%u \t%f \t%f \t%f \tietl, remote \n", i, A.row_remote[i], A.val_remote[i], A.inv_diag[A.row_remote[i]], A.val_remote[i]*A.inv_diag[A.row_remote[i]]);
+//        A.val_remote[i] *= A.inv_diag[A.row_remote[i]];
 //    }
 //    MPI_Barrier(A.comm);
     }
@@ -72,7 +72,7 @@ int find_eig_ietl(Matrix& A){
 #endif
 
     // Creation of an iteration object:
-    int    max_iter       = 50;         // default was 10 * N
+    int    max_iter       = 20;         // default was 10 * N
     int    n_highest_eigv = 1;
     double rel_tol        = 500 * std::numeric_limits<double>::epsilon();          // default: 500 * epsilon
     double abs_tol        = std::pow(std::numeric_limits<double>::epsilon(), 2. / 3);

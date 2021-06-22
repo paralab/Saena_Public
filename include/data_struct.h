@@ -39,6 +39,12 @@ typedef unsigned char uchar;
 
 #define SAENA_PI 3.1415926535897932384626433832795029
 
+// alignment size: use 64 for AVX512
+#define ALIGN_SZ 64
+
+// uncomment to disable compression in matmat
+//#define MATMAT_NO_COMPRESS
+
 //the following are UBUNTU/LINUX, and MacOS ONLY terminal color codes.
 #define COLORRESET  "\033[0m"
 #define BLACK       "\033[30m"          /* Black */
@@ -79,12 +85,19 @@ void inline print_sep(){
     std::cout << buf.str();
 }
 
+void inline print_3sep(){
+    std::stringstream buf;
+    buf << "\n******************************************************\n"
+        << "******************************************************\n"
+        << "******************************************************\n";
+    std::cout << buf.str();
+}
 
-inline index_t rem_sz(const index_t sz, const unsigned int &k){
+inline nnz_t rem_sz(const nnz_t sz, const unsigned int &k){
     return static_cast<index_t>( sz * ((k+1) / 8.0) );
 }
 
-inline index_t tot_sz(const index_t sz, const unsigned int &k, const int &q){
+inline nnz_t tot_sz(const nnz_t sz, const unsigned int &k, const int &q){
 //    printf("r_sz: %u, \tq: %d, \tsizeof(short): %ld, tot: %ld\n", rem_sz(sz, k), q, sizeof(short), rem_sz(sz, k) + q * sizeof(short));
 //    return rem_sz(sz, k) + q * sizeof(short);
     return (k > 0) ? ( rem_sz(sz, k) + q * sizeof(short) ) : ( sz * sizeof(index_t) );
@@ -198,6 +211,14 @@ public:
     }
 
     static MPI_Datatype mpi_datatype() {
+        static MPI_Datatype datatype;
+        MPI_Type_contiguous(sizeof(cooEntry), MPI_BYTE, &datatype);
+        MPI_Type_commit(&datatype);
+        return datatype;
+    }
+
+/*
+    static MPI_Datatype mpi_datatype() {
         static bool         first = true;
         static MPI_Datatype datatype;
 
@@ -210,6 +231,7 @@ public:
 
         return datatype;
     }
+*/
 };
 
 
@@ -303,16 +325,9 @@ public:
     }
 
     static MPI_Datatype mpi_datatype() {
-        static bool         first = true;
         static MPI_Datatype datatype;
-
-        if (first)
-        {
-            first = false;
-            MPI_Type_contiguous(sizeof(cooEntry_row), MPI_BYTE, &datatype);
-            MPI_Type_commit(&datatype);
-        }
-
+        MPI_Type_contiguous(sizeof(cooEntry_row), MPI_BYTE, &datatype);
+        MPI_Type_commit(&datatype);
         return datatype;
     }
 };
@@ -370,18 +385,10 @@ public:
         return val;
     }
 
-    static MPI_Datatype mpi_datatype()
-    {
-        static bool         first = true;
+    static MPI_Datatype mpi_datatype() {
         static MPI_Datatype datatype;
-
-        if (first)
-        {
-            first = false;
-            MPI_Type_contiguous(sizeof(vecEntry), MPI_BYTE, &datatype);
-            MPI_Type_commit(&datatype);
-        }
-
+        MPI_Type_contiguous(sizeof(vecEntry), MPI_BYTE, &datatype);
+        MPI_Type_commit(&datatype);
         return datatype;
     }
 };
@@ -427,20 +434,12 @@ public:
         return(idx2 >= node2.idx2);
     }
 
-    static MPI_Datatype mpi_datatype()
-    {
-        static bool         first = true;
-        static MPI_Datatype datatype;
-
-        if (first)
-        {
-            first = false;
-            MPI_Type_contiguous(sizeof(tuple1), MPI_BYTE, &datatype);
-            MPI_Type_commit(&datatype);
-        }
-
-        return datatype;
-    }
+//    static MPI_Datatype mpi_datatype() {
+//        static MPI_Datatype datatype;
+//        MPI_Type_contiguous(sizeof(tuple1), MPI_BYTE, &datatype);
+//        MPI_Type_commit(&datatype);
+//        return datatype;
+//    }
 };
 
 std::ostream & operator<<(std::ostream & stream, const tuple1 & item);
@@ -587,17 +586,17 @@ public:
 
     ~CSCMat_mm(){
         if(free_r){
-            delete []r;
+            free(r);
             r = nullptr;
             free_r = false;
         }
         if(free_c){
-            delete []col_scan;
+            free(col_scan);
             col_scan = nullptr;
             free_c = false;
         }
         if(free_v){
-            delete []v;
+            free(v);
             v = nullptr;
             free_v = false;
         }
@@ -627,6 +626,9 @@ public:
 
 
 class CSRMat{
+private:
+    MPI_Comm comm = MPI_COMM_WORLD;
+
 public:
     index_t *col      = nullptr;
     value_t *val      = nullptr;
@@ -636,10 +638,12 @@ public:
     nnz_t   nnz     = 0;
     nnz_t   max_nnz = 0;
     index_t max_M   = 0;
+
     std::vector<index_t> split;
     std::vector<nnz_t>   nnz_list;
 
     CSRMat() = default;
+    explicit CSRMat(MPI_Comm comm_): comm(comm_) {}
 };
 
 

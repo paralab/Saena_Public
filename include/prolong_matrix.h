@@ -40,13 +40,14 @@ public:
 //    std::vector<unsigned long> col_local;
 
     std::vector<index_t> nnzPerRow_local;
-    std::vector<index_t> nnzPerRowScan_local;
+//    std::vector<index_t> nnzPerRowScan_local;
     std::vector<index_t> nnzPerCol_remote;
     std::vector<index_t> vElement_remote;
-    std::vector<index_t> vElement_remote_t;
-    std::vector<index_t> vElementRep_local;
-    std::vector<index_t> vElementRep_remote;
+//    std::vector<index_t> vElement_remote_t;
+//    std::vector<index_t> vElementRep_local;
+//    std::vector<index_t> vElementRep_remote;
 //    std::vector<unsigned int> nnz_row_remote;
+    std::vector<nnz_t> nnzPerProcScan; // number of remote nonzeros on each proc. used in matvec
 
     int vIndexSize   = 0;
     int vIndexSize_t = 0;
@@ -55,6 +56,8 @@ public:
     std::vector<cooEntry> vSend_t;
     std::vector<value_t> vecValues;
     std::vector<cooEntry> vecValues_t;
+    std::vector<float> vSend_f;           // float version
+    std::vector<float> vecValues_f;       // float version
 
     std::vector<int> vdispls;
     std::vector<int> vdispls_t;
@@ -68,6 +71,8 @@ public:
     std::vector<int> sendProcRank_t;
     std::vector<int> sendProcCount;
     std::vector<int> sendProcCount_t;
+    std::vector<int> recvCount;
+
     int recvSize      = 0;
     int recvSize_t    = 0;
     int numRecvProc   = 0;
@@ -80,13 +85,18 @@ public:
     std::vector<nnz_t> iter_remote_array;
     std::vector<value_t> w_buff; // for matvec
 
-    std::vector<nnz_t> indicesP_local;
-    std::vector<nnz_t> indicesP_remote;
+//    std::vector<nnz_t> indicesP_local;
+//    std::vector<nnz_t> indicesP_remote;
+
+    vector<MPI_Request> mv_req;
+    vector<MPI_Status>  mv_stat;
 
     bool verbose_prolong_setup = false;
 
     double tloc = 0, trem = 0, tcomm = 0, ttot = 0;    // for timing matvec
     index_t matvec_comm_sz = 0;                        // for profiling matvec communication size (average on all procs)
+
+    bool use_double = true; // to determine the precision for matvec
 
     prolong_matrix();
     explicit prolong_matrix(MPI_Comm com);
@@ -94,7 +104,14 @@ public:
 
     int findLocalRemote();
     int openmp_setup();
-    void matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    inline void matvec(const value_t *v, value_t *w){
+        if(use_double) matvec_sparse(v, w);
+        else matvec_sparse_float(v, w);
+    }
+    void matvec_sparse(const value_t *v, value_t *w);
+    void matvec_sparse_float(const value_t *v, value_t *w);
+    void matvec2(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec_omp(std::vector<value_t>& v, std::vector<value_t>& w);
 
     int print_entry(int ran);
     int print_info(int ran);

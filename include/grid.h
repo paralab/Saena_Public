@@ -19,8 +19,8 @@ public:
 //    saena_matrix_dense* A_d; // dense matrix
 //    saena_matrix_dense Ac_d; // dense matrix
 
-    std::vector<value_t> rhs;
-    saena_vector         *rhs_orig = nullptr;
+    saena_vector *rhs_orig = nullptr;
+    value_t      *rhs      = nullptr;
 
     Grid* coarseGrid = nullptr;
     int   level      = 0;
@@ -36,10 +36,23 @@ public:
     std::vector<int> rdispls2;
     std::vector<int> sdispls2;
 
-    std::vector<value_t> res;
-    std::vector<value_t> uCorr;
+    std::vector<int> rcount3; // store nonzero rcounts2
+    std::vector<int> scount3; // store nonzero scounts2
+    std::vector<int> rproc_id; // store the index of nonzero rcounts2
+    std::vector<int> sproc_id; // store the index of nonzero scounts2
+
+    std::vector<MPI_Request> requests;  // used in repart_u() and repart_back_u()
+    value_t *u_old = nullptr;           // used in repart_u() and repart_back_u()
+
+//    std::vector<value_t> res;
+//    std::vector<value_t> uCorr;
 //    std::vector<value_t> res_coarse;
 //    std::vector<value_t> uCorrCoarse;
+
+    value_t *res         = nullptr;
+    value_t *uCorr       = nullptr;
+    value_t *res_coarse  = nullptr;
+    value_t *uCorrCoarse = nullptr;
 
     Grid() = default;
 
@@ -48,7 +61,20 @@ public:
         level = lev;
     }
 
-    ~Grid() = default;
+    ~Grid(){
+        saena_free(rhs);
+        saena_free(u_old);
+        saena_free(res);
+        saena_free(uCorr);
+        saena_free(res_coarse);
+        saena_free(uCorrCoarse);
+    }
+
+    void repart_u_prepare();
+    void repart_u(value_t *&u);
+    void repart_back_u(value_t *&u);
+    void allocate_mem();
+    void free_mem();
 };
 
 #endif //SAENA_GRID_H

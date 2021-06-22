@@ -2,7 +2,7 @@
 
 #include <saena_object.h>
 
-void inline saena_object::smooth(Grid *grid, std::vector<value_t> &u, std::vector<value_t> &rhs, int iter) const{
+void inline saena_object::smooth(Grid *grid, value_t *&u, value_t *rhs, int iter) const{
     if(smoother == "jacobi"){
         grid->A->jacobi(iter, u, rhs);
     }else if(smoother == "chebyshev"){
@@ -13,6 +13,18 @@ void inline saena_object::smooth(Grid *grid, std::vector<value_t> &u, std::vecto
 //            MPI_Finalize();
 //            exit(EXIT_FAILURE);
 //        }
+}
+
+inline void saena_object::alloc_vcycle_memory(){
+    for(int i = 0; i < grids.size() - 1; ++i){
+        grids[i].allocate_mem();
+    }
+}
+
+inline void saena_object::free_vcycle_memory(){
+    for(int i = 0; i < grids.size() - 1; ++i){
+        grids[i].free_mem();
+    }
 }
 
 template <class T>
@@ -40,7 +52,7 @@ int saena_object::writeVectorToFile(std::vector<T>& v, const std::string &name, 
 
     if(mat_market){
         if(!rank)
-            outFileTxt << sz << "\t" << 1 << "\t" << sz << std::endl;
+            outFileTxt << sz << std::endl;
 
         for (long i = 0; i < sz_loc; i++) {
             outFileTxt << OFST + i + 1 << "\t" << v[i] << std::endl;

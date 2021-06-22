@@ -87,7 +87,7 @@ namespace par {
     }
 
   template <typename T, typename S>
-    inline int Mpi_Sendrecv( T* sendBuf, int sendCount, int dest, int sendTag,
+    inline void Mpi_Sendrecv( T* sendBuf, int sendCount, int dest, int sendTag,
         S* recvBuf, int recvCount, int source, int recvTag,
         MPI_Comm comm, MPI_Status* status) {
 
@@ -97,7 +97,7 @@ namespace par {
     }
 
   template <typename T>
-    inline int Mpi_Scan( T* sendbuf, T* recvbuf, int count, MPI_Op op, MPI_Comm comm) {
+    inline void Mpi_Scan( T* sendbuf, T* recvbuf, int count, MPI_Op op, MPI_Comm comm) {
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
 #endif
@@ -105,7 +105,7 @@ namespace par {
     }
 
   template <typename T>
-    inline int Mpi_Allreduce(T* sendbuf, T* recvbuf, int count, MPI_Op op, MPI_Comm comm) {
+    inline void Mpi_Allreduce(T* sendbuf, T* recvbuf, int count, MPI_Op op, MPI_Comm comm) {
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
 #endif
@@ -114,7 +114,7 @@ namespace par {
     }
 
   template <typename T>
-    inline int Mpi_Alltoall(T* sendbuf, T* recvbuf, int count, MPI_Comm comm) {
+    inline void Mpi_Alltoall(T* sendbuf, T* recvbuf, int count, MPI_Comm comm) {
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
 #endif
@@ -140,7 +140,7 @@ namespace par {
     }
 
   template <typename T>
-    inline int Mpi_Gather( T* sendBuffer, T* recvBuffer, int count, int root, MPI_Comm comm) {
+    inline void Mpi_Gather( T* sendBuffer, T* recvBuffer, int count, int root, MPI_Comm comm) {
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
 #endif
@@ -151,7 +151,7 @@ namespace par {
     }
 
   template <typename T>
-    inline int Mpi_Bcast(T* buffer, int count, int root, MPI_Comm comm) {
+    inline void Mpi_Bcast(T* buffer, int count, int root, MPI_Comm comm) {
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
 #endif
@@ -161,7 +161,7 @@ namespace par {
     }
 
   template <typename T>
-    inline int Mpi_Reduce(T* sendbuf, T* recvbuf, int count, MPI_Op op, int root, MPI_Comm comm) {
+    inline void Mpi_Reduce(T* sendbuf, T* recvbuf, int count, MPI_Op op, int root, MPI_Comm comm) {
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
 #endif
@@ -171,7 +171,7 @@ namespace par {
     }
 
   template <typename T>
-    int Mpi_Allgatherv(T* sendBuf, int sendCount, T* recvBuf, 
+  void Mpi_Allgatherv(T* sendBuf, int sendCount, T* recvBuf,
         int* recvCounts, int* displs, MPI_Comm comm) {
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
@@ -222,7 +222,7 @@ namespace par {
     }
 
   template <typename T>
-    int Mpi_Allgather(T* sendBuf, T* recvBuf, int count, MPI_Comm comm) {
+  void Mpi_Allgather(T* sendBuf, T* recvBuf, int count, MPI_Comm comm) {
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
 #endif
@@ -252,7 +252,7 @@ namespace par {
     }
 
   template <typename T>
-    int Mpi_Alltoallv_sparse(T* sendbuf, int* sendcnts, int* sdispls, 
+  void Mpi_Alltoallv_sparse(T* sendbuf, int* sendcnts, int* sdispls,
         T* recvbuf, int* recvcnts, int* rdispls, MPI_Comm comm) {
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
@@ -351,7 +351,7 @@ namespace par {
 
 //*
   template <typename T>
-    int Mpi_Alltoallv_dense(T* sbuff_, int* s_cnt_, int* sdisp_,
+    void Mpi_Alltoallv_dense(T* sbuff_, int* s_cnt_, int* sdisp_,
         T* rbuff_, int* r_cnt_, int* rdisp_, MPI_Comm c){
 
 #ifdef __PROFILE_WITH_BARRIER__
@@ -538,7 +538,7 @@ namespace par {
     }	
 		
   template<typename T>
-    int partitionW(std::vector<T>& nodeList, unsigned int (*getWeight)(const T *), MPI_Comm comm){
+    void partitionW(std::vector<T>& nodeList, unsigned int (*getWeight)(const T *), MPI_Comm comm){
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
 #endif
@@ -821,7 +821,7 @@ namespace par {
    *
    */ 
   template<typename T>
-    int HyperQuickSort(std::vector<T>& arr, MPI_Comm comm_){ // O( ((N/p)+log(p))*(log(N/p)+log(p)) ) 
+    void HyperQuickSort(std::vector<T>& arr, MPI_Comm comm_){ // O( ((N/p)+log(p))*(log(N/p)+log(p)) )
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
 #endif
@@ -1038,7 +1038,7 @@ namespace par {
 
   //--------------------------------------------------------------------------------
   template<typename T>
-    int HyperQuickSort(std::vector<T>& arr, std::vector<T> & SortedElem, MPI_Comm comm_){ // O( ((N/p)+log(p))*(log(N/p)+log(p)) ) 
+    void HyperQuickSort(std::vector<T>& arr, std::vector<T> & SortedElem, MPI_Comm comm_){ // O( ((N/p)+log(p))*(log(N/p)+log(p)) )
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
 #endif
@@ -1239,7 +1239,7 @@ namespace par {
 // */
 
   template<typename T>
-    int HyperQuickSort_kway(std::vector<T>& arr, std::vector<T> & SortedElem, MPI_Comm comm_) {
+    void HyperQuickSort_kway(std::vector<T>& arr, std::vector<T> & SortedElem, MPI_Comm comm_) {
 #ifdef _PROFILE_SORT
 		total_sort.clear();
       seq_sort.clear();
@@ -1414,7 +1414,7 @@ namespace par {
 		
 	// for sc13 --	mem effecient HykSort
   template<typename T>
-    int HyperQuickSort_kway(std::vector<T>& arr, MPI_Comm comm_) {
+    void HyperQuickSort_kway(std::vector<T>& arr, MPI_Comm comm_) {
 #ifdef _PROFILE_SORT
 		total_sort.clear();
       seq_sort.clear();
@@ -1592,7 +1592,7 @@ namespace par {
 
   /// ----------- low mem verison - sc13 -----------------------------------
   template<typename T>
-    int sampleSort(std::vector<T>& arr, MPI_Comm comm){
+    void sampleSort(std::vector<T>& arr, MPI_Comm comm){
 #ifdef __PROFILE_WITH_BARRIER__
       MPI_Barrier(comm);
 #endif
@@ -1852,7 +1852,7 @@ namespace par {
   //------------------------------------------------------------------------
 
     template<typename T>
-    int sampleSort(std::vector<T>& arr, std::vector<T> & SortedElem, MPI_Comm comm){ 
+    int sampleSort(std::vector<T>& arr, std::vector<T> & SortedElem, MPI_Comm comm){
 
       int npes;
       MPI_Comm_size(comm, &npes);
@@ -1929,7 +1929,7 @@ namespace par {
         if(!SortedElem.empty()) {
           par::bitonicSort<T>(SortedElem, new_comm);
         }
-
+          return 0;
 #ifdef __DEBUG_PAR__
         MPI_Barrier(comm);
         if(!myrank) {
@@ -2105,6 +2105,7 @@ namespace par {
 //      sort(SortedElem.begin(), SortedElem.end());
       omp_par::merge_sort(&SortedElem[0], &SortedElem[nsorted]);
 
+        return 0;
     }//end function
 
     /********************************************************************/
@@ -2281,7 +2282,7 @@ namespace par {
 
       omp_par::merge_sort(&in[0],&in[in.size()]);
       MPI_Barrier(comm);
-      
+
       if(npes > 1) {
 
         // check if npes is a power of two ...
@@ -2315,6 +2316,9 @@ namespace par {
           } else {
             bitonicSort<T>(in, new_comm);
           }
+
+          MPI_Comm_free(&new_comm);
+
         }//end if isPower of 2
       }//end if single processor
     }//end function
@@ -2695,7 +2699,7 @@ namespace par {
 						_disp = &glb_disp[i];
 					}
 				}
-        
+
         key_pair.first  = glb_splitters[_disp - &glb_disp[0]];
         key_pair.second = glb_dup_ranks[_disp - &glb_disp[0]];
         split_keys[qq]  = key_pair; // 
@@ -2705,5 +2709,190 @@ namespace par {
 			return split_keys;
 		}	
 
+    template<typename T>
+    int sampleSort(std::vector<T>& arr, std::vector<T> & SortedElem, std::vector<index_t> &split,
+                   MPI_Comm comm){
+
+        int npes = 0;
+        MPI_Comm_size(comm, &npes);
+
+        //--
+        int rank = 0;
+        MPI_Comm_rank(comm, &rank);
+
+//      std::cout << rank << " : " << __func__ << arr.size() << std::endl;
+
+        assert(!arr.empty());
+
+        if (npes == 1) {
+//            std::cout <<" have to use seq. sort"
+//            <<" since npes = 1 . inpSize: "<<(arr.size()) <<std::endl;
+//            std::sort(arr.begin(), arr.end());
+//            omp_par::merge_sort(arr.begin(),arr.end());
+            std::sort(arr.begin(), arr.end());
+            SortedElem = arr;
+            return 0;
+        }
+
+        int myrank = 0;
+        MPI_Comm_rank(comm, &myrank);
+
+        DendroIntL nelem = arr.size();
+        DendroIntL nelemCopy = nelem;
+        DendroIntL totSize = 0;
+        par::Mpi_Allreduce<DendroIntL>(&nelemCopy, &totSize, 1, MPI_SUM, comm);
+
+        DendroIntL npesLong = npes;
+        const DendroIntL FIVE = 5;
+
+        if(totSize < (FIVE * npesLong * npesLong)) {
+//            if(!myrank) {
+//                std::cout <<" Using bitonic sort since totSize < (5*(npes^2)). totSize: "
+//                <<totSize<<" npes: "<<npes <<std::endl;
+//            }
+
+            par::partitionW<T>(arr, nullptr, comm);
+
+#ifdef __DEBUG_PAR__
+            MPI_Barrier(comm);
+        if(!myrank) {
+          std::cout<<"SampleSort (small n): Stage-1 passed."<<std::endl;
+        }
+        MPI_Barrier(comm);
+#endif
+
+            SortedElem = arr;
+            MPI_Comm new_comm;
+            if(totSize < npesLong) {
+//                if(!myrank) {
+//                    std::cout<<" Input to sort is small. splittingComm: "
+//                             <<npes<<" -> "<< totSize <<std::endl;
+//                }
+                par::splitCommUsingSplittingRank(static_cast<int>(totSize), &new_comm, comm);
+            } else {
+                new_comm = comm;
+            }
+
+#ifdef __DEBUG_PAR__
+            MPI_Barrier(comm);
+        if(!myrank) {
+          std::cout<<"SampleSort (small n): Stage-2 passed."<<std::endl;
+        }
+        MPI_Barrier(comm);
+#endif
+
+            if(!SortedElem.empty()) {
+                par::bitonicSort<T>(SortedElem, new_comm);
+            }
+
+#ifdef __DEBUG_PAR__
+            MPI_Barrier(comm);
+        if(!myrank) {
+          std::cout<<"SampleSort (small n): Stage-3 passed."<<std::endl;
+        }
+        MPI_Barrier(comm);
+#endif
+
+        }// end if
+
+#ifdef __DEBUG_PAR__
+        if(!myrank) {
+            std::cout<<"Using sample sort to sort nodes. n/p^2 is fine."<<std::endl;
+        }
+#endif
+
+        //Re-part arr so that each proc. has at least p elements.
+        par::partitionW<T>(arr, nullptr, comm);
+
+        nelem = arr.size();
+
+//      std::sort(arr.begin(),arr.end());
+        omp_par::merge_sort(arr.begin(),arr.end());
+
+        int *sendcnts = new int[npes];
+        assert(sendcnts);
+
+        int * recvcnts = new int[npes];
+        assert(recvcnts);
+
+        int * sdispls = new int[npes];
+        assert(sdispls);
+
+        int * rdispls = new int[npes];
+        assert(rdispls);
+
+#pragma omp parallel for
+        for(int k = 0; k < npes; k++){
+            sendcnts[k] = 0;
+        }
+
+        //To be parallelized
+        int k = 0;
+        for (DendroIntL j = 0; j < nelem; j++) {
+            if (arr[j] < split[k+1]) {
+                sendcnts[k]++;
+//            if(rank==0){
+//                std::cout << arr[j] << "\tk = " << k << "\t" << splitters[k] << "\t" << splitters[k+1] << "\tfirst" << std::endl;
+//            }
+
+            } else {
+                k = static_cast<int>(lower_bound3(&split[0], &split[npes-1], arr[j]));
+
+                if (k == (npes-1) ){
+                    //could not find any splitter >= arr[j]
+                    sendcnts[k] = nelem - j;
+                    break;
+                } else {
+                    assert(k < (npes-1));
+                    assert(arr[j] < split[k+1]);
+                    sendcnts[k]++;
+                }
+            }//end if-else
+
+        }//end for j
+
+        par::Mpi_Alltoall<int>(sendcnts, recvcnts, 1, comm);
+
+        sdispls[0] = 0; rdispls[0] = 0;
+//      for (int j = 1; j < npes; j++){
+//        sdispls[j] = sdispls[j-1] + sendcnts[j-1];
+//        rdispls[j] = rdispls[j-1] + recvcnts[j-1];
+//      }
+        omp_par::scan(sendcnts,sdispls,npes);
+        omp_par::scan(recvcnts,rdispls,npes);
+
+        DendroIntL nsorted = rdispls[npes-1] + recvcnts[npes-1];
+        SortedElem.resize(nsorted);
+
+        T* arrPtr = NULL;
+        T* SortedElemPtr = NULL;
+        if(!arr.empty()) {
+            arrPtr = &(*(arr.begin()));
+        }
+        if(!SortedElem.empty()) {
+            SortedElemPtr = &(*(SortedElem.begin()));
+        }
+        par::Mpi_Alltoallv_dense<T>(arrPtr, sendcnts, sdispls,
+                                    SortedElemPtr, recvcnts, rdispls, comm);
+
+        arr.clear();
+
+        delete [] sendcnts;
+        sendcnts = nullptr;
+
+        delete [] recvcnts;
+        recvcnts = nullptr;
+
+        delete [] sdispls;
+        sdispls = nullptr;
+
+        delete [] rdispls;
+        rdispls = nullptr;
+
+//      sort(SortedElem.begin(), SortedElem.end());
+        omp_par::merge_sort(&SortedElem[0], &SortedElem[nsorted]);
+
+        return 0;
+    }//end function
 }//end namespace
 

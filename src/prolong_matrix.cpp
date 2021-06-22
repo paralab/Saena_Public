@@ -17,20 +17,13 @@ prolong_matrix::~prolong_matrix() = default;
 
 int prolong_matrix::findLocalRemote(){
 
-    int nprocs = 0, rank = 0;
-    MPI_Comm_size(comm, &nprocs);
+    int np = 0, rank = 0;
+    MPI_Comm_size(comm, &np);
     MPI_Comm_rank(comm, &rank);
+    const int nprocs = np;
 
 //    printf("rank=%d \t P.nnz_l=%lu \t P.nnz_g=%lu \n", rank, nnz_l, nnz_g);
 //    print_vector(entry, -1, "entry", comm);
-
-    index_t procNum = 0;
-    nnz_l_local     = 0;
-    nnz_l_remote    = 0;
-    col_remote_size = 0; // number of remote columns
-    std::vector<int> recvCount(nprocs, 0);
-    nnzPerRow_local.assign(M, 0);
-    nnzPerRowScan_local.assign(M + 1, 0);
 
     row_local.clear();
     col_local.clear();
@@ -38,23 +31,110 @@ int prolong_matrix::findLocalRemote(){
     row_remote.clear();
     col_remote.clear();
     val_remote.clear();
-    vElementRep_local.clear();
-    vElement_remote.clear();
-    vElement_remote_t.clear();
-    vElementRep_remote.clear();
     nnzPerCol_remote.clear();
+    vElement_remote.clear();
+//    vElement_remote_t.clear();
+//    vElementRep_local.clear();
+//    vElementRep_remote.clear();
 
-    std::vector<int> vIndexCount_t(nprocs, 0);
+    recvCount.resize(nprocs);
+    nnzPerRow_local.assign(M, 0);
+//    nnzPerRowScan_local.assign(M + 1, 0);
 
+    std::vector<int> vIndexCount_t(nprocs);
+
+    index_t procNum = 0, procNumTmp = 0;
+    nnz_t tmp = 0, tmp2 = 0;
+    nnzPerProcScan.assign(nprocs + 1, 0);
+    auto *nnzProc_p = &nnzPerProcScan[1];
+
+    assert(nnz_l == entry.size());
+
+    // store local entries in this vector for sorting in row-major order.
+    // then split it to row_loc, col_loc, val_loc.
+    vector<cooEntry_row> ent_loc_row;
+
+    nnz_t i = 0;
+    while(i < nnz_l) {
+        procNum = lower_bound3(&splitNew[0], &splitNew[nprocs], entry[i].col);
+//        if(rank==0) printf("col = %u \tprocNum = %d \n", entry[i].col, procNum);
+
+        if(procNum == rank){ // local
+            while(i < nnz_l && entry[i].col < splitNew[procNum + 1]) {
+//                if(!rank) printf("entry[i].row = %d, split[rank] = %d, dif = %d\n", entry[i].row, split[rank], entry[i].row - split[rank]);
+//                if(!rank) cout << entry[i] << endl;
+                ++nnzPerRow_local[entry[i].row];
+                ent_loc_row.emplace_back(entry[i].row, entry[i].col, entry[i].val);
+                ++i;
+            }
+
+        }else{ // remote
+            tmp = i;
+            tmp2 = vElement_remote.size();
+            while(i < nnz_l && entry[i].col < splitNew[procNum + 1]) {
+                vElement_remote.emplace_back(entry[i].col);
+                nnzPerCol_remote.emplace_back(0);
+
+                do{
+                    row_remote.emplace_back(entry[i].row);
+                    col_remote.emplace_back(entry[i].col);
+                    val_remote.emplace_back(entry[i].val);
+                    ++nnzPerCol_remote.back();
+                }while(++i < nnz_l && entry[i].col == entry[i - 1].col);
+            }
+
+            recvCount[procNum] = vElement_remote.size() - tmp2;
+            vIndexCount_t[procNum] = i - tmp;
+            nnzProc_p[procNum]     = i - tmp;
+        }
+    } // for i
+
+    nnz_l_local     = ent_loc_row.size();
+    nnz_l_remote    = row_remote.size();
+    col_remote_size = vElement_remote.size(); // number of remote columns
+
+    recvCount[rank] = 0;
+
+    entry.clear();
+    entry.shrink_to_fit();
+
+//    for (i = 0; i < M; ++i) {
+//        nnzPerRowScan_local[i + 1] = nnzPerRowScan_local[i] + nnzPerRow_local[i];
+//        if(rank==0) printf("nnzPerRowScan_local=%d, nnzPerRow_local=%d\n", nnzPerRowScan_local[i], nnzPerRow_local[i]);
+//    }
+
+    // sort local entries in row-major order and remote entries in column-major order
+    sort(ent_loc_row.begin(), ent_loc_row.end());
+
+//    print_vector(ent_loc_row, -1, "ent_loc_row", comm);
+
+    const nnz_t nnzl = nnz_l_local;
+    row_local.resize(nnzl);
+    col_local.resize(nnzl);
+    val_local.resize(nnzl);
+    for(i = 0; i < nnzl; ++i){
+        row_local[i] = ent_loc_row[i].row;
+        col_local[i] = ent_loc_row[i].col;
+        val_local[i] = ent_loc_row[i].val;
+    }
+
+    ent_loc_row.clear();
+    ent_loc_row.shrink_to_fit();
+
+    for (i = 1; i < nprocs + 1; ++i){
+        nnzPerProcScan[i] += nnzPerProcScan[i - 1];
+    }
+
+/*
+    fill(vIndexCount_t.begin(), vIndexCount_t.end(), 0);
     if(nnz_l != 0) {
-
         // take care of the first element here, since there is "col[i-1]" in the for loop below, so "i" cannot start from 0.
         if (entry[0].col >= splitNew[rank] && entry[0].col < splitNew[rank + 1]) { // local
             nnzPerRow_local[entry[0].row]++;
             row_local.emplace_back(entry[0].row);
             col_local.emplace_back(entry[0].col);
             val_local.emplace_back(entry[0].val);
-            vElementRep_local.emplace_back(1);
+//            vElementRep_local.emplace_back(1);
         } else { // remote
             row_remote.emplace_back(entry[0].row);
             col_remote.emplace_back(entry[0].col);
@@ -62,10 +142,10 @@ int prolong_matrix::findLocalRemote(){
             nnzPerCol_remote.emplace_back(1);
 
             vElement_remote.emplace_back(entry[0].col);
-            vElementRep_remote.emplace_back(1);
+//            vElementRep_remote.emplace_back(1);
             recvCount[lower_bound3(&splitNew[0], &splitNew[nprocs], entry[0].col)] = 1;
 
-            vElement_remote_t.emplace_back(nnz_l_remote - 1);
+//            vElement_remote_t.emplace_back(nnz_l_remote - 1);
             vIndexCount_t[lower_bound3(&splitNew[0], &splitNew[nprocs], entry[0].col)] = 1;
         }
 
@@ -76,10 +156,10 @@ int prolong_matrix::findLocalRemote(){
                 row_local.emplace_back(entry[i].row);
                 col_local.emplace_back(entry[i].col);
                 val_local.emplace_back(entry[i].val);
-                if (entry[i].col != entry[i - 1].col)
-                    vElementRep_local.emplace_back(1);
-                else
-                    (*(vElementRep_local.end() - 1))++;
+//                if (entry[i].col != entry[i - 1].col)
+//                    vElementRep_local.emplace_back(1);
+//                else
+//                    (*(vElementRep_local.end() - 1))++;
 
             } else { // remote
 //                if(rank==2) printf("entry[i].row = %lu\n", entry[i].row+split[rank]);
@@ -88,16 +168,16 @@ int prolong_matrix::findLocalRemote(){
                 val_remote.emplace_back(entry[i].val);
                 procNum = lower_bound3(&splitNew[0], &splitNew[nprocs], entry[i].col);
                 vIndexCount_t[procNum]++;
-                vElement_remote_t.emplace_back((index_t) nnz_l_remote - 1);
+//                vElement_remote_t.emplace_back((index_t) nnz_l_remote - 1);
 
                 if (entry[i].col != entry[i - 1].col) {
                     vElement_remote.emplace_back(entry[i].col);
-                    vElementRep_remote.emplace_back(1);
+//                    vElementRep_remote.emplace_back(1);
                     procNum = lower_bound3(&splitNew[0], &splitNew[nprocs], entry[i].col);
                     recvCount[procNum]++;
                     nnzPerCol_remote.emplace_back(1);
                 } else {
-                    (*(vElementRep_remote.end() - 1))++;
+//                    (*(vElementRep_remote.end() - 1))++;
                     (*(nnzPerCol_remote.end() - 1))++;
                 }
             }
@@ -109,12 +189,13 @@ int prolong_matrix::findLocalRemote(){
 
 //        MPI_Barrier(comm); printf("rank=%d, P.nnz_l=%lu, P.nnz_l_local=%u, P.nnz_l_remote=%u \n", rank, nnz_l, nnz_l_local, nnz_l_remote); MPI_Barrier(comm);
 
-        for (index_t i = 0; i < M; ++i) {
-            nnzPerRowScan_local[i + 1] = nnzPerRowScan_local[i] + nnzPerRow_local[i];
+//        for (index_t i = 0; i < M; ++i) {
+//            nnzPerRowScan_local[i + 1] = nnzPerRowScan_local[i] + nnzPerRow_local[i];
 //        if(rank==0) printf("nnzPerRowScan_local=%d, nnzPerRow_local=%d\n", nnzPerRowScan_local[i], nnzPerRow_local[i]);
-        }
+//        }
 
     }// if(nnz_l != 0)
+*/
 
     if(nprocs >1) {
 
@@ -139,13 +220,13 @@ int prolong_matrix::findLocalRemote(){
 
         numRecvProc = 0;
         numSendProc = 0;
-        for (int i = 0; i < nprocs; i++) {
+        for (int i = 0; i < nprocs; ++i) {
             if (recvCount[i] != 0) {
                 numRecvProc++;
                 recvProcRank.emplace_back(i);
                 recvProcCount.emplace_back(recvCount[i]);
-//            sendProcCount_t.emplace_back(vIndexCount_t[i]); // use recvProcRank for it.
-//            if(rank==0) cout << i << "\trecvCount[i] = " << recvCount[i] << "\tvIndexCount_t[i] = " << vIndexCount_t[i] << endl;
+//                sendProcCount_t.emplace_back(vIndexCount_t[i]); // use recvProcRank for it.
+//                if(rank==0) cout << i << "\trecvCount[i] = " << recvCount[i] << "\tvIndexCount_t[i] = " << vIndexCount_t[i] << endl;
             }
             if (vIndexCount[i] != 0) {
                 numSendProc++;
@@ -162,9 +243,10 @@ int prolong_matrix::findLocalRemote(){
         vdispls[0] = 0;
         rdispls[0] = 0;
 
-        for (int i = 1; i < nprocs; i++) {
-            vdispls[i] = vdispls[i - 1] + vIndexCount[i - 1];
-            rdispls[i] = rdispls[i - 1] + recvCount[i - 1];
+        const int np_M1 = nprocs - 1;
+        for (int i = 0; i < np_M1; ++i) {
+            vdispls[i + 1] = vdispls[i] + vIndexCount[i];
+            rdispls[i + 1] = rdispls[i] + recvCount[i];
         }
 
         vIndexSize = vdispls[nprocs - 1] + vIndexCount[nprocs - 1];
@@ -185,10 +267,10 @@ int prolong_matrix::findLocalRemote(){
         matvec_comm_sz /= nprocs;
 //        if(!rank) printf("\nP: ave comm sz = %d\n", vIndexSizeAvg);
 
+        vElement_remote.clear();
+        vElement_remote.shrink_to_fit();
         vIndexCount.clear();
         vIndexCount.shrink_to_fit();
-        recvCount.clear();
-        recvCount.shrink_to_fit();
 
         recvProcRank_t.clear();
         recvProcCount_t.clear();
@@ -197,7 +279,7 @@ int prolong_matrix::findLocalRemote(){
 
         numRecvProc_t = 0;
         numSendProc_t = 0;
-        for (int i = 0; i < nprocs; i++) {
+        for (int i = 0; i < nprocs; ++i) {
             if (recvCount_t[i] != 0) {
                 numRecvProc_t++;
                 recvProcRank_t.emplace_back(i);
@@ -217,7 +299,7 @@ int prolong_matrix::findLocalRemote(){
         vdispls_t[0] = 0;
         rdispls_t[0] = 0;
 
-        for (int i = 1; i < nprocs; i++) {
+        for (int i = 1; i < nprocs; ++i) {
 //        if(rank==0) cout << "vIndexCount_t = " << vIndexCount_t[i-1] << endl;
             vdispls_t[i] = vdispls_t[i - 1] + vIndexCount_t[i - 1];
             rdispls_t[i] = rdispls_t[i - 1] + recvCount_t[i - 1];
@@ -240,8 +322,10 @@ int prolong_matrix::findLocalRemote(){
 //        if(rank==1) cout << vElement_remote[i] << endl;
 
         // change the indices from global to local
-        for (index_t i = 0; i < vIndexSize; i++) {
-            vIndex[i] -= splitNew[rank];
+        const index_t sendsz = vIndexSize;
+        const index_t ofst   = splitNew[rank];
+        for (index_t i = 0; i < sendsz; ++i) {
+            vIndex[i] -= ofst;
         }
 
         // vSend = vector values to send to other procs
@@ -252,16 +336,21 @@ int prolong_matrix::findLocalRemote(){
 
         vSend_t.resize(vIndexSize_t);
         vecValues_t.resize(recvSize_t);
+
+        vSend_f.resize(vIndexSize);
+        vecValues_f.resize(recvSize);
+
+        mv_req.resize(numSendProc + numRecvProc);
+        mv_stat.resize(numSendProc + numRecvProc);
     }
 
     // todo: change the following two parts the same as indicesP for A in compute_coarsen, which is using entry, instead of row_local and row_remote.
-    indicesP_local.resize(nnz_l_local);
-    for(nnz_t i = 0; i < nnz_l_local; ++i){
-        indicesP_local[i] = i;
-    }
-
-    index_t *row_localP = &*row_local.begin();
-    std::sort(&indicesP_local[0], &indicesP_local[nnz_l_local], sort_indices(row_localP)); // todo: is it ordered only row-wise?
+//    indicesP_local.resize(nnz_l_local);
+//    for(nnz_t i = 0; i < nnz_l_local; ++i){
+//        indicesP_local[i] = i;
+//    }
+//    index_t *row_localP = &*row_local.begin();
+//    std::sort(&indicesP_local[0], &indicesP_local[nnz_l_local], sort_indices(row_localP)); // todo: is it ordered only row-wise?
 //    row_local.clear();
 //    row_local.shrink_to_fit();
 
@@ -278,7 +367,7 @@ int prolong_matrix::findLocalRemote(){
 //    if(rank==1) cout << "nnz_l_remote = " << nnz_l_remote << "\t\trecvSize_t = " << recvSize_t << "\t\tvIndexSize_t = " << vIndexSize_t << endl;
 //    if(rank==0){
 //        for(i=0; i<nnz_l_remote; i++)
-//            cout << row_remote[i] << "\t" << col_remote2[i] << " =\t" << values_remote[i] << "\t\t\t" << vElement_remote_t[i] << endl;
+//            cout << row_remote[i] << "\t" << col_remote2[i] << " =\t" << val_remote[i] << "\t\t\t" << vElement_remote_t[i] << endl;
 //    }
 //    MPI_Barrier(comm);
 
@@ -291,9 +380,10 @@ int prolong_matrix::findLocalRemote(){
 
 int prolong_matrix::openmp_setup() {
 
-    int nprocs, rank;
+    int nprocs = 0, rank = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+    const index_t sz = M;
 
     if(verbose_prolong_setup) {
         MPI_Barrier(comm);
@@ -317,12 +407,12 @@ int prolong_matrix::openmp_setup() {
 //        if(rank==0 && thread_id==0) std::cout << "number of procs = " << nprocs << ", number of threads = " << num_threads << std::endl;
         index_t istart = 0; // starting row index for each thread
         index_t iend = 0;   // last row index for each thread
-        index_t iter_local, iter_remote;
+        index_t iter_local = 0, iter_remote = 0;
 
         // compute local iter to do matvec using openmp (it is done to make iter independent data on threads)
         bool first_one = true;
 #pragma omp for
-        for (index_t i = 0; i < M; ++i) {
+        for (index_t i = 0; i < sz; ++i) {
             if (first_one) {
                 istart = i;
                 first_one = false;
@@ -341,8 +431,9 @@ int prolong_matrix::openmp_setup() {
 
         // compute remote iter to do matvec using openmp (it is done to make iter independent data on threads)
         first_one = true;
+        const index_t crsz = col_remote_size;
 #pragma omp for
-        for (index_t i = 0; i < col_remote_size; ++i) {
+        for (index_t i = 0; i < crsz; ++i) {
             if (first_one) {
                 istart = i;
                 first_one = false;
@@ -390,19 +481,18 @@ int prolong_matrix::openmp_setup() {
 }
 
 
-void prolong_matrix::matvec(std::vector<value_t>& v, std::vector<value_t>& w) {
+void prolong_matrix::matvec_sparse(const value_t *v, value_t *w) {
 
-//    int nprocs;
-//    MPI_Comm_size(comm, &nprocs);
-    int rank;
+    int rank = 0;
     MPI_Comm_rank(comm, &rank);
+    int flag = 0;
+    const index_t sz = M;
 
 //    print_vector(v, -1, "v in matvec", comm);
 
 //    totalTime = 0;
 //    double t10 = MPI_Wtime();
 
-    // put the values of the vector in vSend, for sending to other processors
 #pragma omp parallel for
     for(index_t i = 0;i < vIndexSize; ++i)
         vSend[i] = v[vIndex[i]];
@@ -410,24 +500,347 @@ void prolong_matrix::matvec(std::vector<value_t>& v, std::vector<value_t>& w) {
 //    double t20 = MPI_Wtime();
 //    time[0] += (t20-t10);
 
-//    print_vector(vIndex, -1, "vIndex", comm);
-//    print_vector(vSend, -1, "vSend", comm);
+//    double t13 = MPI_Wtime();
+//    double t1comm = omp_get_wtime();
+
+    for(int i = 0; i < numRecvProc; ++i){
+        MPI_Irecv(&vecValues[rdispls[recvProcRank[i]]], recvProcCount[i], par::Mpi_datatype<value_t>::value(),
+                  recvProcRank[i], 1, comm, &mv_req[i]);
+//        MPI_Test(&mv_req[i], &flag, &mv_stat[i]);
+    }
+
+   MPI_Request *req_p = &mv_req[numRecvProc];
+   for(int i = 0; i < numSendProc; ++i){
+        MPI_Isend(&vSend[vdispls[sendProcRank[i]]], sendProcCount[i], par::Mpi_datatype<value_t>::value(),
+                  sendProcRank[i], 1, comm, &req_p[i]);
+        MPI_Test(&req_p[i], &flag, MPI_STATUS_IGNORE);
+    }
+
+    // initialize w to 0
+    fill(&w[0], &w[sz], 0.0);
+
+    // local loop
+    // ----------
+//    double t1loc = omp_get_wtime();
+
+#pragma omp parallel
+    {
+              value_t  tmp         = 0.0;
+        const value_t* v_p         = &v[0] - splitNew[rank];
+        const index_t* col_local_p = nullptr;
+        const value_t* val_local_p = nullptr;
+              nnz_t    iter        = iter_local_array[omp_get_thread_num()];
+//        nnz_t iter = 0;
+#pragma omp for
+        for (index_t i = 0; i < sz; ++i) {
+            col_local_p = &col_local[iter];
+            val_local_p = &val_local[iter];
+            const index_t jend = nnzPerRow_local[i];
+            tmp = 0.0;
+            for (index_t j = 0; j < jend; ++j) {
+//                    if(rank==0) printf("%u \t%.18f \t%.18f \t%.18f \n",
+//                            entry_local[indicesP_local[iter]].col, entry_local[indicesP_local[iter]].val, v_p[entry_local[indicesP_local[iter]].col], entry_local[indicesP_local[iter]].val * v_p[entry_local[indicesP_local[iter]].col]);
+//                w[i] += val_local[iter] * v_p[col_local[iter]];
+                tmp += val_local_p[j] * v_p[col_local_p[j]];
+            }
+            w[i] += tmp;
+            iter += jend;
+        }
+    }
+
+//    std::fill(w.begin(), w.end(), 0);
+//    value_t* v_p = &v[0] - splitNew[rank];
+//    nnz_t iter = 0;
+//    for (index_t i = 0; i < M; ++i) {
+//        for (index_t j = 0; j < nnzPerRow_local[i]; ++j, ++iter) {
+//            w[i] += val_local[iter] * v_p[col_local[iter]];
+//        }
+//    }
+
+//    double t2loc = omp_get_wtime();
+//    tloc += (t2loc - t1loc);
+
+//    MPI_Waitall(numRecvProc, &mv_req[0], &mv_stat[0]);
+
+//    print_vector(vecValues, 0, "vecValues", comm);
+
+    // remote loop
+    // -----------
+
+//    double t1rem = omp_get_wtime();
+
+    const index_t* row_remote_p = nullptr;
+    const value_t* val_remote_p = nullptr;
+    nnz_t iter = 0;
+    int recv_proc_idx = 0;
+    for(int np = 0; np < numRecvProc; ++np){
+        MPI_Waitany(numRecvProc, &mv_req[0], &recv_proc_idx, MPI_STATUS_IGNORE);
+        const int recv_proc = recvProcRank[recv_proc_idx];
+//        if(rank==1) printf("recv_proc_idx = %d, recv_proc = %d, np = %d, numRecvProc = %d, recvCount[recv_proc] = %d\n",
+//                              recv_proc_idx, recv_proc, np, numRecvProc, recvCount[recv_proc]);
+
+        iter = nnzPerProcScan[recv_proc];
+        const value_t *vecValues_p        = &vecValues[rdispls[recv_proc]];
+        const auto    *nnzPerCol_remote_p = &nnzPerCol_remote[rdispls[recv_proc]];
+        for (index_t j = 0; j < recvCount[recv_proc]; ++j) {
+//            if(rank==1) printf("%u\n", nnzPerCol_remote_p[j]);
+            row_remote_p = &row_remote[iter];
+            val_remote_p = &val_remote[iter];
+            const index_t iend = nnzPerCol_remote_p[j];
+            const value_t vrem = vecValues_p[j];
+//#pragma omp simd
+            for (index_t i = 0; i < iend; ++i) {
+//                if(rank==1) printf("%ld \t%u \t%u \t%f \t%f\n",
+//                iter, row_remote[iter], col_remote2[iter], val_remote[iter], vecValues[rdispls[recv_proc] + j]);
+                w[row_remote_p[i]] += val_remote_p[i] * vrem;
+            }
+            iter += iend;
+        }
+    }
+
+//    double t2rem = omp_get_wtime();
+//    trem += (t2rem - t1rem);
+
+    MPI_Waitall(numSendProc, &mv_req[numRecvProc], MPI_STATUSES_IGNORE);
+
+//    double t2comm = omp_get_wtime();
+//    ttot  += (t2comm - t1comm);
+//    tcomm += (t2comm - t1comm) - (t2loc - t1loc) - (t2rem - t1rem);
+}
+
+void prolong_matrix::matvec_sparse_float(const value_t *v, value_t *w) {
+
+    int rank = 0;
+    MPI_Comm_rank(comm, &rank);
+    int flag = 0;
+    const index_t sz = M;
+
+//    print_vector(v, -1, "v in matvec", comm);
+
+//    totalTime = 0;
+//    double t10 = MPI_Wtime();
+
+#pragma omp parallel for
+    for(index_t i = 0;i < vIndexSize; ++i)
+        vSend_f[i] = v[vIndex[i]];
+
+//    double t20 = MPI_Wtime();
+//    time[0] += (t20-t10);
 
 //    double t13 = MPI_Wtime();
+//    double t1comm = omp_get_wtime();
+
+    for(int i = 0; i < numRecvProc; ++i){
+        MPI_Irecv(&vecValues_f[rdispls[recvProcRank[i]]], recvProcCount[i], MPI_FLOAT, recvProcRank[i], 1, comm, &mv_req[i]);
+//        MPI_Test(&mv_req[i], &flag, &mv_stat[i]);
+    }
+
+    MPI_Request *req_p = &mv_req[numRecvProc];
+    for(int i = 0; i < numSendProc; ++i){
+        MPI_Isend(&vSend_f[vdispls[sendProcRank[i]]], sendProcCount[i], MPI_FLOAT, sendProcRank[i], 1, comm, &req_p[i]);
+        MPI_Test(&req_p[i], &flag, MPI_STATUS_IGNORE);
+    }
+
+    // initialize w to 0
+    fill(&w[0], &w[sz], 0.0);
+
+    // local loop
+    // ----------
+//    double t1loc = omp_get_wtime();
+
+#pragma omp parallel
+    {
+              value_t  tmp         = 0.0;
+        const value_t* v_p         = &v[0] - splitNew[rank];
+        const index_t* col_local_p = nullptr;
+        const value_t* val_local_p = nullptr;
+              nnz_t    iter        = iter_local_array[omp_get_thread_num()];
+//        nnz_t iter = 0;
+#pragma omp for
+        for (index_t i = 0; i < M; ++i) {
+            col_local_p = &col_local[iter];
+            val_local_p = &val_local[iter];
+            const index_t jend = nnzPerRow_local[i];
+            tmp = 0.0;
+            for (index_t j = 0; j < jend; ++j) {
+//                    if(rank==0) printf("%u \t%.18f \t%.18f \t%.18f \n",
+//                            entry_local[indicesP_local[iter]].col, entry_local[indicesP_local[iter]].val, v_p[entry_local[indicesP_local[iter]].col], entry_local[indicesP_local[iter]].val * v_p[entry_local[indicesP_local[iter]].col]);
+                tmp += val_local_p[j] * v_p[col_local_p[j]];
+            }
+            w[i] += tmp;
+            iter += jend;
+        }
+    }
+
+//    std::fill(w.begin(), w.end(), 0);
+//    value_t* v_p = &v[0] - splitNew[rank];
+//    nnz_t iter = 0;
+//    for (index_t i = 0; i < M; ++i) {
+//        for (index_t j = 0; j < nnzPerRow_local[i]; ++j, ++iter) {
+//            w[i] += val_local[iter] * v_p[col_local[iter]];
+//        }
+//    }
+
+//    double t2loc = omp_get_wtime();
+//    tloc += (t2loc - t1loc);
+
+//    MPI_Waitall(numRecvProc, &mv_req[0], &mv_stat[0]);
+
+//    print_vector(vecValues, 0, "vecValues", comm);
+
+    // remote loop
+    // -----------
+
+//    double t1rem = omp_get_wtime();
+
+    const index_t* row_remote_p = nullptr;
+    const value_t* val_remote_p = nullptr;
+    nnz_t iter = 0;
+    int recv_proc_idx = 0;
+    for(int np = 0; np < numRecvProc; ++np){
+        MPI_Waitany(numRecvProc, &mv_req[0], &recv_proc_idx, MPI_STATUS_IGNORE);
+        const int recv_proc = recvProcRank[recv_proc_idx];
+//        if(rank==1) printf("recv_proc_idx = %d, recv_proc = %d, np = %d, numRecvProc = %d, recvCount[recv_proc] = %d\n",
+//                              recv_proc_idx, recv_proc, np, numRecvProc, recvCount[recv_proc]);
+
+        iter = nnzPerProcScan[recv_proc];
+        const float   *vecValues_p        = &vecValues_f[rdispls[recv_proc]];
+        const auto    *nnzPerCol_remote_p = &nnzPerCol_remote[rdispls[recv_proc]];
+        for (index_t j = 0; j < recvCount[recv_proc]; ++j) {
+//            if(rank==1) printf("%u\n", nnzPerCol_remote_p[j]);
+            row_remote_p = &row_remote[iter];
+            val_remote_p = &val_remote[iter];
+            const index_t iend = nnzPerCol_remote_p[j];
+            const value_t vrem = vecValues_p[j];
+//#pragma omp simd
+            for (index_t i = 0; i < iend; ++i) {
+//                if(rank==1) printf("%ld \t%u \t%u \t%f \t%f\n",
+//                iter, row_remote[iter], col_remote2[iter], val_remote[iter], vecValues[rdispls[recv_proc] + j]);
+                w[row_remote_p[i]] += val_remote_p[i] * vrem;
+            }
+            iter += iend;
+        }
+    }
+
+//    double t2rem = omp_get_wtime();
+//    trem += (t2rem - t1rem);
+
+    MPI_Waitall(numSendProc, &mv_req[numRecvProc], MPI_STATUSES_IGNORE);
+
+//    double t2comm = omp_get_wtime();
+//    ttot  += (t2comm - t1comm);
+//    tcomm += (t2comm - t1comm) - (t2loc - t1loc) - (t2rem - t1rem);
+}
+
+void prolong_matrix::matvec2(std::vector<value_t>& v, std::vector<value_t>& w) {
+
+    int rank = 0;
+    MPI_Comm_rank(comm, &rank);
     int flag = 0;
-    auto *requests = new MPI_Request[numSendProc + numRecvProc];
-    auto *statuses = new MPI_Status[numSendProc + numRecvProc];
+
+//    print_vector(v, -1, "v in matvec", comm);
+
+//    totalTime = 0;
+//    double t10 = MPI_Wtime();
+
+    for(index_t i = 0;i < vIndexSize; ++i)
+        vSend[i] = v[vIndex[i]];
+
+//    double t20 = MPI_Wtime();
+//    time[0] += (t20-t10);
+
+//    double t13 = MPI_Wtime();
+//    double t1comm = omp_get_wtime();
+
+    for(int i = 0; i < numRecvProc; ++i){
+        MPI_Irecv(&vecValues[rdispls[recvProcRank[i]]], recvProcCount[i], par::Mpi_datatype<value_t>::value(),
+                  recvProcRank[i], 1, comm, &mv_req[i]);
+        MPI_Test(&mv_req[i], &flag, &mv_stat[i]);
+    }
+
+    for(int i = 0; i < numSendProc; ++i){
+        MPI_Isend(&vSend[vdispls[sendProcRank[i]]], sendProcCount[i], par::Mpi_datatype<value_t>::value(),
+                  sendProcRank[i], 1, comm, &mv_req[numRecvProc+i]);
+        MPI_Test(&mv_req[numRecvProc + i], &flag, &mv_stat[numRecvProc + i]);
+    }
+
+    // local loop
+    // ----------
+//    double t1loc = omp_get_wtime();
+
+    std::fill(w.begin(), w.end(), 0);
+    value_t* v_p = &v[0] - splitNew[rank];
+    nnz_t iter = 0;
+    for (index_t i = 0; i < M; ++i) {
+        for (index_t j = 0; j < nnzPerRow_local[i]; ++j, ++iter) {
+            w[i] += val_local[iter] * v_p[col_local[iter]];
+        }
+    }
+
+//    double t2loc = omp_get_wtime();
+//    tloc += (t2loc - t1loc);
+
+    MPI_Waitall(numRecvProc, &mv_req[0], &mv_stat[0]);
+
+//    print_vector(vecValues, 0, "vecValues", comm);
+
+    // remote loop
+    // -----------
+
+    double t1rem = omp_get_wtime();
+
+    // remote matvec without openmp part
+    iter = 0;
+    for (index_t j = 0; j < col_remote_size; ++j) {
+        for (index_t i = 0; i < nnzPerCol_remote[j]; ++i, ++iter) {
+//            if(rank==0 && entry_remote[iter].row==1) printf("%u \t%.18f \t%.18f \t%.18f \t%u \n",
+//                                       entry_remote[iter].col, entry_remote[iter].val, vecValues[j], entry_remote[iter].val * vecValues[j], col_remote[j]);
+            w[row_remote[iter]] += val_remote[iter] * vecValues[j];
+        }
+    }
+
+//    double t2rem = omp_get_wtime();
+//    trem += (t2rem - t1rem);
+
+    MPI_Waitall(numSendProc, &mv_req[numRecvProc], &mv_stat[numRecvProc]);
+
+//    double t2comm = omp_get_wtime();
+//    ttot  += (t2comm - t1comm);
+//    tcomm += (t2comm - t1comm) - (t2loc - t1loc) - (t2rem - t1rem);
+}
+
+void prolong_matrix::matvec_omp(std::vector<value_t>& v, std::vector<value_t>& w) {
+
+    int rank = 0;
+    MPI_Comm_rank(comm, &rank);
+    int flag = 0;
+
+//    print_vector(v, -1, "v in matvec", comm);
+
+//    totalTime = 0;
+//    double t10 = MPI_Wtime();
+
+#pragma omp parallel for
+    for(index_t i = 0;i < vIndexSize; ++i)
+        vSend[i] = v[vIndex[i]];
+
+//    double t20 = MPI_Wtime();
+//    time[0] += (t20-t10);
+
+//    double t13 = MPI_Wtime();
 
     double t1comm = omp_get_wtime();
 
-    for(int i = 0; i < numRecvProc; i++){
-        MPI_Irecv(&vecValues[rdispls[recvProcRank[i]]], recvProcCount[i], par::Mpi_datatype<value_t>::value(), recvProcRank[i], 1, comm, &requests[i]);
-        MPI_Test(&requests[i], &flag, &statuses[i]);
+    for(int i = 0; i < numRecvProc; ++i){
+        MPI_Irecv(&vecValues[rdispls[recvProcRank[i]]], recvProcCount[i], par::Mpi_datatype<value_t>::value(),
+                  recvProcRank[i], 1, comm, &mv_req[i]);
+//        MPI_Test(&requests[i], &flag, &statuses[i]);
     }
 
-    for(int i = 0; i < numSendProc; i++){
-        MPI_Isend(&vSend[vdispls[sendProcRank[i]]], sendProcCount[i], par::Mpi_datatype<value_t>::value(), sendProcRank[i], 1, comm, &requests[numRecvProc+i]);
-        MPI_Test(&requests[numRecvProc + i], &flag, &statuses[numRecvProc + i]);
+    for(int i = 0; i < numSendProc; ++i){
+        MPI_Isend(&vSend[vdispls[sendProcRank[i]]], sendProcCount[i], par::Mpi_datatype<value_t>::value(),
+                  sendProcRank[i], 1, comm, &mv_req[numRecvProc+i]);
+//        MPI_Test(&requests[numRecvProc + i], &flag, &statuses[numRecvProc + i]);
     }
 
     // local loop
@@ -435,26 +848,25 @@ void prolong_matrix::matvec(std::vector<value_t>& v, std::vector<value_t>& w) {
     double t1loc = omp_get_wtime();
     value_t* v_p = &v[0] - splitNew[rank];
 
-    #pragma omp parallel
+#pragma omp parallel
     {
         nnz_t iter = iter_local_array[omp_get_thread_num()];
 //        nnz_t iter = 0;
-        #pragma omp for
-            for (index_t i = 0; i < M; ++i) {
-                w[i] = 0;
-                for (index_t j = 0; j < nnzPerRow_local[i]; ++j, ++iter) {
+#pragma omp for
+        for (index_t i = 0; i < M; ++i) {
+            w[i] = 0.0;
+            for (index_t j = 0; j < nnzPerRow_local[i]; ++j, ++iter) {
 //                    if(rank==0) printf("%u \t%.18f \t%.18f \t%.18f \n",
 //                            entry_local[indicesP_local[iter]].col, entry_local[indicesP_local[iter]].val, v_p[entry_local[indicesP_local[iter]].col], entry_local[indicesP_local[iter]].val * v_p[entry_local[indicesP_local[iter]].col]);
-//                    w[i] += entry_local[indicesP_local[iter]].val * v_p[entry_local[indicesP_local[iter]].col];
-                    w[i] += val_local[indicesP_local[iter]] * v_p[col_local[indicesP_local[iter]]];
-                }
+                w[i] += val_local[iter] * v_p[col_local[iter]];
             }
+        }
     }
 
     double t2loc = omp_get_wtime();
     tloc += (t2loc - t1loc);
 
-    MPI_Waitall(numRecvProc, requests, statuses);
+    MPI_Waitall(numRecvProc, &mv_req[0], &mv_stat[0]);
 
 //    print_vector(vecValues, 0, "vecValues", comm);
 
@@ -533,15 +945,12 @@ void prolong_matrix::matvec(std::vector<value_t>& v, std::vector<value_t>& w) {
     double t2rem = omp_get_wtime();
     trem += (t2rem - t1rem);
 
-    MPI_Waitall(numSendProc, numRecvProc+requests, numRecvProc+statuses);
-    delete [] requests;
-    delete [] statuses;
+    MPI_Waitall(numSendProc, &mv_req[numRecvProc], &mv_stat[numRecvProc]);
 
     double t2comm = omp_get_wtime();
     ttot  += (t2comm - t1comm);
     tcomm += (t2comm - t1comm) - (t2loc - t1loc) - (t2rem - t1rem);
 }
-
 
 int prolong_matrix::print_entry(int ran){
 
@@ -551,6 +960,9 @@ int prolong_matrix::print_entry(int ran){
     int rank, nprocs;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+
+    if(!rank) printf("prolong_matrix::print_entry: P.entry is cleared. This func. needs to be updated!\n");
+    return 0;
 
     if(ran >= 0) {
         if (rank == ran) {
@@ -616,6 +1028,10 @@ int prolong_matrix::writeMatrixToFile(const std::string &name) const{
     int nprocs = 0, rank = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+
+    if(!rank) printf("prolong_matrix::writeMatrixToFile: P.entry is cleared. This func. needs to be updated!\n");
+    if(!rank) printf("prolong_matrix::writeMatrixToFile: P.split is cleared. This func. needs to be updated!\n");
+    return 0;
 
     std::string outFileNameTxt = name + "P-r" + std::to_string(rank) + ".mtx";
     std::ofstream outFileTxt(outFileNameTxt);

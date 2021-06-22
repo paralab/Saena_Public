@@ -20,7 +20,7 @@
 
 namespace par {
 
-  unsigned int splitCommBinary( MPI_Comm orig_comm, MPI_Comm *new_comm) {
+    unsigned int splitCommBinary( MPI_Comm orig_comm, MPI_Comm *new_comm) {
     int npes, rank;
 
     MPI_Group  orig_group, new_group;
@@ -31,7 +31,7 @@ namespace par {
     unsigned int splitterRank = binOp::getPrevHighestPowerOfTwo(npes);
 
     int *ranksAsc, *ranksDesc;
-    //Determine sizes for the 2 groups 
+    //Determine sizes for the 2 groups
     ranksAsc = new int[splitterRank];
     ranksDesc = new int[( npes - splitterRank)];
 
@@ -62,14 +62,14 @@ namespace par {
 
     delete [] ranksAsc;
     ranksAsc = NULL;
-    
+
     delete [] ranksDesc;
     ranksDesc = NULL;
 
     return splitterRank;
-  }//end function
+    }//end function
 
-  unsigned int splitCommBinaryNoFlip( MPI_Comm orig_comm, MPI_Comm *new_comm) {
+    unsigned int splitCommBinaryNoFlip( MPI_Comm orig_comm, MPI_Comm *new_comm) {
     int npes, rank;
 
     MPI_Group  orig_group, new_group;
@@ -115,11 +115,14 @@ namespace par {
     delete [] ranksDesc;
     ranksDesc = NULL;
 
+    MPI_Group_free(&orig_group);
+    MPI_Group_free(&new_group);
+
     return splitterRank;
   }//end function
 
-  //create Comm groups and remove empty processors...
-  int splitComm2way(bool iAmEmpty, MPI_Comm * new_comm, MPI_Comm comm) {
+    //create Comm groups and remove empty processors...
+    void splitComm2way(bool iAmEmpty, MPI_Comm * new_comm, MPI_Comm comm) {
 #ifdef __PROFILE_WITH_BARRIER__
     MPI_Barrier(comm);
 #endif
@@ -179,8 +182,7 @@ namespace par {
 
   }//end function
 
-  int splitCommUsingSplittingRank(int splittingRank, MPI_Comm* new_comm,
-      MPI_Comm comm) {
+    void splitCommUsingSplittingRank(int splittingRank, MPI_Comm* new_comm, MPI_Comm comm) {
 #ifdef __PROFILE_WITH_BARRIER__
     MPI_Barrier(comm);
 #endif
@@ -223,8 +225,8 @@ namespace par {
 
   }//end function
 
-  //create Comm groups and remove empty processors...
-  int splitComm2way(const bool* isEmptyList, MPI_Comm * new_comm, MPI_Comm comm) {
+    //create Comm groups and remove empty processors...
+    int splitComm2way(const bool* isEmptyList, MPI_Comm * new_comm, MPI_Comm comm) {
       
     MPI_Group  orig_group, new_group;
     int size, rank;
@@ -277,9 +279,8 @@ namespace par {
     return 0;
   }//end function
 
-		
-	int AdjustCommunicationPattern(std::vector<int>& send_sizes, std::vector<int>& send_partners, 
-				 												 std::vector<int>& recv_sizes, std::vector<int>& recv_partners, MPI_Comm comm) 
+	int AdjustCommunicationPattern(std::vector<int>& send_sizes, std::vector<int>& send_partners,
+	                               std::vector<int>& recv_sizes, std::vector<int>& recv_partners, MPI_Comm comm)
 	{
     int npes;
     int rank;
@@ -387,34 +388,35 @@ namespace par {
 	}
 
 
-	// this version of sampleSort redistributes arr to have entries with row indices between split[rank] and split[rank+1] on proc. rank.
-	// this only works on cooEntry_row, because the ordering should be row-major.
-	// To convert this function to template T, instad of cooEntry_row, a new compare function can be implemented for comparing arr[i] with split[k].
-    int sampleSort(std::vector<cooEntry_row>& arr, std::vector<cooEntry_row> & SortedElem, std::vector<index_t> &split, MPI_Comm comm){
+	// this version of sampleSort redistributes arr to have entries with row indices between split[rank] and
+	// split[rank+1] on processor rank.
+	// this only works on cooEntry_row datatype, because the ordering should be row-major.
+	// To convert this function to template T, instad of cooEntry_row, a new compare function can be implemented for
+	// comparing arr[i] with split[k].
+    int sampleSort(std::vector<cooEntry_row>& arr, std::vector<cooEntry_row> & SortedElem, std::vector<index_t> &split,
+                   MPI_Comm comm){
 
         int npes = 0;
         MPI_Comm_size(comm, &npes);
 
         //--
-        int rank = 0;
-        MPI_Comm_rank(comm, &rank);
-
-//      std::cout << rank << " : " << __func__ << arr.size() << std::endl;
-
-        assert(arr.size());
-
-        if (npes == 1) {
-//          std::cout <<" have to use seq. sort"
-//          <<" since npes = 1 . inpSize: "<<(arr.size()) <<std::endl;
-//        std::sort(arr.begin(), arr.end());
-//        omp_par::merge_sort(arr.begin(),arr.end());
-            std::sort(arr.begin(),arr.end());
-            SortedElem = arr;
-            return 0;
-        }
 
         int myrank = 0;
         MPI_Comm_rank(comm, &myrank);
+
+//      std::cout << myrank << " : " << __func__ << arr.size() << std::endl;
+
+//        assert(!arr.empty());
+
+        if (npes == 1) {
+//            std::cout <<" have to use seq. sort"
+//            <<" since npes = 1 . inpSize: "<<(arr.size()) <<std::endl;
+//            std::sort(arr.begin(), arr.end());
+//            omp_par::merge_sort(arr.begin(),arr.end());
+            std::sort(arr.begin(), arr.end());
+            SortedElem = arr;
+            return 0;
+        }
 
         DendroIntL nelem = arr.size();
         DendroIntL nelemCopy = nelem;
@@ -424,13 +426,13 @@ namespace par {
         DendroIntL npesLong = npes;
         const DendroIntL FIVE = 5;
 
-        if(totSize < (FIVE*npesLong*npesLong)) {
+        if(totSize < (FIVE * npesLong * npesLong)) {
 //            if(!myrank) {
 //                std::cout <<" Using bitonic sort since totSize < (5*(npes^2)). totSize: "
 //                <<totSize<<" npes: "<<npes <<std::endl;
 //            }
 
-            par::partitionW<cooEntry_row>(arr, NULL, comm);
+            par::partitionW<cooEntry_row>(arr, nullptr, comm);
 
 #ifdef __DEBUG_PAR__
             MPI_Barrier(comm);
@@ -481,7 +483,7 @@ namespace par {
 #endif
 
         //Re-part arr so that each proc. has at least p elements.
-        par::partitionW<cooEntry_row>(arr, NULL, comm);
+        par::partitionW<cooEntry_row>(arr, nullptr, comm);
 
         nelem = arr.size();
 
@@ -515,7 +517,7 @@ namespace par {
 //            }
 
             } else {
-                k = (int)lower_bound3(&split[0], &split[npes-1], arr[j].row);
+                k = static_cast<int>(lower_bound3(&split[0], &split[npes-1], arr[j].row));
 
                 if (k == (npes-1) ){
                     //could not find any splitter >= arr[j]
@@ -571,8 +573,8 @@ namespace par {
 //      sort(SortedElem.begin(), SortedElem.end());
         omp_par::merge_sort(&SortedElem[0], &SortedElem[nsorted]);
 
+        return 0;
     }//end function
-
 
 }// end namespace
 

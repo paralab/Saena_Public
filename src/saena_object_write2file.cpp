@@ -60,9 +60,13 @@ int saena_object::writeMatrixToFileP(prolong_matrix* P, std::string name) {
     // row and column indices of txt files should start from 1, not 0.
 
     MPI_Comm comm = P->comm;
-    int nprocs, rank;
+    int nprocs = 0, rank = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+
+    if(!rank) printf("writeMatrixToFileP: P.entry is cleared. This func. needs to be updated!\n");
+    if(!rank) printf("writeMatrixToFileP: P.split is cleared. This func. needs to be updated!\n");
+    return 0;
 
     std::ofstream outFileTxt;
     std::string outFileNameTxt;
@@ -94,6 +98,9 @@ int saena_object::writeMatrixToFileR(restrict_matrix* R, std::string name) {
     int nprocs, rank;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+
+    if(!rank) printf("writeMatrixToFileR: R.splitNew is cleared. This func. needs to be updated!\n");
+    return 0;
 
     std::ofstream outFileTxt;
     std::string outFileNameTxt = "/home/abaris/Dropbox/Projects/Saena/build/writeMatrix/";

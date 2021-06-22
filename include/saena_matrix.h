@@ -37,37 +37,40 @@ private:
 
     nnz_t initial_nnz_l = 0;
     bool read_from_file = false;
-    bool freeBoolean = false; // use this parameter to know if destructor for saena_matrix class should free the variables or not.
 
     std::vector<int> recvCount;
     std::vector<int> sendCount;
-    std::vector<int> recvCountScan;
-    std::vector<int> sendCountScan;
 
-    std::vector<value_t> temp1;      // to be used in smoothers
-    std::vector<value_t> temp2;      // to be used in smoothers
+    int MPI_flag = 0;
+    vector<MPI_Request> requests;
+    vector<MPI_Status>  statuses;
+
+    value_t *temp1 = nullptr;
+    value_t *temp2 = nullptr;
 
     int num_threads   = 1;
     int matvec_levels = 1;
     std::vector<nnz_t> iter_local_array;
     std::vector<nnz_t> iter_remote_array;
 //    std::vector<nnz_t> iter_local_array2;
-    std::vector<nnz_t> iter_remote_array2;
+//    std::vector<nnz_t> iter_remote_array2;
     std::vector<index_t> vElement_remote;           // indices that should be received during matvec
-    std::vector<value_t> w_buff; // for matvec3()
+    std::vector<value_t> w_buff; // for matvec with openmp support
 
-    bool verbose_saena_matrix       = false;
-    bool verbose_repartition        = false;
-    bool verbose_matrix_setup       = false;
-    bool verbose_repartition_update = false;
-    bool verbose_matvec_dummy       = false;
-    bool verbose_comp_matvec_dummy  = false;
-    bool verbose_shrink             = false;
+    int matvec_iter_dummy = 5;
+
+    bool verbose_saena_matrix      = false;
+    bool verbose_repart            = false;
+    bool verbose_matrix_setup      = false;
+    bool verbose_matrix_setup_sh   = false;      // shrink
+    bool verbose_repart_update     = false;
+    bool verbose_matvec_dummy      = false;
+    bool verbose_comp_matvec_dummy = false;
+    bool verbose_shrink            = false;
 
 public:
-    MPI_Comm comm            = MPI_COMM_WORLD;
-    MPI_Comm comm_old        = MPI_COMM_WORLD;
-    MPI_Comm comm_horizontal = MPI_COMM_WORLD;
+    MPI_Comm comm     = MPI_COMM_WORLD;
+    MPI_Comm comm_old = MPI_COMM_WORLD;
 
     index_t Mbig    = 0; // global number of rows
     index_t Nbig    = 0; // global number of columns
@@ -78,51 +81,63 @@ public:
     nnz_t   nnz_max = 0; // biggest nnz on all the processors
     index_t M_max   = 0; // biggest M on all the processors
 
+    index_t M_orig    = 0; // before removing boundary nodes
+
+    bool use_double = true; // to determine the precision for matvec
+
+    bool repart_row = false; // to switch to partition based on row size (instead of nnz)
+
     int p_order = 1;
     int prodim = 2;
 
     std::vector<cooEntry>  entry;
 
     std::vector<index_t> split;             // (row-wise) partition of the matrix between processes
+    std::vector<index_t> split_b;           // (row-wise) partition of the matrix between processes, before removing boundary nodes
     std::vector<index_t> split_old;
     std::vector<nnz_t>   nnz_list;          // number of nonzeros on each process.
                                             // todo: Since it is local to each processor, int is enough. nnz_l should be changed too.
 
-    bool remove_boundary = false;
+    bool remove_boundary = true;
     std::vector<index_t> bound_row; // boundary node row index
     std::vector<value_t> bound_val; // boundary node value
 
     nnz_t   nnz_l_local     = 0;
     nnz_t   nnz_l_remote    = 0;
     index_t col_remote_size = 0;            // number of remote columns
-    std::vector<value_t> values_local;
-    std::vector<value_t> values_remote;
-    std::vector<index_t> row_local;
-    std::vector<index_t> row_remote;
-    std::vector<index_t> col_local;
-    std::vector<index_t> col_remote;        // index starting from 0, instead of the original column index
-    std::vector<index_t> col_remote2;       // original col index
+
+    value_t *val_local   = nullptr;
+    value_t *val_remote  = nullptr;
+    index_t *row_local   = nullptr;
+    index_t *row_remote  = nullptr;
+    index_t *col_local   = nullptr;
+    index_t *col_remote  = nullptr;        // index starting from 0, instead of the original column index
+    index_t *col_remote2 = nullptr;        // original col index
+
     std::vector<index_t> nnzPerRow_local;   // todo: this is used for openmp part of saena_matrix.cpp
 //    std::vector<index_t> nnzPerRow_local2;  // todo: remove this. this is used for openmp part of saena_matrix.cpp
     std::vector<index_t> nnzPerRow_remote;  // It is also used for PETSc function: MatMPIAIJSetPreallocation()
     std::vector<index_t> nnzPerCol_remote;
     std::vector<nnz_t>   nnzPerProcScan; // number of remote nonzeros on each proc. used in matvec_comp.
 
-    std::vector<value_t> inv_diag;
-    std::vector<value_t> inv_sq_diag;
-    std::vector<value_t> inv_diag_orig;
+    value_t *inv_diag      = nullptr;
+    value_t *inv_diag_orig = nullptr;
+//    std::vector<value_t> inv_diag;
+    std::vector<value_t> inv_sq_diag;       // D^{-1/2}
+//    std::vector<value_t> inv_diag_orig;
     std::vector<value_t> inv_sq_diag_orig;
-//    double norm1, normInf, rhoDA;
 
     index_t vIndexSize = 0;
     index_t recvSize   = 0;
     std::vector<index_t> vIndex;        // indices that should be sent during matvec
     std::vector<value_t> vSend;
-    std::vector<value_t> vSend2;
     std::vector<value_t> vecValues;
-    std::vector<value_t> vecValues2;    // for compressed matvec
+//    std::vector<value_t> vSend2;
+//    std::vector<value_t> vecValues2;    // for compressed matvec
+    std::vector<float> vSend_f;           // float version
+    std::vector<float> vecValues_f;       // float version
 
-    std::vector<nnz_t> indicesP_local;
+//    std::vector<nnz_t> indicesP_local;
 
     int numRecvProc = 0;
     int numSendProc = 0;
@@ -171,11 +186,10 @@ public:
 
     // dense matrix parameters
     // ***********************************************************
-    // search for "uncomment to enable DENSE" to enable the dense part
-/*    saena_matrix_dense dense_matrix; */ // uncomment to enable DENSE
-    bool switch_to_dense        = false;
-    bool dense_matrix_generated = false;
-    float dense_threshold = 0.1; // 0 < dense_threshold <= 1 decide when to also generate dense_matrix for this matrix.
+
+    saena_matrix_dense* dense_matrix = nullptr;
+    bool use_dense = false;   // this will be set to true inside generate_dense_matrix()
+
     int generate_dense_matrix();
 
     // ***********************************************************
@@ -219,20 +233,13 @@ public:
     int matvec_sparse_comp_omp(std::vector<value_t>& v, std::vector<value_t>& w);
 #endif
 
-    // for the compression paper
-    void matvec_time_init();
-    void matvec_time_print(const int &opt = 1) const;
-    unsigned long matvec_iter = 0;
-    double part1 = 0, part2 = 0, part3 = 0, part4 = 0, part5 = 0, part6 = 0, part7 = 0;
-
     // ***********************************************************
 
     saena_matrix();
     explicit saena_matrix(MPI_Comm com);
     ~saena_matrix();
 
-    int read_file(const char* Aname);
-    int read_file(const char* Aname, const std::string &input_type);
+    int read_file(const string &filename, const std::string &input_type = "");
 
     void set_comm(MPI_Comm com);
 
@@ -245,23 +252,27 @@ public:
 //    int set3(unsigned int row, unsigned int col, double val);
 //    int set3(unsigned int* row, unsigned int* col, double* val, unsigned int nnz_local);
 
+    void set_remove_boundary(bool remove_bound);
+
     void set_p_order(int _p_order);
     void set_prodim(int _prodim);
 
-    int assemble(bool scale = true);
+    void set_eig(const double &eig);
+    double get_eig();
+
+    int assemble(bool scale = false, bool use_dense = false);
     int setup_initial_data();
     int remove_duplicates();
     int remove_boundary_nodes();
     int repartition_nnz_initial(); // based on nnz.
-    int matrix_setup(bool scale = true);
+    int matrix_setup(bool scale = false);
 
     // these versions are used after matrix is assembled and needs to be updated again.
     int setup_initial_data2();
     int repartition_nnz_update(); // based on nnz.
-    int matrix_setup_update(bool scale = true);
+    int matrix_setup_update(bool scale = false);
 
-    int repartition_nnz(); // based on nnz. use this for repartitioning A's after they are created.
-    int repartition_row(); // based on M.   use this for repartitioning A's after they are created.
+    int repart();
 
     int repartition_nnz_update_Ac(); // based on nnz.
 
@@ -272,15 +283,15 @@ public:
     int set_off_on_diagonal();
     int find_sortings();
     int openmp_setup();
-    int scale_matrix(bool full_scale = true);
-    int scale_back_matrix(bool full_scale = true);
+    int scale_matrix(bool full_scale = false);
+    int scale_back_matrix(bool full_scale = false);
 
     // dummy functions to decide if shrinking should happen
-    int set_off_on_diagonal_dummy();
-//    int find_sortings_dummy();
-    int matrix_setup_dummy();
-    int matvec_dummy(std::vector<value_t>& v, std::vector<value_t>& w);
-    int compute_matvec_dummy_time();
+    void set_off_on_diagonal_dummy();
+    void find_sortings_dummy();
+    void matrix_setup_dummy();
+    void matvec_dummy(std::vector<value_t>& v, std::vector<value_t>& w);
+    void compute_matvec_dummy_time();
 
     // shrinking
     int decide_shrinking(std::vector<double> &prev_time);
@@ -290,16 +301,27 @@ public:
     int shrink_cpu_minor();
     int shrink_cpu_c(); // for the coarsest level
 
-    inline void matvec(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec_sparse(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec_sparse_array(value_t *v, value_t *w);    // to be used in ietl.
+    inline void matvec(const value_t *v, value_t *w);
+    void matvec_sparse(const value_t *v, value_t *w);
+    void matvec_sparse2(const value_t *v, value_t *w);
+    void matvec_sparse3(const value_t *v, value_t *w);
+    void matvec_sparse4(const value_t *v, value_t *w);
+    void matvec_sparse_float(const value_t *v, value_t *w);
 
     // for profiling
-    int matvec_sparse_test(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec_sparse_test2(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec_sparse_test3(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec_sparse_test4(std::vector<value_t>& v, std::vector<value_t>& w);
-    int matvec_sparse_test_omp(std::vector<value_t>& v, std::vector<value_t>& w); // openmp version
+    unsigned long matvec_iter = 0;
+    double part1 = 0, part2 = 0, part3 = 0, part4 = 0, part5 = 0, part6 = 0;
+    void matvec_time_init();
+    void matvec_time_print(const int &opt = 1) const; // opt: pass 2 for the zfp version
+    void matvec_time_print2() const;
+    void matvec_time_print3() const;
+
+    void matvec_sparse_test_orig(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec_sparse_test1(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec_sparse_test2(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec_sparse_test3(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec_sparse_test4(std::vector<value_t>& v, std::vector<value_t>& w);
+    void matvec_sparse_test_omp(std::vector<value_t>& v, std::vector<value_t>& w); // openmp version
 
     // matvec timing functions for the matvec paper
 //    int matvec_timing1(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
@@ -311,15 +333,17 @@ public:
 //    int matvec_timing5_alltoall(std::vector<value_t>& v, std::vector<value_t>& w, std::vector<double>& time);
 
     // Vector res = A * u - rhs;
-    inline void residual(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res);
+    inline void residual(const value_t *u, const value_t *rhs, value_t *&res);
     // Vector res = rhs - A * u
-    inline void residual_negative(std::vector<value_t>& u, std::vector<value_t>& rhs, std::vector<value_t>& res);
+    inline void residual_negative(const value_t *u, const value_t *rhs, value_t *&res);
+    inline void residual_multiply(const value_t *u, const value_t *rhs, value_t *&res,const value_t *w,const value_t &c);
 
     int inverse_diag();
+    vector<index_t> get_orig_split();
 
     // smoothers
-    void jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs);
-    void chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs);
+    void jacobi(const int &iter, value_t *u, const value_t *rhs);
+    void chebyshev(const int &iter, value_t *u, const value_t *rhs);
 
     // I/O functions
     int print_entry(int ran, const std::string &name = "") const;
@@ -333,10 +357,10 @@ public:
     int erase_update_local(); // use this for compute_coarsen_update_Ac()
     int erase_keep_remote2(); // use this for compute_coarsen_update_Ac()
     int erase_after_shrink();
-    int erase_after_decide_shrinking();
+//    int erase_after_decide_shrinking();
     int erase_lazy_update();
     int erase_no_shrink_to_fit();
-    int destroy();
+    void destroy();
 };
 
 #endif //SAENA_SAENA_MATRIX_H

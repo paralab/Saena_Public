@@ -11,7 +11,7 @@ class saena_matrix;
 template<class T>
 bool inline almost_zero(const T &val){
 //    return (fabs(val) < std::numeric_limits<T>::min());
-    return (fabs(val) < 1e-12);
+    return (fabs(val) < ALMOST_ZERO);
 }
 
 
@@ -113,9 +113,10 @@ long upper_bound2(T *left, T *right, T val){
 void setIJV(char* file_name, index_t* I,index_t* J, value_t* V, nnz_t nnz_g, nnz_t initial_nnz_l, MPI_Comm comm);
 
 
-inline void dotProduct(std::vector<value_t>& r, std::vector<value_t>& s, value_t* dot, MPI_Comm comm){
-    value_t dot_l = 0;
-    for(index_t i = 0; i < r.size(); i++)
+inline void dotProduct(const value_t *r, const value_t *s, const index_t sz, value_t* dot, MPI_Comm comm){
+    value_t dot_l = 0.0;
+//#pragma omp simd reduction(+: dot_l) aligned(r, s: ALIGN_SZ)
+    for(index_t i = 0; i < sz; ++i)
         dot_l += r[i] * s[i];
     MPI_Allreduce(&dot_l, dot, 1, MPI_DOUBLE, MPI_SUM, comm);
 //    MPI_Allreduce(&dot_l, dot, 1, par::Mpi_datatype<value_t>::value(), MPI_SUM, comm);
@@ -139,7 +140,7 @@ int print_vector(const std::vector<T> &v, const int ran, const std::string &name
     // if ran >= 0 print the vector elements on proc with rank = ran
     // otherwise print the vector elements on all processors in order. (first on proc 0, then proc 1 and so on.)
 
-    int rank, nprocs;
+    int rank = -1, nprocs = -1;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
@@ -148,8 +149,8 @@ int print_vector(const std::vector<T> &v, const int ran, const std::string &name
     if(ran >= 0) {
         if (rank == ran) {
             printf("\n%s on proc = %d, size = %ld: \n", name.c_str(), ran, v.size());
-            for (auto i:v) {
-                buffer << iter << "\t" << i;
+            for (const auto &i : v) {
+                buffer << iter << "\t" << std::setprecision(16) << i;
                 std::cout << buffer.str() << std::endl;
                 buffer.str("");
                 iter++;
@@ -161,8 +162,8 @@ int print_vector(const std::vector<T> &v, const int ran, const std::string &name
             MPI_Barrier(comm);
             if (rank == proc) {
                 printf("\n%s on proc = %d, size = %ld: \n", name.c_str(), proc, v.size());
-                for (auto i:v) {
-                    buffer << iter << "\t" << i;
+                for (const auto &i : v) {
+                    buffer << iter << "\t" << std::setprecision(16) << i;
                     std::cout << buffer.str() << std::endl;
                     buffer.str("");
                     iter++;
@@ -215,20 +216,25 @@ int print_agg(const std::vector<T> &v, const int ran, const std::string &name, M
 
 
 template<class T>
-int print_array(const T &v, const nnz_t sz, const int ran, const std::string &name, MPI_Comm comm){
+void print_array(const T &v, const nnz_t sz, const int ran, const std::string &name, MPI_Comm comm){
     // if ran >= 0 print the array elements on proc with rank = ran
     // otherwise print the array elements on all processors in order. (first on proc 0, then proc 1 and so on.)
 
-    int rank, nprocs;
+    int rank = 0, nprocs = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
+
+    if(v == nullptr){
+        printf("rank %d: print_array: array is NULL, size is %ld\n", rank, sz);
+        return;
+    }
 
     index_t iter = 0;
     if(ran >= 0) {
         if (rank == ran) {
             printf("\n%s on proc = %d, size = %ld: \n", name.c_str(), ran, sz);
             for (index_t i = 0; i < sz; i++) {
-                std::cout << iter << "\t" << v[i] << std::endl;
+                std::cout << iter << "\t" << std::setprecision(16) << v[i] << std::endl;
                 iter++;
             }
             printf("\n");
@@ -239,7 +245,7 @@ int print_array(const T &v, const nnz_t sz, const int ran, const std::string &na
             if (rank == proc) {
                 printf("\n%s on proc = %d, size = %ld: \n", name.c_str(), proc, sz);
                 for (index_t i = 0; i < sz; i++) {
-                    std::cout << iter << "\t" << v[i] << std::endl;
+                    std::cout << iter << "\t" << std::setprecision(16) << v[i] << std::endl;
                     iter++;
                 }
                 printf("\n");
@@ -247,8 +253,6 @@ int print_array(const T &v, const nnz_t sz, const int ran, const std::string &na
             MPI_Barrier(comm);
         }
     }
-
-    return 0;
 }
 
 
@@ -289,7 +293,23 @@ public:
 };
 
 
-int read_from_file_rhs(std::vector<value_t>& v, saena_matrix *A, char *file, MPI_Comm comm);
+int read_from_file_rhs(value_t *v, const std::vector<index_t>& split, char *file, MPI_Comm comm);
+
+
+template<class T>
+inline T* saena_aligned_alloc(const nnz_t sz){
+    const nnz_t alloc_sz = ceil((1.0 * sz * sizeof(T)) / ALIGN_SZ) * ALIGN_SZ;
+    return static_cast<T*>(aligned_alloc(ALIGN_SZ, alloc_sz));
+}
+
+
+template<class T>
+inline void saena_free(T*& v){
+    if(v != nullptr){
+        free(v);
+        v = nullptr;
+    }
+}
 
 template <class T>
 int write_to_file_vec(std::vector<T>& v, const std::string &name, MPI_Comm comm) {
@@ -325,6 +345,9 @@ int write_to_file_vec(std::vector<T>& v, const std::string &name, MPI_Comm comm)
 
     return 0;
 }
+
+
+int repart_vector(value_t *&v, index_t &sz, vector<index_t> &split, MPI_Comm comm);
 
 
 #endif //SAENA_AUXFUNCTIONS_H
