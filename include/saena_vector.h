@@ -23,26 +23,12 @@ class saena_vector {
 //    data		        std::vector<vecEntry>		remove duplicates
 
 private:
-
-public:
-
-    MPI_Comm comm = MPI_COMM_WORLD;
-    index_t M;
-    index_t Mbig;
-
-    bool add_duplicates = false;
-    int set_dup_flag(bool add);
+//    index_t M     = 0;
+//    index_t Mbig  = 0;
 
     std::set<vecEntry>    data_set;
     std::vector<vecEntry> data;
 //    std::vector<double>   val;
-
-    index_t idx_offset = 0;
-    std::vector<index_t> orig_order; // save the input order
-    std::vector<tuple1> remote_idx_tuple;
-//    std::vector<index_t> remote_idx; // indices that should receive their value from other procs
-    std::vector<index_t> split;
-//    index_t *split; // point to the split of input matrix. size of it is (size of comm + 1).
 
     int numRecvProc = 0;
     int numSendProc = 0;
@@ -63,6 +49,19 @@ public:
     std::vector<value_t> send_vals;
     std::vector<value_t> recv_vals;
 
+public:
+    MPI_Comm comm = MPI_COMM_WORLD;
+    bool add_duplicates = false;
+    int set_dup_flag(bool add);
+
+    index_t idx_offset = 0;
+    std::vector<index_t> orig_order; // save the input order
+    std::vector<tuple1> remote_idx_tuple;
+//    std::vector<index_t> remote_idx; // indices that should receive their value from other procs
+    std::vector<index_t> split;
+//    index_t *split; // point to the split of input matrix. size of it is (size of comm + 1).
+
+
     bool return_vec_prep    = false;        // to track if the parameters needed in return_vec() are computed.
 
     bool verbose_return_vec = false;
@@ -73,21 +72,22 @@ public:
 
     void set_comm(MPI_Comm com);
     int set_idx_offset(index_t offset);
-    int set(index_t idx, value_t val); // set one entry
+    void set(index_t idx, value_t val); // set one entry
 //    int set_rep_dup(index_t row, value_t val); // replace duplicates
 //    int set_add_dup(index_t row, value_t val); // add duplicates
 //    int set(index_t *row, value_t *val, index_t size);
     void set(const index_t* idx, const value_t* val, index_t size);
     void set(const value_t* val, index_t size, index_t offset = 0);
 
-    int remove_duplicates();
-    int assemble();
+    void remove_duplicates();
+    void assemble();
 
-    int get_vec(std::vector<double> &vec);
+    index_t get_size() const;
+    void get_vec(value_t *&vec);
+    int return_vec(const value_t *u1, value_t *&u2);
+    int return_vec(value_t *&u);
+
     int print_entry(int ran);
-
-    int return_vec(std::vector<double> &u1, std::vector<double> &u2);
-    int return_vec(std::vector<double> &u);
 };
 
 #endif //SAENA_SAENA_VECTOR_H

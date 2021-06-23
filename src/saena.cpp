@@ -3,10 +3,7 @@
 #include "saena_vector.h"
 #include "saena_object.h"
 #include "grid.h"
-#include "parUtils.h"
-//#include "pugixml.hpp"
-
-# define PETSC_PI 3.14159265358979323846
+#include "pugixml.hpp"
 
 // ******************************* matrix *******************************
 
@@ -81,7 +78,7 @@ int saena::matrix::set(index_t* row, index_t* col, value_t* val, nnz_t nnz_local
 
 int saena::matrix::set(index_t i, index_t j, unsigned int size_x, unsigned int size_y, value_t* val){
     // ordering of val should be column-major.
-    unsigned int ii, jj;
+    nnz_t ii = 0, jj = 0;
     nnz_t iter = 0;
     //todo: add openmp
     for(jj = 0; jj < size_y; jj++) {
@@ -101,7 +98,7 @@ int saena::matrix::set(index_t i, index_t j, unsigned int size_x, unsigned int s
 }
 
 int saena::matrix::set(index_t i, index_t j, unsigned int* di, unsigned int* dj, value_t* val, nnz_t nnz_local){
-    nnz_t ii;
+    nnz_t ii = 0;
     for(ii = 0; ii < nnz_local; ii++) {
         if(val[ii] != 0){
             if(!add_dup)
@@ -124,17 +121,34 @@ void saena::matrix::set_prodim(int _prodim){
 }
 
 
+void saena::matrix::set_eig(const string &opts_fname){
+    pugi::xml_document doc;
+    if (!doc.load_file(opts_fname.c_str())){
+        std::cout << "Could not find the xml file!" << std::endl;
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+    }
+    pugi::xml_node node = doc.child("SAENA").first_child();
+    double eig = node.attribute("eig").as_double();
+    m_pImpl->set_eig(eig);
+//    cout << "\neig = " << eig << endl;
+}
+
 void saena::matrix::set_num_threads(const int &nth){
     omp_set_num_threads(nth);
 }
 
+void saena::matrix::set_remove_boundary(bool remove_bound){
+    m_pImpl->set_remove_boundary(remove_bound);
+}
 
-int saena::matrix::assemble(bool scale /*= true*/) {
-    m_pImpl->assemble(scale);
+int saena::matrix::assemble(bool scale /*= false*/, bool use_den /*= false*/) {
+    m_pImpl->assemble(scale, use_den);
     return 0;
 }
 
-int saena::matrix::assemble_band_matrix(){
+int saena::matrix::assemble_band_matrix(bool use_dense /*= false*/){
+    m_pImpl->use_dense = use_dense;
     m_pImpl->matrix_setup();
     return 0;
 }
@@ -170,8 +184,10 @@ index_t saena::matrix::get_num_rows(){
     return m_pImpl->Mbig;
 }
 
+// the local number of rows.
+// if boundary nodes are removed, return the size before removing boundary.
 index_t saena::matrix::get_num_local_rows() {
-    return m_pImpl->M;
+    return max(m_pImpl->M, m_pImpl->M_orig);
 }
 
 nnz_t saena::matrix::get_nnz(){
@@ -182,7 +198,11 @@ nnz_t saena::matrix::get_local_nnz(){
     return m_pImpl->nnz_l;
 }
 
-int saena::matrix::print(int ran, std::string name){
+std::vector<index_t> saena::matrix::get_orig_split(){
+    return m_pImpl->get_orig_split();
+}
+
+int saena::matrix::print(int ran, const std::string name){
     m_pImpl->print_entry(ran, name);
     return 0;
 }
@@ -191,6 +211,20 @@ int saena::matrix::set_shrink(bool val){
     m_pImpl->enable_shrink   = val;
     m_pImpl->enable_shrink_c = val;
     return 0;
+}
+
+
+void saena::matrix::matvec(saena::vector& v, saena::vector& w){
+    value_t *vstd = nullptr, *wstd = nullptr;
+    v.get_vec(vstd);
+    v.get_vec(wstd);
+    m_pImpl->matvec(vstd, wstd);
+    saena_free(vstd);
+    saena_free(wstd);
+}
+
+void saena::matrix::matvec(std::vector<value_t>& v, std::vector<value_t>& w){
+    m_pImpl->matvec(&v[0], &w[0]);
 }
 
 
@@ -210,8 +244,7 @@ int saena::matrix::erase_no_shrink_to_fit(){
 }
 
 void saena::matrix::destroy(){
-    m_pImpl->erase();
-//    m_pImpl->~matrix();
+    m_pImpl->destroy();
 }
 
 int saena::matrix::add_duplicates(bool add) {
@@ -244,10 +277,12 @@ saena::vector::vector(const saena::vector &B) {
 }
 
 saena::vector& saena::vector::operator=(const saena::vector &B) {
-    delete m_pImpl;
-    m_pImpl = new saena_vector(*B.m_pImpl);
-    m_pImpl->set_dup_flag(B.m_pImpl->add_duplicates);
-//    add_dup = B.add_dup;
+    if(this != &B) {
+        delete m_pImpl;
+        m_pImpl = new saena_vector(*B.m_pImpl);
+        m_pImpl->set_dup_flag(B.m_pImpl->add_duplicates);
+//        add_dup = B.add_dup;
+    }
     return *this;
 }
 
@@ -314,13 +349,12 @@ int saena::vector::assemble() {
 }
 
 
-int saena::vector::get_vec(std::vector<double> &vec){
+void saena::vector::get_vec(value_t *&vec){
     m_pImpl->get_vec(vec);
-    return 0;
 }
 
 
-int saena::vector::return_vec(std::vector<double> &u1, std::vector<double> &u2){
+int saena::vector::return_vec(value_t *&u1, value_t *&u2){
     m_pImpl->return_vec(u1, u2);
     return 0;
 }
@@ -338,71 +372,203 @@ int saena::vector::print_entry(int rank_){
 
 // ******************************* options *******************************
 
-saena::options::options() = default;
+saena::options::options(int max_iter, double tol, std::string sm, int preSm, int postSm, std::string psm, float connSt,
+                        bool dynamic_lev, int max_lev, int float_lev, double fil_thr, double fil_max, int fil_st, int fil_rate,
+                        bool switch_to_den, float dense_thr, int dense_sz_thr){
+//    set(max_iter, tol, sm, preSm, postSm, psm, connSt, dynamic_lev, max_lev, float_lev, fil_thr, fil_max, fil_st,
+//            fil_rate, switch_to_den, dense_thr, dense_sz_thr);
 
-saena::options::options(int vcycle_n, double relT, std::string sm, int preSm, int postSm){
-    solver_max_iter         = vcycle_n;
-    relative_tolerance = relT;
-    smoother           = sm;
-    preSmooth          = preSm;
-    postSmooth         = postSm;
+    set(max_iter, tol, sm, preSm, postSm, psm, connSt, dynamic_lev, max_lev, float_lev, fil_thr, fil_max, fil_st,
+        fil_rate, switch_to_den, dense_thr, dense_sz_thr);
+
+#if 0
+    printf("Smoother:            %s (%d, %d)\n", smoother.c_str(), preSmooth, postSmooth);
+    printf("Operator Smoother:   %s (%.2f)\n", PSmoother.c_str(), connStrength);
+    printf("Dynamic Levels:      %s (%d)\n", dynamic_levels ? "True" : "False", max_level);
+//    printf("Remove Boundary:     %s\n", remove_boundary ? "True" : "False");
+    printf("\nMax iter = %d, rel tol = %.0e, float matvec lev = %d\n",
+           solver_max_iter, relative_tol, float_level);
+    printf("Filter: thre = %.0e, max = %.0e, start = %d, rate = %d\n",
+           filter_thre, filter_max, filter_start, filter_rate);
+#endif
 }
 
-saena::options::options(char* name){
-    printf("Enable pugi to be able to use function options(char* name)!");
-    exit(EXIT_FAILURE);
-    
-/*
+saena::options::options(const string &name){
+    set_from_file(name);
+}
+
+saena::options::~options() = default;
+
+void saena::options::set(int max_iter, double tol, std::string sm, int preSm, int postSm, std::string psm, float connSt,
+                         bool dynamic_lev, int max_lev, int float_lev, double fil_thr, double fil_max, int fil_st, int fil_rate,
+                         bool switch_to_den, float dense_thr, int dense_sz_thr){
+    solver_max_iter = max_iter;
+    relative_tol = tol;
+
+    smoother = std::move(sm);
+    assert(smoother == "jacobi" || smoother == "chebyshev");
+
+    preSmooth = preSm;
+    assert(preSmooth >= 0);
+
+    postSmooth = postSm;
+    assert(postSmooth >= 0);
+
+    PSmoother = std::move(psm);
+    assert(PSmoother == "jacobi" || PSmoother == "SPAI");
+
+    connStrength = connSt;
+    assert(connStrength >= 0 && connStrength <= 1);
+
+    dynamic_levels = dynamic_lev;
+
+    max_level = max_lev;
+    assert(max_level >= 0 && max_level < 1000);
+
+    assert(float_lev >= 0);
+    float_level = float_lev;
+
+    filter_thre  = fil_thr;
+    filter_max   = fil_max;
+    filter_start = fil_st;
+    filter_rate  = fil_rate;
+    ASSERT(filter_start >= 1, "error: filter_start = " << filter_start << ". cannot filter level 0. it should be >= 1");
+
+    switch_to_dense = switch_to_den;
+    dense_thre      = dense_thr;
+    dense_sz_thre   = dense_sz_thr;
+    assert(dense_thre > 0 && dense_thre <= 1);
+    assert(dense_sz_thre > 0 && dense_sz_thre <= 100000);
+}
+
+void saena::options::set_from_file(const string &name){
     pugi::xml_document doc;
-    if (!doc.load_file(name))
+    if (!doc.load_file(name.c_str())){
         std::cout << "Could not find the xml file!" << std::endl;
+        MPI_Finalize();
+        exit(EXIT_FAILURE);
+    }
+
+//    pugi::xml_node node = doc.child("SAENA").first_child();
+//    double eig1 = node.attribute("eig").as_double();
+//    cout << "\neig = " << eig1 << endl;
 
     pugi::xml_node opts = doc.child("SAENA").first_child();
 
     pugi::xml_attribute attr = opts.first_attribute();
     solver_max_iter = std::stoi(attr.value());
+//    cout << "max iter = " << solver_max_iter << endl;
 
     attr = attr.next_attribute();
-    relative_tolerance = std::stod(attr.value());
+    relative_tol = std::stod(attr.value());
+//    cout << "relative_tol = " << relative_tol << endl;
 
     attr = attr.next_attribute();
     smoother = attr.value();
+    assert(smoother == "jacobi" || smoother == "chebyshev");
+//    cout << "smoother = " << smoother << endl;
 
     attr = attr.next_attribute();
     preSmooth = std::stoi(attr.value());
+    assert(preSmooth >= 0);
+//    cout << "preSmooth = " << preSmooth << endl;
 
     attr = attr.next_attribute();
     postSmooth = std::stoi(attr.value());
+    assert(postSmooth >= 0);
+//    cout << "postSmooth = " << postSmooth << endl;
+
+    attr = attr.next_attribute();
+    PSmoother = attr.value();
+    assert(PSmoother == "jacobi" || PSmoother == "SPAI");
+//    cout << "PSmoother = " << PSmoother << endl;
+
+    attr = attr.next_attribute();
+    connStrength = std::stof(attr.value());
+    assert(connStrength >= 0 && connStrength <= 1);
+//    cout << "connStrength = " << connStrength << endl;
+
+    attr = attr.next_attribute();
+    dynamic_levels = std::stoi(attr.value());
+//    cout << "dynamic_levels = " << dynamic_levels << endl;
+
+    attr = attr.next_attribute();
+    max_level = std::stoi(attr.value());
+    assert(max_level >= 0 && max_level < 1000);
+//    cout << "max_level = " << max_level << endl;
+
+    attr = attr.next_attribute();
+    float_level = std::stoi(attr.value());
+    assert(float_level >= 0);
+//    cout << "float_level = " << float_level << endl;
+
+    attr = attr.next_attribute();
+    filter_thre = std::stod(attr.value());
+//    cout << "filter_thre = " << filter_thre << endl;
+
+    attr = attr.next_attribute();
+    filter_max = std::stod(attr.value());
+//    cout << "filter_max = " << filter_max << endl;
+
+    attr = attr.next_attribute();
+    filter_start = std::stoi(attr.value());
+    ASSERT(filter_start >= 1, "error: filter_start = " << filter_start << ". cannot filter level 0. it should be >= 1");
+//    cout << "filter_start = " << filter_start << endl;
+
+    attr = attr.next_attribute();
+    filter_rate = std::stoi(attr.value());
+//    cout << "filter_rate = " << filter_rate << endl;
+
+    attr = attr.next_attribute();
+    switch_to_dense = std::stoi(attr.value());
+//    cout << "switch_to_dense = " << switch_to_dense << endl;
+
+    attr = attr.next_attribute();
+    dense_thre = std::stof(attr.value());
+    assert(dense_thre > 0 && dense_thre <= 1);
+//    cout << "dense_thre = " << dense_thre << endl;
+
+    attr = attr.next_attribute();
+    dense_sz_thre = std::stoi(attr.value());
+    assert(dense_sz_thre > 0 && dense_sz_thre <= 100000);
+//    cout << "dense_sz_thre = " << dense_sz_thre << endl;
+
+    attr = attr.next_attribute();
+    petsc_solver = attr.value();
+    assert(petsc_solver.empty() || petsc_solver == "gamg" || petsc_solver == "ml" || petsc_solver == "boomerAMG" ||
+           petsc_solver == "dcg" || petsc_solver == "all");
 
 //    for (pugi::xml_attribute attr2 = opts.first_attribute(); attr2; attr2 = attr2.next_attribute())
 //        std::cout << attr2.name() << " = " << attr2.value() << std::endl;
 
-//    std::cout << "solver_max_iter = " << solver_max_iter << ", solver_tol = " << solver_tol
+//    std::cout << "max iter = " << solver_max_iter << ", rel tol = " << relative_tol
 //              << ", smoother = " << smoother << ", preSmooth = " << preSmooth << ", postSmooth = " << postSmooth << std::endl;
-*/
 }
 
-saena::options::~options() = default;
+void saena::options::set_solve_params(int max_iter, double tol, std::string sm, int preSm, int postSm) {
+    solver_max_iter = max_iter;
+    relative_tol = tol;
 
-void saena::options::set(int max_it, double relT, std::string sm, int preSm, int postSm){
-    solver_max_iter    = max_it;
-    relative_tolerance = relT;
-    smoother           = sm;
-    preSmooth          = preSm;
-    postSmooth         = postSm;
+    assert(sm == "jacobi" || sm == "chebyshev");
+    smoother = std::move(sm);
+
+    assert(preSm >= 0);
+    preSmooth = preSm;
+
+    assert(postSm >= 0);
+    postSmooth = postSm;
 }
-
 
 void saena::options::set_max_iter(int v){
     solver_max_iter = v;
 }
 
 void saena::options::set_relative_tolerance(double r){
-    relative_tolerance = r;
+    relative_tol = r;
 }
 
 void saena::options::set_smoother(std::string s){
-    smoother = s;
+    smoother = std::move(s);
 }
 
 void saena::options::set_preSmooth(int pr){
@@ -414,26 +580,77 @@ void saena::options::set_postSmooth(int po){
 }
 
 
-int saena::options::get_max_iter(){
+int saena::options::get_max_iter() const{
     return solver_max_iter;
 }
 
-double saena::options::get_relative_tolerance(){
-    return relative_tolerance;
+double saena::options::get_tol() const{
+    return relative_tol;
 }
 
-std::string saena::options::get_smoother(){
+std::string saena::options::get_smoother() const{
     return smoother;
 }
 
-int saena::options::get_preSmooth(){
+int saena::options::get_preSmooth() const{
     return preSmooth;
 }
 
-int saena::options::get_postSmooth(){
+int saena::options::get_postSmooth() const{
     return postSmooth;
 }
 
+std::string saena::options::get_PSmoother() const{
+    return PSmoother;
+}
+
+float saena::options::get_connStr() const{
+    return connStrength;
+}
+
+bool saena::options::get_dynamic_levels() const{
+    return dynamic_levels;
+}
+
+int saena::options::get_max_lev() const{
+    return max_level;
+}
+
+int saena::options::get_float_lev() const{
+    return float_level;
+}
+
+double saena::options::get_filter_thre() const{
+    return filter_thre;
+}
+
+double saena::options::get_filter_max() const{
+    return filter_max;
+}
+
+int saena::options::get_filter_start() const{
+    return filter_start;
+}
+
+int saena::options::get_filter_rate() const{
+    return filter_rate;
+}
+
+bool saena::options::get_switch_dense() const{
+    return switch_to_dense;
+}
+
+float saena::options::get_dense_thre() const{
+    return dense_thre;
+}
+
+int saena::options::get_dense_sz_thre() const{
+    return dense_sz_thre;
+}
+
+string saena::options::get_petsc_solver() const{
+    return petsc_solver;
+}
 
 // ******************************* amg *******************************
 
@@ -450,15 +667,22 @@ void saena::amg::set_dynamic_levels(const bool &dl) {
 }
 
 int saena::amg::set_matrix(saena::matrix* A, saena::options* opts){
-    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
-                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
-    m_pImpl->setup(A->get_internal_matrix());
+    std::vector<std::vector<int>> m_l2g;
+    std::vector<int> m_g2u;
+    std::vector<int> order_dif;
+    set_matrix(A, opts, m_l2g, m_g2u, 0, order_dif);
     return 0;
 }
 
 int saena::amg::set_matrix(saena::matrix* A, saena::options* opts, std::vector<std::vector<int>> &m_l2g, std::vector<int> &m_g2u, int m_bdydof, std::vector<int> &order_dif){
-    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
-                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
+    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_tol(), opts->get_smoother(), opts->get_preSmooth(),
+                            opts->get_postSmooth(), opts->get_PSmoother(), opts->get_connStr(),
+                            opts->get_dynamic_levels(), opts->get_max_lev(),
+                            opts->get_float_lev(), opts->get_filter_thre(), opts->get_filter_max(),
+                            opts->get_filter_start(), opts->get_filter_rate(), opts->get_switch_dense(),
+                            opts->get_dense_thre(), opts->get_dense_sz_thre());
+    if(!opts->get_petsc_solver().empty())
+        m_pImpl->set_use_petsc(true);
     m_pImpl->setup(A->get_internal_matrix(), m_l2g, m_g2u, m_bdydof, order_dif);
     return 0;
 }
@@ -480,24 +704,24 @@ saena_object* saena::amg::get_object() {
 
 
 int saena::amg::set_shrink_levels(std::vector<bool> sh_lev_vec) {
-    m_pImpl->set_shrink_levels(sh_lev_vec);
+    m_pImpl->set_shrink_levels(std::move(sh_lev_vec));
     return 0;
 }
 
 int saena::amg::set_shrink_values(std::vector<int> sh_val_vec) {
-    m_pImpl->set_shrink_values(sh_val_vec);
+    m_pImpl->set_shrink_values(std::move(sh_val_vec));
     return 0;
 }
 
 
-int saena::amg::switch_repartition(bool val) {
-    m_pImpl->switch_repartition = val;
+int saena::amg::switch_repart(bool val) {
+    m_pImpl->switch_repart = val;
     return 0;
 }
 
 
-int saena::amg::set_repartition_threshold(float thre){
-    m_pImpl->set_repartition_threshold(thre);
+int saena::amg::set_repart_thre(float thre){
+    m_pImpl->set_repart_thre(thre);
     return 0;
 }
 
@@ -509,13 +733,13 @@ int saena::amg::switch_to_dense(bool val) {
 
 
 int saena::amg::set_dense_threshold(float thre){
-    m_pImpl->dense_threshold = thre;
+    m_pImpl->dense_thre = thre;
     return 0;
 }
 
 
 double saena::amg::get_dense_threshold(){
-    return m_pImpl->dense_threshold;
+    return m_pImpl->dense_thre;
 }
 
 
@@ -524,18 +748,18 @@ MPI_Comm saena::amg::get_orig_comm(){
 }
 
 
-int saena::amg::solve_smoother(std::vector<value_t>& u, saena::options* opts){
-    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
-                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
+int saena::amg::solve_smoother(value_t *&u, saena::options* opts){
+    m_pImpl->set_solve_params(opts->get_max_iter(), opts->get_tol(), opts->get_smoother(), opts->get_preSmooth(),
+                              opts->get_postSmooth());
     m_pImpl->solve_smoother(u);
     Grid *g = &m_pImpl->grids[0];
     g->rhs_orig->return_vec(u);
     return 0;
 }
 
-int saena::amg::solve(std::vector<value_t>& u, saena::options* opts){
-    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
-                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
+int saena::amg::solve(value_t *&u, saena::options* opts){
+    m_pImpl->set_solve_params(opts->get_max_iter(), opts->get_tol(), opts->get_smoother(), opts->get_preSmooth(),
+                              opts->get_postSmooth());
     m_pImpl->solve(u);
     Grid *g = &m_pImpl->grids[0];
     g->rhs_orig->return_vec(u);
@@ -543,29 +767,57 @@ int saena::amg::solve(std::vector<value_t>& u, saena::options* opts){
 }
 
 
-int saena::amg::solve_CG(std::vector<value_t>& u, saena::options* opts){
-    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
-                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
+int saena::amg::solve_CG(value_t *&u, saena::options* opts){
+    m_pImpl->set_solve_params(opts->get_max_iter(), opts->get_tol(), opts->get_smoother(), opts->get_preSmooth(),
+                              opts->get_postSmooth());
     m_pImpl->solve_CG(u);
     Grid *g = &m_pImpl->grids[0];
     g->rhs_orig->return_vec(u);
     return 0;
 }
 
+int saena::amg::solve_petsc(value_t *&u, saena::options* opts){
+    m_pImpl->solve_petsc(u, opts->get_petsc_solver(), opts->get_tol());
+//    Grid *g = &m_pImpl->grids[0];
+//    g->rhs_orig->return_vec(u);
+    return 0;
+}
 
-int saena::amg::solve_pCG(std::vector<value_t>& u, saena::options* opts){
-    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
-                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
-    m_pImpl->solve_pCG(u);
-    Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u);
+int saena::amg::solve_pCG(value_t *&u, saena::options* opts, const bool print_info /*= true*/){
+    m_pImpl->set_solve_params(opts->get_max_iter(), opts->get_tol(), opts->get_smoother(), opts->get_preSmooth(),
+                              opts->get_postSmooth());
+    m_pImpl->solve_pCG(u, print_info);
+
+    if(m_pImpl->remove_boundary){
+//        m_pImpl->add_boundary_sol(u); // TODO: this part should be fixed
+    } else {
+//        Grid *g = &m_pImpl->grids[0];
+//        g->rhs_orig->return_vec(u);
+    }
+
     return 0;
 }
 
 
-int saena::amg::solve_GMRES(std::vector<value_t>& u, saena::options* opts){
-    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
-                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
+int saena::amg::solve_pCG_profile(value_t *&u, saena::options* opts){
+    m_pImpl->set_solve_params(opts->get_max_iter(), opts->get_tol(), opts->get_smoother(), opts->get_preSmooth(),
+                              opts->get_postSmooth());
+    m_pImpl->solve_pCG_profile(u);
+
+    if(m_pImpl->remove_boundary){
+//        m_pImpl->add_boundary_sol(u); // TODO: this part should be fixed
+    } else {
+//        Grid *g = &m_pImpl->grids[0];
+//        g->rhs_orig->return_vec(u);
+    }
+
+    return 0;
+}
+
+
+int saena::amg::solve_GMRES(value_t *&u, saena::options* opts){
+    m_pImpl->set_solve_params(opts->get_max_iter(), opts->get_tol(), opts->get_smoother(), opts->get_preSmooth(),
+                              opts->get_postSmooth());
     m_pImpl->GMRES(u);
     Grid *g = &m_pImpl->grids[0];
     g->rhs_orig->return_vec(u);
@@ -573,9 +825,9 @@ int saena::amg::solve_GMRES(std::vector<value_t>& u, saena::options* opts){
 }
 
 
-int saena::amg::solve_pGMRES(std::vector<value_t>& u, saena::options* opts){
-    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
-                            opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
+int saena::amg::solve_pGMRES(value_t *&u, saena::options* opts){
+    m_pImpl->set_solve_params(opts->get_max_iter(), opts->get_tol(), opts->get_smoother(), opts->get_preSmooth(),
+                              opts->get_postSmooth());
     m_pImpl->pGMRES(u);
     Grid *g = &m_pImpl->grids[0];
     g->rhs_orig->return_vec(u);
@@ -603,7 +855,7 @@ int saena::amg::update3(saena::matrix* A_ne){
 //int saena::amg::solve_pcg_update1 & 2 & 3
 /*
 int saena::amg::solve_pcg_update1(std::vector<value_t>& u, saena::options* opts){
-    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
+    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_tol(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pcg_update1(u);
     return 0;
@@ -611,7 +863,7 @@ int saena::amg::solve_pcg_update1(std::vector<value_t>& u, saena::options* opts)
 
 
 int saena::amg::solve_pcg_update2(std::vector<value_t>& u, saena::options* opts){
-    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
+    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_tol(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pcg_update2(u);
     return 0;
@@ -619,7 +871,7 @@ int saena::amg::solve_pcg_update2(std::vector<value_t>& u, saena::options* opts)
 
 
 int saena::amg::solve_pcg_update3(std::vector<value_t>& u, saena::options* opts){
-    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_relative_tolerance(),
+    m_pImpl->set_parameters(opts->get_max_iter(), opts->get_tol(),
                             opts->get_smoother(), opts->get_preSmooth(), opts->get_postSmooth());
     m_pImpl->solve_pcg_update3(u);
     return 0;
@@ -665,7 +917,7 @@ int saena::amg::matrix_diff(saena::matrix &A1, saena::matrix &B1){
 
 //    if(A->active){
         MPI_Comm comm = A->comm;
-        int nprocs, rank;
+        int nprocs = 0, rank = 0;
         MPI_Comm_size(comm, &nprocs);
         MPI_Comm_rank(comm, &rank);
 
@@ -703,4 +955,8 @@ void saena::amg::matmat(saena::matrix *A, saena::matrix *B, saena::matrix *C, bo
 
 void saena::amg::profile_matvecs(){
     m_pImpl->profile_matvecs();
+}
+
+void saena::amg::profile_matvecs_breakdown(){
+    m_pImpl->profile_matvecs_breakdown();
 }

@@ -1166,7 +1166,7 @@ int saena_object::matmat(saena_matrix *A, saena_matrix *B, saena_matrix *C, cons
     // Use B's row indices as column indices and vice versa.
 
     MPI_Comm comm = A->comm;
-    int nprocs, rank;
+    int nprocs = 0, rank = 0;
     MPI_Comm_size(comm, &nprocs);
     MPI_Comm_rank(comm, &rank);
 
@@ -1476,6 +1476,10 @@ int saena_object::matmat(saena_matrix *A, saena_matrix *B, saena_matrix *C, cons
     Bcsc.val = nullptr;
     Bcsc.col_scan = nullptr;
 
+    // free memory taken by C_temp which was used in matmat
+    C_temp.clear();
+    C_temp.shrink_to_fit();
+
     matmat_memory_free();
 
     return 0;
@@ -1658,9 +1662,7 @@ int saena_object::matmat_assemble(saena_matrix *A, saena_matrix *B, saena_matrix
     C->active_minor    = true;
 
     // set dense parameters
-    C->density         = (float)C->nnz_g / C->Mbig / C->Mbig;
-    C->switch_to_dense = switch_to_dense;
-    C->dense_threshold = dense_threshold;
+    C->density = (float)C->nnz_g / C->Mbig / C->Mbig;
 
     // set shrink parameters
     C->last_M_shrink       = A->last_M_shrink;
@@ -1681,6 +1683,18 @@ int saena_object::matmat_assemble(saena_matrix *A, saena_matrix *B, saena_matrix
         MPI_Barrier(comm);
     }
 #endif
+
+    // TODO: check if dense structure is needed in this function
+//    if (switch_to_dense && C->density > dense_thre && C->Mbig <= dense_sz_thre) {
+//        C->use_dense = true;
+//#ifdef __DEBUG1__
+//        if (verbose_matmat_assemble) {
+//            if (!rank)
+//                printf("Switch to dense: density = %f, dense_thres = %f, dense_sz_thre= %d\n",
+//                       C->density, dense_thre, dense_sz_thre);
+//        }
+//#endif
+//    }
 
     C->matrix_setup(scale);
 
@@ -1767,7 +1781,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
         // 1- row:    type: index_t, size: send_nnz
         // 2- c_scan: type: index_t, size: Bcsc.col_sz + 1
         // 3- val:    type: value_t, size: send_nnz
-        auto mat_send = &mempool6[0];
+        auto *mat_send = &mempool6[0];
 
 #ifdef MATMAT_TIME
         t_temp3 = omp_get_wtime();
@@ -1943,7 +1957,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
 
         // set the mat_recv data
         nnz_t recv_nnz  = 0, recv_size = 0;
-        index_t row_comp_sz = 0, col_comp_sz = 0, current_comp_sz = 0;
+        nnz_t row_comp_sz = 0, col_comp_sz = 0, current_comp_sz = 0;
         index_t mat_recv_M = 0, mat_current_M = 0;
         auto *mat_recv = &mempool6[mempool6_sz / 2];
 
@@ -2024,8 +2038,8 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                 MPI_Isend(mat_send, send_size, MPI_CHAR, left_neighbor,  rank,           comm, requests + 1);
 
                 int flag = 0;
-                MPI_Test(requests,   &flag, statuses);
-                MPI_Test(requests+1, &flag, statuses+1);
+                MPI_Test(requests,   &flag, MPI_STATUS_IGNORE);
+                MPI_Test(requests+1, &flag, MPI_STATUS_IGNORE);
             }
 
             // =======================================
@@ -2406,7 +2420,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                     tmp.val += C_temp[++i].val;
                 }
 
-                if(fabs(tmp.val) > ALMOST_ZERO){
+                if( (fabs(tmp.val) > ALMOST_ZERO) || tmp.row == tmp.col ){
                     C.entry.emplace_back(tmp);
                 }
             }
@@ -2425,7 +2439,7 @@ int saena_object::matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool t
                     tmp.val += C_temp[++i].val;
                 }
 
-                if(fabs(tmp.val) > ALMOST_ZERO){
+                if( (fabs(tmp.val) > ALMOST_ZERO) || tmp.row == tmp.col ){
                     C.entry.emplace_back(tmp);
                 }
             }

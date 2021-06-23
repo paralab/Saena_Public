@@ -38,9 +38,9 @@ public:
     // setup
     // **********************************************
 
-    int          max_level                  = 25; // fine grid is level 0.
+    int          max_level                  = 20; // fine grid is level 0.
     // if dynamic_levels == true: coarsening will stop if the total number of rows goes below this parameter.
-    unsigned int least_row_threshold        = 1000;
+    unsigned int least_row_threshold        = 100;
     // if dynamic_levels == true: coarsening will stop if the number of rows of last level divided by previous level is
     // higher than this parameter, which means the number of rows was not reduced much through coarsening.
     double       row_reduction_up_thrshld   = 0.90;
@@ -50,7 +50,7 @@ public:
     bool dynamic_levels      = true;
     bool adaptive_coarsening = false;
 
-    bool scale = true;
+    bool scale = false;
 
     saena_matrix *A_coarsest = nullptr;
 
@@ -58,6 +58,15 @@ public:
     // if new_size <= least_row_threshold, then stop coarsening.
     // Also, if new_size / prev_size > row_reduction_up_thrshld, the number of rows was not reduced much through coarsening.
     void set_dynamic_levels(const bool &dl = true);
+
+    bool remove_boundary = false;
+    std::vector<index_t> bound_row; // boundary node row index
+    std::vector<value_t> bound_val; // boundary node value
+    std::vector<value_t> bound_sol; // solution corresponding to boundary nodes
+    void remove_boundary_rhs(const value_t *rhs_large, value_t *&rhs0, index_t &sz, MPI_Comm comm);
+    void add_boundary_sol(std::vector<value_t> &u);
+
+    int float_level = 3; // any matrix after this level will use single-precision matvec
 
     // *****************
     // matmat
@@ -91,22 +100,25 @@ public:
     index_t *mempool4 = nullptr;
     value_t *mempool5 = nullptr;
     uchar   *mempool6 = nullptr;
-    uchar   *mempool7 = nullptr;
+//    uchar   *mempool7 = nullptr;
 
     nnz_t    mempool3_sz     = 0;
     nnz_t    mempool4and5_sz = 0;
     nnz_t    mempool6_sz     = 0;
-    nnz_t    mempool7_sz     = 0;
+//    nnz_t    mempool7_sz     = 0;
 
     index_t *Cmkl_r      = nullptr;
     index_t *Cmkl_c_scan = nullptr;
     value_t *Cmkl_v      = nullptr;
-    bool    use_dcsrmultcsr = true;
+//    bool    use_dcsrmultcsr = true;
 
     std::vector<cooEntry> C_temp;
 
     index_t case1_iter = 0,       case2_iter = 0,       case3_iter = 0;
     double  case1_iter_ave = 0.0, case2_iter_ave = 0.0, case3_iter_ave = 0.0;
+
+    bool use_petsc = false;
+    void set_use_petsc(const bool use_petsc_){use_petsc = use_petsc_;}
 
     // *****************
     // shrink
@@ -121,17 +133,18 @@ public:
     // repartition
     // *****************
 
-    bool  switch_repartition    = false;
-    float repartition_threshold = 0.1;
-    int   set_repartition_threshold(float thre);
+    bool  switch_repart = false;
+    float repart_thre   = 0.1;
+    int   set_repart_thre(float thre);
 
     // *****************
     // dense
     // *****************
 
-    bool  switch_to_dense = false;
-    float dense_threshold = 0.1; // 0<dense_threshold<=1 decide when to switch to the dense structure.
-    // dense_threshold should be greater than repartition_threshold, since it is more efficient on repartition based on the number of rows.
+    // dense_thre should be greater than repart_thre, since it is more efficient on repartition based on the number of rows.
+    bool    switch_to_dense = true;
+    float   dense_thre      = 0.1; // (0 < dense_thre <= 1) decide when to switch to the dense data structure.
+    index_t dense_sz_thre   = 5000;
 
     // *****************
     // solve parameters
@@ -151,20 +164,20 @@ public:
     std::string smoother      = "chebyshev";    // choices: "jacobi", "chebyshev"
     std::string direct_solver = "SuperLU";      // choices: "CG", "SuperLU"
     float       connStrength  = 0.3;            // connection strength parameter: control coarsening aggressiveness
-    std::string PSmoother     = "SPAI";         // "jacobi", "SPAI"
-    double      Pomega        = 2.0 / 3;
+    std::string PSmoother     = "jacobi";       // "jacobi", "SPAI"
+    double      Pomega        = 2.0 / 3;        // For jacobi it is usually 2/3 for 2D and 6/7 for 3D.
 
     // ****************
     // SuperLU
     // ****************
 
-    SuperMatrix             A_SLU2;         // save matrix in SuperLU format to be used in solve_coarsest_SuperLU()
-    gridinfo_t              superlu_grid;
-    index_t                 fst_row;
-    ScalePermstruct_t       ScalePermstruct;
-    LUstruct_t              LUstruct;
-    SOLVEstruct_t           SOLVEstruct;
-    superlu_dist_options_t  options;
+    SuperMatrix            A_SLU2;         // save matrix in SuperLU format to be used in solve_coarsest_SuperLU()
+    gridinfo_t             superlu_grid;
+    index_t                fst_row;
+    ScalePermstruct_t      ScalePermstruct;
+    LUstruct_t             LUstruct;
+    SOLVEstruct_t          SOLVEstruct;
+    superlu_dist_options_t options;
 
     bool first_solve       = true;
     bool superlu_active    = true;
@@ -187,6 +200,15 @@ public:
     nnz_t  sample_prcnt_denom       = 0;
     std::string sparsifier          = "majid"; // options: 1- TRSL, 2- drineas, majid
 
+    double filter_thre  = 1e-12;
+    double filter_max   = 1e-8;
+    int    filter_it    = 0; // to count the levels for filtering
+    int    filter_start = 1; // filtering starts at this level. cannot filter level 0. so it should be >= 1
+    int    filter_rate  = 2; // filter_thre will get larger with rate 10^filter_rate.
+                             // So levels 1, 2, ... will be filtered by filter_thre, filter_thre * 10^filter_rate, ...
+                             // and the threshold does not get largre than filter_max.
+                             // e.g. 1e-14, 1e-12, 1e-10, ... , filter_max, filter_max
+
     // **********************************************
     // verbose
     // **********************************************
@@ -207,6 +229,7 @@ public:
     bool verbose_matmat_timing    = false;
     bool verbose_setup_coarse     = false;
     bool verbose_set_rhs          = false;
+    bool verbose_repart_vec       = false;
 
     bool verbose_solve            = false;
     bool verbose_vcycle           = false;
@@ -220,22 +243,36 @@ public:
 
     saena_object()  = default;
     ~saena_object() = default;
-    int destroy(){
+
+    void destroy_mpi_comms();
+
+    void destroy(){
         destroy_SuperLU();
-        return 0;
+        destroy_mpi_comms();
     }
 
     MPI_Comm get_orig_comm();
-    void set_parameters(int vcycle_num, double relative_tolerance, std::string smoother, int preSmooth, int postSmooth);
 
-    int setup(saena_matrix* A);
+    void set_parameters(int max_iter = 100, double relative_tol = 1e-8, std::string smoother = "chebyshev",
+                        int preSmooth = 3, int postSmooth = 3, std::string PSmoother = "jacobi",
+                        float connStrength = 0.25, bool dynamic_lev = true, int max_lev = 10, int float_lev = 3,
+                        double fil_thr = 1e-14, double fil_max = 1e-8, int fil_st = 1, int fil_rate = 2,
+                        bool switch_to_den = false, float dense_thr = 0.1, int dense_sz_thr = 5000);
+
+    void set_solve_params(int max_iter = 100, double relative_tol = 1e-8, std::string smoother = "chebyshev",
+                          int preSmooth = 3, int postSmooth = 3);
+
+    void print_parameters(saena_matrix *A) const;
+    void print_lev_info(const Grid &g, const int porder) const;
+
     int setup(saena_matrix* A, std::vector<std::vector<int>> &m_l2g, std::vector<int> &m_g2u, int m_bdydof, std::vector<int> &order_dif);
     int coarsen(Grid *grid,std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all, std::vector<int> &order_dif);
     int SA(Grid *grid);
     int pcoarsen(Grid *grid, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all, std::vector<int> &order_dif);
     int compute_coarsen(Grid *grid);
     int compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff);
-    int triple_mat_mult(Grid *grid);
+    int triple_mat_mult(Grid *grid, bool symm = true);
+    void filter(vector<cooEntry> &v, const index_t &sz, const index_t &ofst);
 
     int matmat(saena_matrix *A, saena_matrix *B, saena_matrix *C, bool assemble = true, bool print_timing = false, bool B_trans = true);
     int matmat_CSC(CSCMat &Acsc, CSCMat &Bcsc, saena_matrix &C, bool trans = false);
@@ -260,22 +297,21 @@ public:
 
     int find_aggregation(saena_matrix* A, std::vector<index_t>& aggregate, std::vector<index_t>& splitNew);
     int create_strength_matrix(saena_matrix* A, strength_matrix* S) const;
+    int create_strength_matrix_test(saena_matrix* A, strength_matrix* S) const;
     int aggregation_1_dist(strength_matrix *S, std::vector<index_t> &aggregate, std::vector<index_t> &aggArray) const;
+    int aggregation_1_dist_orig(strength_matrix *S, std::vector<index_t> &aggregate, std::vector<index_t> &aggArray) const;
+    int aggregation_1_dist_new(strength_matrix *S, std::vector<index_t> &aggregates, std::vector<index_t> &aggArray) const;
 //    int aggregation_2_dist(strength_matrix *S, std::vector<unsigned long> &aggregate, std::vector<unsigned long> &aggArray);
     int aggregate_index_update(strength_matrix* S, std::vector<index_t>& aggregate, std::vector<index_t>& aggArray, std::vector<index_t>& splitNew);
     int create_prolongation(Grid *gird, std::vector< std::vector< std::vector<int> > > &map_all, std::vector< std::vector<int> > &g2u_all, std::vector<int> &order_dif);
 
     int set_repartition_rhs(saena_vector *rhs);
+    int repart_vector(value_t *&v, index_t &sz, vector<index_t> &split, MPI_Comm comm);
 
     // if Saena needs to repartition the input A and rhs, then call repartition_u() at the start of the solving function.
     // then, repartition_back_u() at the end of the solve function to convert the solution to the initial partition.
     int repartition_u(std::vector<value_t>& u);
     int repartition_back_u(std::vector<value_t>& u);
-
-    // if shrinking happens, u and rhs should be shrunk too.
-    int repartition_u_shrink_prepare(Grid *grid);
-    void repartition_u_shrink(std::vector<value_t> &u, Grid &grid);
-    void repartition_back_u_shrink(std::vector<value_t> &u, Grid &grid);
 
     // if minor shrinking happens, u and rhs should be shrunk too.
 //    int repartition_u_shrink_minor_prepare(Grid *grid);
@@ -307,20 +343,28 @@ public:
     // solve functions
     // **********************************************
 
-    int solve(std::vector<value_t>& u);
-    int solve_smoother(std::vector<value_t>& u);
-    int solve_CG(std::vector<value_t>& u);
-    int solve_pCG(std::vector<value_t>& u);
-    int setup_vcycle_memory();
-    void vcycle(Grid* grid, std::vector<value_t>& u, std::vector<value_t>& rhs);
-    void inline smooth(Grid *grid, std::vector<value_t> &u, std::vector<value_t> &rhs, int iter) const;
+    int solve(value_t *&u);
+    int solve_smoother(value_t *&u);
+    int solve_CG(value_t *&u);
+	int solve_petsc(value_t *&u, const string &petsc_solver, const double &tol);
+    int solve_pCG(value_t *&u, bool print_info = true);
+    inline void alloc_vcycle_memory();
+    inline void free_vcycle_memory();
+    void vcycle(Grid* grid, value_t *&u, value_t *&rhs);
+    void inline smooth(Grid *grid, value_t *&u, value_t *rhs, int iter) const;
+
+    // for profiling
+    void solve_pCG_profile(value_t *&u);
+    void solve_pCG_profile_part1(value_t *&u);
+    void solve_pCG_profile_part2(value_t *&u);
+    void vcycle_profile(Grid* grid, value_t *&u, value_t *&rhs);
 
     // *****************
     // GMRES functions
     // *****************
 
-    int  GMRES(std::vector<double> &u);
-    int  pGMRES(std::vector<double> &u);
+    int  GMRES(value_t *&u);
+    int  pGMRES(value_t *&u);
     void GMRES_update(std::vector<double> &x, index_t k, saena_matrix_dense &h, std::vector<double> &s, std::vector<std::vector<double>> &v);
     void GeneratePlaneRotation(double &dx, double &dy, double &cs, double &sn);
     void ApplyPlaneRotation(double &dx, double &dy, const double &cs, const double &sn);
@@ -331,9 +375,9 @@ public:
     // direct solvers
     // *****************
     int setup_SuperLU();
-    int solve_coarsest_SuperLU(saena_matrix* A, std::vector<value_t>& u, std::vector<value_t>& rhs);
+    void solve_coarsest_SuperLU(saena_matrix* A, value_t *&u, value_t *rhs);
     int destroy_SuperLU();
-    int solve_coarsest_CG(saena_matrix* A, std::vector<value_t>& u, std::vector<value_t>& rhs);
+    void solve_coarsest_CG(saena_matrix* A, value_t *u, value_t *rhs) const;
 //    int solve_coarsest_Elemental(saena_matrix* A, std::vector<value_t>& u, std::vector<value_t>& rhs);
 
     // *****************
@@ -365,7 +409,8 @@ public:
     bool active(int l);
 
     int local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEntry> &C);
-    int scale_vector(std::vector<value_t>& v, std::vector<value_t>& w);
+    void scale_vector(std::vector<value_t>& v, std::vector<value_t>& w);
+    void scale_vector(value_t *v, const value_t *w, const index_t sz) const;
     void transpose_locally(cooEntry *A, nnz_t size);
     void transpose_locally(cooEntry *A, nnz_t size, cooEntry *B);
     void transpose_locally(cooEntry *A, nnz_t size, const index_t &row_offset, cooEntry *B);
@@ -394,7 +439,10 @@ public:
     double vcycle_resid       = 0.0;
     double vcycle_repart      = 0.0;
 
+    void print_vcycle_time(int i, int k, MPI_Comm comm);
+
     void profile_matvecs();
+    void profile_matvecs_breakdown();
 
     // *****************
     // pcoarsen functions

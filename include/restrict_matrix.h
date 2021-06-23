@@ -27,7 +27,7 @@ public:
     std::vector<cooEntry> entry; // local row indices (not global)
 //    std::vector<cooEntry> entry_local;
 //    std::vector<cooEntry> entry_remote;
-    std::vector<index_t>  row_local;
+//    std::vector<index_t>  row_local;
     std::vector<index_t>  col_local;
     std::vector<value_t>  val_local;
     std::vector<index_t>  row_remote;
@@ -41,20 +41,25 @@ public:
     std::vector<index_t> vIndex;
     std::vector<value_t> vSend;
     std::vector<value_t> vecValues;
+    std::vector<float> vSend_f;           // float version
+    std::vector<float> vecValues_f;       // float version
 
     index_t col_remote_size = 0; // number of remote columns. this is the same as vElement_remote.size()
     std::vector<index_t> nnzPerRow_local;
     std::vector<index_t> vElement_remote;
-    std::vector<index_t> vElementRep_local;
-    std::vector<index_t> vElementRep_remote;
+//    std::vector<index_t> vElementRep_local;
+//    std::vector<index_t> vElementRep_remote;
     std::vector<index_t> nnzPerCol_remote;
-    std::vector<nnz_t> nnzPerRowScan_local;
+//    std::vector<nnz_t> nnzPerRowScan_local;
+    std::vector<nnz_t>   nnzPerProcScan; // number of remote nonzeros on each proc. used in matvec
+
     std::vector<int> vdispls;
     std::vector<int> rdispls;
     std::vector<int> recvProcRank;
     std::vector<int> recvProcCount;
     std::vector<int> sendProcRank;
     std::vector<int> sendProcCount;
+    std::vector<int> recvCount;
     index_t vIndexSize  = 0;
     index_t recvSize    = 0;
     int numRecvProc = 0;
@@ -67,8 +72,11 @@ public:
     std::vector<nnz_t> iter_remote_array;
     std::vector<value_t> w_buff; // for matvec
 
-    std::vector<nnz_t> indicesP_local;
+//    std::vector<nnz_t> indicesP_local;
 //    std::vector<nnz_t> indicesP_remote;
+
+    vector<MPI_Request> mv_req;
+    vector<MPI_Status>  mv_stat;
 
 //    bool arrays_defined = false; // set to true if transposeP function is called. it will be used for destructor.
 
@@ -78,15 +86,27 @@ public:
     double tloc = 0, trem = 0, tcomm = 0, ttot = 0;    // for timing matvec
     index_t matvec_comm_sz = 0;                        // for profiling matvec communication size (average on all procs)
 
+    bool use_double = true; // to determine the precision for matvec
+
     restrict_matrix();
     ~restrict_matrix();
 
     int transposeP(prolong_matrix* P);
     int openmp_setup();
-    void matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+    inline void matvec(const value_t *v, value_t *w){
+        if(use_double) matvec_sparse(v, w);
+        else matvec_sparse_float(v, w);
+    }
+    void matvec_sparse(const value_t *v, value_t *w);
+    void matvec_sparse_float(const value_t *v, value_t *w);
+    void matvec2(std::vector<value_t>& v, std::vector<value_t>& w);
 
-    int print_entry(int ran);
-    int print_info(int ran);
+#ifdef SAENA_USE_OPENMP
+    void matvec_omp(std::vector<value_t>& v, std::vector<value_t>& w);
+#endif
+
+    int print_entry(int ran) const;
+    int print_info(int ran) const;
 
     int writeMatrixToFile(const std::string &name = "") const;
 };

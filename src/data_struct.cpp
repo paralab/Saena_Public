@@ -2,27 +2,22 @@
 
 
 std::ostream & operator<<(std::ostream & stream, const cooEntry & item) {
-    stream << item.row << "\t" << item.col << "\t" << item.val;
+    stream << item.row << "\t" << item.col << "\t" << std::setprecision(16) << item.val;
     return stream;
 }
 
 std::ostream & operator<<(std::ostream & stream, const cooEntry_row & item) {
-    stream << item.row << "\t" << item.col << "\t" << item.val;
+    stream << item.row << "\t" << item.col << "\t" << std::setprecision(16) << item.val;
     return stream;
 }
 
 std::ostream & operator<<(std::ostream & stream, const vecEntry & item) {
-    stream << item.row << "\t" << item.val;
+    stream << item.row << "\t" << std::setprecision(16) << item.val;
     return stream;
 }
 
 std::ostream & operator<<(std::ostream & stream, const tuple1 & item) {
     stream << item.idx1 << "\t" << item.idx2;
-    return stream;
-}
-
-std::ostream & operator<<(std::ostream & stream, const vecCol & item) {
-    stream << item.rv->row << "\t" << *item.c << "\t" << item.rv->val;
     return stream;
 }
 
@@ -33,16 +28,6 @@ bool row_major (const cooEntry& node1, const cooEntry& node2) {
     } else {
         return node1.row < node2.row;
     }
-}
-
-
-bool vecCol_col_major (const vecCol& node1, const vecCol& node2) {
-    if(*node1.c < *node2.c)
-        return (true);
-    else if(*node1.c == *node2.c)
-        return((*node1.rv).row <= (*node2.rv).row);
-    else
-        return false;
 }
 
 
@@ -160,6 +145,7 @@ void CSCMat::compress_prep_compute(const index_t *v, index_t v_sz, GR_sz &comp_s
     // size is smaller than the original size.
     comp_sz.tot = v_sz * sizeof(index_t);
 
+#ifdef MATMAT_NO_COMPRESS
     if(v_sz != 0) {
 
         for (int kiter = k_start; kiter < k_end; kiter += 8) {
@@ -246,12 +232,11 @@ void CSCMat::compress_prep_compute(const index_t *v, index_t v_sz, GR_sz &comp_s
 #endif
 
     } // if(v_sz != 0)
+#endif
 
     comp_sz.ks.resize(nprocs);
     comp_sz.qs.resize(nprocs);
 
-    // TODO: combine these together.
-    // TODO: check if MPI_SHORT works as the datatype for the following commands.
     MPI_Allgather(&comp_sz.k, 1, MPI_INT, &comp_sz.ks[0], 1, MPI_INT, comm);
     MPI_Allgather(&comp_sz.q, 1, MPI_INT, &comp_sz.qs[0], 1, MPI_INT, comm);
 

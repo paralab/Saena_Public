@@ -2,6 +2,8 @@
 #include "saena_matrix.h"
 
 
+// TODO: enclose OpenMP commands in if statements (ifdef SAENA_USE_OPENMP)
+
 int saena_object::update1(saena_matrix* A_new){
 #if 0
     // ************** update grids[0].A **************
@@ -1189,10 +1191,10 @@ int saena_object::local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEn
         C.resize(A.nnz_l_local);
         index_t loc_size = 0;
         for(nnz_t i = 0; i < A.nnz_l_local; i++){
-//            if(rank==0) printf("%u \t%u \t%f \t%u \t%u \t%f \n", A.row_local[i], A.col_local[i], A.values_local[i], B.row_local[i], B.col_local[i], B.values_local[i]);
-            if(!almost_zero(A.values_local[i] - B.values_local[i])){
-//                if(rank==0) printf("%u \t%u \t%f \t%f \n", A.row_local[i], A.col_local[i], A.values_local[i], B.values_local[i]);
-                C[loc_size] = cooEntry(A.row_local[i] + A.split[rank], A.col_local[i], B.values_local[i]-A.values_local[i]);
+//            if(rank==0) printf("%u \t%u \t%f \t%u \t%u \t%f \n", A.row_local[i], A.col_local[i], A.val_local[i], B.row_local[i], B.col_local[i], B.val_local[i]);
+            if(!almost_zero(A.val_local[i] - B.val_local[i])){
+//                if(rank==0) printf("%u \t%u \t%f \t%f \n", A.row_local[i], A.col_local[i], A.val_local[i], B.val_local[i]);
+                C[loc_size] = cooEntry(A.row_local[i] + A.split[rank], A.col_local[i], B.val_local[i] - A.val_local[i]);
                 loc_size++;
             }
         }
@@ -1205,9 +1207,9 @@ int saena_object::local_diff(saena_matrix &A, saena_matrix &B, std::vector<cooEn
 //        std::vector<cooEntry> remote_diff;
 //        if(rank==1) printf("\nremote diff:\n");
 //        for(nnz_t i = 0; i < A.nnz_l_remote; i++){
-//            if(!almost_zero(A.values_remote[i] - B.values_remote[i])){
-//                if(rank==1) printf("%u \t%u \t%f \n", A.row_remote[i], A.col_remote[i], A.values_remote[i]-B.values_remote[i]);
-//                remote_diff.emplace_back(cooEntry(A.row_remote[i], A.col_remote[i], B.values_remote[i]-A.values_remote[i]));
+//            if(!almost_zero(A.val_remote[i] - B.val_remote[i])){
+//                if(rank==1) printf("%u \t%u \t%f \n", A.row_remote[i], A.col_remote[i], A.val_remote[i]-B.val_remote[i]);
+//                remote_diff.emplace_back(cooEntry(A.row_remote[i], A.col_remote[i], B.val_remote[i]-A.val_remote[i]));
 //            }
 //        }
 //        print_vector(remote_diff, -1, "remote_diff", A.comm);
@@ -1303,7 +1305,7 @@ int saena_object::compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &d
 //    // set dense parameters
 //    Ac->density = float(Ac->nnz_g) / (Ac->Mbig * Ac->Mbig);
 //    Ac->switch_to_dense = switch_to_dense;
-//    Ac->dense_threshold = dense_threshold;
+//    Ac->dense_thre = dense_thre;
 //
 //    // set shrink parameters
 //    Ac->last_M_shrink = A->last_M_shrink;
@@ -1759,9 +1761,9 @@ int saena_object::compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &d
 //        }
 
         // decide to partition based on number of rows or nonzeros.
-//    if(switch_repartition && Ac->density >= repartition_threshold)
-//        if(switch_repartition && Ac->density >= repartition_threshold){
-//            if(rank==0) printf("equi-ROW partition for the next level: density = %f, repartition_threshold = %f \n", Ac->density, repartition_threshold);
+//    if(switch_repart && Ac->density >= repart_thre)
+//        if(switch_repart && Ac->density >= repart_thre){
+//            if(rank==0) printf("equi-ROW partition for the next level: density = %f, repart_thre = %f \n", Ac->density, repart_thre);
 //            Ac->repartition_row(); // based on number of rows
 //        }else{
 //            Ac->repartition_nnz(); // based on number of nonzeros
@@ -1781,7 +1783,7 @@ int saena_object::compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &d
         diff.clear();
         diff.swap(Ac->entry_temp);
 
-//        repartition_u_shrink_prepare(grid);
+//        repart_u_prepare(grid);
 
 #ifdef __DEBUG1__
         if(verbose_triple_mat_mult){
@@ -1796,8 +1798,8 @@ int saena_object::compute_coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &d
 //            if(Ac->shrinked && Ac->enable_dummy_matvec)
 //                Ac->compute_matvec_dummy_time();
 
-//            if(switch_to_dense && Ac->density > dense_threshold){
-//                if(rank==0) printf("Switch to dense: density = %f, dense_threshold = %f \n", Ac->density, dense_threshold);
+//            if(switch_to_dense && Ac->density > dense_thre){
+//                if(rank==0) printf("Switch to dense: density = %f, dense_thre = %f \n", Ac->density, dense_thre);
 //                Ac->generate_dense_matrix();
 //            }
         }
@@ -2033,7 +2035,7 @@ int saena_object::triple_mat_mult_update_Ac(Grid *grid, std::vector<cooEntry> &d
     // ********** setup matrix **********
 
     // decide to partition based on number of rows or nonzeros.
-//    if(switch_repartition && Ac->density >= repartition_threshold)
+//    if(switch_repart && Ac->density >= repart_thre)
 //        Ac->repartition4(); // based on number of rows
 //    else
     Ac->repartition_nnz_update_Ac(); // based on number of nonzeros
@@ -2045,7 +2047,7 @@ int saena_object::triple_mat_mult_update_Ac(Grid *grid, std::vector<cooEntry> &d
     if(verbose_coarsen2){
         MPI_Barrier(comm); printf("coarsen2: step 6: rank = %d\n", rank); MPI_Barrier(comm);}
 
-//    repartition_u_shrink_prepare(grid);
+//    repart_u_prepare(grid);
 
 //    if(Ac->shrinked)
 //        Ac->shrink_cpu();
@@ -2281,7 +2283,7 @@ int saena_object::coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff){
     // ********** setup matrix **********
 
     // decide to partition based on number of rows or nonzeros.
-//    if(switch_repartition && Ac->density >= repartition_threshold)
+//    if(switch_repart && Ac->density >= repart_thre)
 //        Ac->repartition4(); // based on number of rows
 //    else
     Ac->repartition_nnz_update_Ac(); // based on number of nonzeros
@@ -2293,7 +2295,7 @@ int saena_object::coarsen_update_Ac(Grid *grid, std::vector<cooEntry> &diff){
     if(verbose_coarsen2){
         MPI_Barrier(comm); printf("coarsen2: step 6: rank = %d\n", rank); MPI_Barrier(comm);}
 
-//    repartition_u_shrink_prepare(grid);
+//    repart_u_prepare(grid);
 
 //    if(Ac->shrinked)
 //        Ac->shrink_cpu();

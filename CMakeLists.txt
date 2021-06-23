@@ -40,12 +40,16 @@ ENDIF()
 
 # -----------------------------------------------------------------------
 # OpenMP
+option(SAENA_USE_OPENMP OFF)
 
-find_package(OpenMP)
-if(OPENMP_FOUND)
-    set (CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
-    add_definitions(-D_USE_OPENMP_)
+if(SAENA_USE_OPENMP)
+    find_package(OpenMP REQUIRED)
+    if(OPENMP_FOUND)
+        set (CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${OpenMP_CXX_FLAGS}")
+        add_definitions(-D_USE_OPENMP_)
+    endif()
+    add_definitions(-DSAENA_USE_OPENMP)
 endif()
 
 # -----------------------------------------------------------------------
@@ -130,6 +134,16 @@ set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
         )
 
 # -----------------------------------------------------------------------
+# Lambda Lanczos: eigensolver
+# https://github.com/mrcdr/lambda-lanczos/
+
+set(LAMLAN_DIR external/lambda_lanczos)
+include_directories(${LAMLAN_DIR}/include/lambda_lanczos)
+set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
+        ${SAENA_INCLUDE_DIR}/lamlan_saena.h
+        )
+
+# -----------------------------------------------------------------------
 # usort: to sort elements in parallel
 
 include_directories(external/usort/include)
@@ -142,11 +156,11 @@ set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
 # -----------------------------------------------------------------------
 # pugixml: to read xml files for options
 
-#include_directories(external/pugixml/include)
+include_directories(external/pugixml/include)
 
-#set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
-#        external/pugixml/src/pugixml.cpp
-#        )
+set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
+        external/pugixml/src/pugixml.cpp
+        )
 
 # -----------------------------------------------------------------------
 # zfp: for compressing arrays
@@ -231,8 +245,10 @@ set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
         include/aux_functions2.h
         include/data_struct.h
         include/saena_matrix.h
+        include/saena_matrix.tpp
         include/saena_matrix_dense.h
         include/saena_object.h
+        include/saena_object.tpp
         include/strength_matrix.h
         include/prolong_matrix.h
         include/restrict_matrix.h
@@ -246,20 +262,19 @@ set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
         src/aux_functions.cpp
         src/aux_functions2.cpp
         src/data_struct.cpp
+        src/grid.cpp
         src/strength_matrix.cpp
         src/prolong_matrix.cpp
         src/restrict_matrix.cpp
         src/saena_matrix_dense.cpp
         src/saena_vector.cpp
         src/GR_encoder.cpp
-
         src/saena_matrix.cpp
         src/saena_matrix_repart.cpp
         src/saena_matrix_setup.cpp
         src/saena_matrix_matvec.cpp
         src/saena_matrix_shrink.cpp
         src/saena_matrix_zfp.cpp
-
         src/saena_object.cpp
         src/saena_object_setup1.cpp
         src/saena_object_setup2.cpp

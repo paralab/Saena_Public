@@ -11,17 +11,26 @@ class saena_matrix;
 
 class saena_matrix_dense {
 
-//private:
+private:
+    value_t* v_send   = nullptr;
+    value_t* v_recv   = nullptr;
+    float*   v_send_f = nullptr; // single precision
+    float*   v_recv_f = nullptr; // single precision
 
 public:
 
-    bool     allocated = false;
-    index_t  M         = 0;
-    index_t  Nbig      = 0;
-    value_t  **entry   = nullptr;
-    MPI_Comm comm      = MPI_COMM_WORLD;
+    MPI_Comm comm  = MPI_COMM_WORLD;
+    index_t  M     = 0;
+    index_t  Nbig  = 0;
+    index_t  M_max = 0; // biggest M on all the processors
 
+//    vector<vector<value_t>> entry;
+//    vector<value_t> entry;
+    value_t *entry = nullptr;
     std::vector<index_t> split; // (row-wise) partition of the matrix between processes
+
+    bool use_double = true; // to determine the precision for matvec
+    int MPI_flag = 0;
 
     saena_matrix_dense();
     saena_matrix_dense(index_t M, index_t Nbig);
@@ -32,34 +41,41 @@ public:
 
     saena_matrix_dense& operator=(const saena_matrix_dense &B);
 
+    void matvec_alloc();
     int assemble();
 
     int erase();
 
-    value_t get(index_t row, index_t col){
+    inline value_t get(index_t row, index_t col){
         if(row >= M || col >= Nbig){
             printf("\ndense matrix get out of range!\n");
             exit(EXIT_FAILURE);
         }else{
-            return entry[row][col];
+//            return entry[row][col];
+            return entry[row * Nbig + col];
         }
     }
 
-    void set(index_t row, index_t col, value_t val){
+    inline void set(index_t row, index_t col, value_t val){
         if(row >= M || col >= Nbig){
             printf("\ndense matrix set out of range: row = %d, M = %d, col = %d, Nbig = %d\n", row, M, col, Nbig);
             exit(EXIT_FAILURE);
         }else{
-            entry[row][col] = val;
+//            entry[row][col] = val;
+            entry[row * Nbig + col] = val;
         }
     }
 
-//    int set(index_t* row, index_t* col, value_t* val, nnz_t nnz_local);
-//    int set2(index_t row, index_t col, value_t val);
-//    int set2(index_t* row, index_t* col, value_t* val, nnz_t nnz_local);
-
     int print(int ran);
-    int matvec(std::vector<value_t>& v, std::vector<value_t>& w);
+
+    void matvec(const value_t *v, value_t *w){
+        if(use_double) matvec_dense(v, w);
+        else matvec_dense_float(v, w);
+    }
+
+    void matvec_dense(const value_t *v, value_t *w);
+    void matvec_dense_float(const value_t *v, value_t *w);
+
     int convert_saena_matrix(saena_matrix *A);
 
     // zfp parameters and functions

@@ -14,13 +14,7 @@ void saena_matrix::set_comm(MPI_Comm com){
 }
 
 
-int saena_matrix::read_file(const char* Aname){
-    read_file(Aname, "");
-    return 0;
-}
-
-
-int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
+int saena_matrix::read_file(const string &filename, const std::string &input_type /* = "" */) {
     // the following variables of saena_matrix class will be set in this function:
     // Mbig", "nnz_g", "initial_nnz_l", "data"
     // "data" is only required for repartition function.
@@ -33,7 +27,6 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
     // check if file exists
     // ====================
-    std::string filename(Aname);
     std::ifstream inFile_check(filename.c_str());
     if (!inFile_check.is_open()) {
         if (!rank) std::cout << "\nCould not open the matrix file <" << filename << ">" << std::endl;
@@ -342,7 +335,9 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
     offset = rank * nnz_t(floor(1.0 * nnz_g / nprocs)) * (2*sizeof(index_t) + sizeof(value_t));
 
-    MPI_File_read_at(fh, offset, datap, initial_nnz_l, cooEntry_row::mpi_datatype(), &status);
+    auto dt = cooEntry_row::mpi_datatype();
+    MPI_File_read_at(fh, offset, datap, initial_nnz_l, dt, &status);
+    MPI_Type_free(&dt);
 
 //    int count;
 //    MPI_Get_count(&status, MPI_UNSIGNED_LONG, &count);
@@ -354,6 +349,18 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
     remove_duplicates();
 
+    if(remove_boundary){
+        remove_boundary_nodes();
+
+        index_t Mbig_local = 0;
+        if(!data.empty())
+            Mbig_local = data.back().row;
+        MPI_Allreduce(&Mbig_local, &Mbig, 1, par::Mpi_datatype<index_t>::value(), MPI_MAX, comm);
+        Mbig++; // since indices start from 0, not 1.
+    }else{
+        data = std::move(data_with_bound);
+    }
+
     // after removing duplicates, initial_nnz_l and nnz_g will be smaller, so update them.
     initial_nnz_l = data.size();
     MPI_Allreduce(&initial_nnz_l, &nnz_g, 1, par::Mpi_datatype<nnz_t>::value(), MPI_SUM, comm);
@@ -362,9 +369,9 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
     // Since data[] has row-major order, the last element on the last process is the number of rows.
     // Broadcast it from the last process to the other processes.
 
-    cooEntry last_element = data.back();
-    Mbig = last_element.row + 1; // since indices start from 0, not 1.
-    MPI_Bcast(&Mbig, 1, par::Mpi_datatype<index_t>::value(), nprocs-1, comm);
+//    cooEntry last_element = data.back();
+//    Mbig = last_element.row + 1; // since indices start from 0, not 1.
+//    MPI_Bcast(&Mbig, 1, par::Mpi_datatype<index_t>::value(), nprocs-1, comm);
 
     if(verbose_saena_matrix){
         MPI_Barrier(comm);
@@ -379,6 +386,12 @@ int saena_matrix::read_file(const char* Aname, const std::string &input_type) {
 
 
 saena_matrix::~saena_matrix(){
+    destroy();
+
+    if(dense_matrix != nullptr){
+        delete dense_matrix;
+        dense_matrix = nullptr;
+    }
 #ifdef SAENA_USE_ZFP
     if(free_zfp_buff){
         deallocate_zfp();
@@ -499,6 +512,10 @@ int saena_matrix::set2(index_t* row, index_t* col, value_t* val, nnz_t nnz_local
 }
 
 
+void saena_matrix::set_remove_boundary(bool remove_bound){
+    remove_boundary = remove_bound;
+}
+
 void saena_matrix::set_p_order(int _p_order){
     p_order = _p_order;
 }
@@ -506,6 +523,15 @@ void saena_matrix::set_p_order(int _p_order){
 void saena_matrix::set_prodim(int _prodim){
     prodim = _prodim;
 }
+
+void saena_matrix::set_eig(const double &eig){
+    eig_max_of_invdiagXA = eig;
+}
+
+double saena_matrix::get_eig(){
+    return eig_max_of_invdiagXA;
+}
+
 
 // int saena_matrix::set3(unsigned int row, unsigned int col, double val)
 /*
@@ -594,8 +620,10 @@ int saena_matrix::set3(unsigned int* row, unsigned int* col, double* val, unsign
 */
 
 
-int saena_matrix::destroy(){
-    return 0;
+void saena_matrix::destroy(){
+    erase();
+//    if(comm != MPI_COMM_WORLD && comm != MPI_COMM_NULL)
+//        MPI_Comm_free(&comm);
 }
 
 
@@ -608,16 +636,8 @@ int saena_matrix::erase(){
     entry.clear();
     split.clear();
     split_old.clear();
-    values_local.clear();
-    row_local.clear();
-    values_remote.clear();
-    row_remote.clear();
-    col_local.clear();
-    col_remote.clear();
-    col_remote2.clear();
     nnzPerRow_local.clear();
     nnzPerCol_remote.clear();
-    inv_diag.clear();
     vdispls.clear();
     rdispls.clear();
     recvProcRank.clear();
@@ -625,20 +645,14 @@ int saena_matrix::erase(){
     sendProcRank.clear();
     sendProcCount.clear();
     sendProcCount.clear();
+    requests.clear();
+    statuses.clear();
 
     entry.shrink_to_fit();
     split.shrink_to_fit();
     split_old.shrink_to_fit();
-    values_local.shrink_to_fit();
-    values_remote.shrink_to_fit();
-    row_local.shrink_to_fit();
-    row_remote.shrink_to_fit();
-    col_local.shrink_to_fit();
-    col_remote.shrink_to_fit();
-    col_remote2.shrink_to_fit();
     nnzPerRow_local.shrink_to_fit();
     nnzPerCol_remote.shrink_to_fit();
-    inv_diag.shrink_to_fit();
     vdispls.shrink_to_fit();
     rdispls.shrink_to_fit();
     recvProcRank.shrink_to_fit();
@@ -646,6 +660,21 @@ int saena_matrix::erase(){
     sendProcRank.shrink_to_fit();
     sendProcCount.shrink_to_fit();
     sendProcCount.shrink_to_fit();
+    requests.shrink_to_fit();
+    statuses.shrink_to_fit();
+
+    saena_free(val_local);
+    saena_free(val_remote);
+    saena_free(row_local);
+    saena_free(row_remote);
+    saena_free(col_local);
+    saena_free(col_remote);
+    saena_free(col_remote2);
+
+    saena_free(inv_diag);
+    saena_free(inv_diag_orig);
+    saena_free(temp1);
+    saena_free(temp2);
 
 #ifdef SAENA_USE_ZFP
     if(free_zfp_buff){
@@ -678,16 +707,8 @@ int saena_matrix::erase2(){
     entry.clear();
     split.clear();
     split_old.clear();
-    values_local.clear();
-    row_local.clear();
-    values_remote.clear();
-    row_remote.clear();
-    col_local.clear();
-    col_remote.clear();
-    col_remote2.clear();
     nnzPerRow_local.clear();
     nnzPerCol_remote.clear();
-    inv_diag.clear();
     vdispls.clear();
     rdispls.clear();
     recvProcRank.clear();
@@ -696,14 +717,13 @@ int saena_matrix::erase2(){
     sendProcCount.clear();
     vIndex.clear();
     vSend.clear();
-    vSend2.clear();
     vecValues.clear();
-    vecValues2.clear();
-    indicesP_local.clear();
+    vSend_f.clear();
+    vecValues_f.clear();
+//    vSend2.clear();
+//    vecValues2.clear();
     recvCount.clear();
-    recvCountScan.clear();
     sendCount.clear();
-    sendCountScan.clear();
     iter_local_array.clear();
     iter_remote_array.clear();
 //    iter_local_array2.clear();
@@ -713,16 +733,8 @@ int saena_matrix::erase2(){
     entry.shrink_to_fit();
     split.shrink_to_fit();
     split_old.shrink_to_fit();
-    values_local.shrink_to_fit();
-    values_remote.shrink_to_fit();
-    row_local.shrink_to_fit();
-    row_remote.shrink_to_fit();
-    col_local.shrink_to_fit();
-    col_remote.shrink_to_fit();
-    col_remote2.shrink_to_fit();
     nnzPerRow_local.shrink_to_fit();
     nnzPerCol_remote.shrink_to_fit();
-    inv_diag.shrink_to_fit();
     vdispls.shrink_to_fit();
     rdispls.shrink_to_fit();
     recvProcRank.shrink_to_fit();
@@ -731,19 +743,27 @@ int saena_matrix::erase2(){
     sendProcCount.shrink_to_fit();
     vIndex.shrink_to_fit();
     vSend.shrink_to_fit();
-    vSend2.shrink_to_fit();
     vecValues.shrink_to_fit();
-    vecValues2.shrink_to_fit();
-    indicesP_local.shrink_to_fit();
+//    vSend2.shrink_to_fit();
+//    vecValues2.shrink_to_fit();
     recvCount.shrink_to_fit();
-    recvCountScan.shrink_to_fit();
     sendCount.shrink_to_fit();
-    sendCountScan.shrink_to_fit();
     iter_local_array.shrink_to_fit();
     iter_remote_array.shrink_to_fit();
 //    iter_local_array2.shrink_to_fit();
     vElement_remote.shrink_to_fit();
     w_buff.shrink_to_fit();
+
+    saena_free(val_local);
+    saena_free(val_remote);
+    saena_free(row_local);
+    saena_free(row_remote);
+    saena_free(col_local);
+    saena_free(col_remote);
+    saena_free(col_remote2);
+
+    saena_free(inv_diag);
+    saena_free(inv_diag_orig);
 
 #ifdef SAENA_USE_ZFP
     if(free_zfp_buff){
@@ -765,7 +785,6 @@ int saena_matrix::erase2(){
 //    shrinked = false;
 //    active = true;
     assembled = false;
-    freeBoolean = false;
 
     return 0;
 }
@@ -778,25 +797,17 @@ int saena_matrix::erase_update_local(){
 //    values_local_temp.clear();
 //    row_local.swap(row_local_temp);
 //    col_local.swap(col_local_temp);
-//    values_local.swap(values_local_temp);
+//    val_local.swap(values_local_temp);
 
 //    entry.clear();
     // push back the remote part
 //    for(unsigned long i = 0; i < row_remote.size(); i++)
-//        entry.emplace_back(cooEntry(row_remote[i], col_remote2[i], values_remote[i]));
+//        entry.emplace_back(cooEntry(row_remote[i], col_remote2[i], val_remote[i]));
 
 //    split.clear();
 //    split_old.clear();
-    values_local.clear();
-    row_local.clear();
-    col_local.clear();
-    row_remote.clear();
-    col_remote.clear();
-    col_remote2.clear();
-    values_remote.clear();
     nnzPerRow_local.clear();
     nnzPerCol_remote.clear();
-    inv_diag.clear();
     vdispls.clear();
     rdispls.clear();
     recvProcRank.clear();
@@ -804,6 +815,17 @@ int saena_matrix::erase_update_local(){
     sendProcRank.clear();
     sendProcCount.clear();
     sendProcCount.clear();
+
+    saena_free(val_local);
+    saena_free(val_remote);
+    saena_free(row_local);
+    saena_free(row_remote);
+    saena_free(col_local);
+    saena_free(col_remote);
+    saena_free(col_remote2);
+
+    saena_free(inv_diag);
+    saena_free(inv_diag_orig);
 
 //    M = 0;
 //    Mbig = 0;
@@ -826,21 +848,13 @@ int saena_matrix::erase_keep_remote2(){
     entry.clear();
 
     // push back the remote part
-    for(unsigned long i = 0; i < row_remote.size(); i++)
-        entry.emplace_back(cooEntry(row_remote[i], col_remote2[i], values_remote[i]));
+    for(unsigned long i = 0; i < nnz_l_remote; ++i)
+        entry.emplace_back(cooEntry(row_remote[i], col_remote2[i], val_remote[i]));
 
     split.clear();
     split_old.clear();
-    values_local.clear();
-    row_local.clear();
-    values_remote.clear();
-    row_remote.clear();
-    col_local.clear();
-    col_remote.clear();
-    col_remote2.clear();
     nnzPerRow_local.clear();
     nnzPerCol_remote.clear();
-    inv_diag.clear();
     vdispls.clear();
     rdispls.clear();
     recvProcRank.clear();
@@ -849,19 +863,27 @@ int saena_matrix::erase_keep_remote2(){
     sendProcCount.clear();
     vIndex.clear();
     vSend.clear();
-    vSend2.clear();
     vecValues.clear();
-    vecValues2.clear();
-    indicesP_local.clear();
+//    vSend2.clear();
+//    vecValues2.clear();
     recvCount.clear();
-    recvCountScan.clear();
     sendCount.clear();
-    sendCountScan.clear();
     iter_local_array.clear();
     iter_remote_array.clear();
 //    iter_local_array2.clear();
     vElement_remote.clear();
     w_buff.clear();
+
+    saena_free(val_local);
+    saena_free(val_remote);
+    saena_free(row_local);
+    saena_free(row_remote);
+    saena_free(col_local);
+    saena_free(col_remote);
+    saena_free(col_remote2);
+
+    saena_free(inv_diag);
+    saena_free(inv_diag_orig);
 
     // erase_keep_remote() is used in coarsen2(), so keep the memory reserved for performance.
     // so don't use shrink_to_fit() on these vectors.
@@ -880,7 +902,6 @@ int saena_matrix::erase_keep_remote2(){
 //    assembled = false;
 //    shrinked = false;
 //    active = true;
-    freeBoolean = false;
 
     return 0;
 }
@@ -888,131 +909,42 @@ int saena_matrix::erase_keep_remote2(){
 
 int saena_matrix::erase_after_shrink() {
 
-    row_local.clear();
-    col_local.clear();
-    values_local.clear();
+    nnz_l_local = 0;
+    nnz_l_remote = 0;
+    numRecvProc = 0;
+    numSendProc = 0;
+    vIndexSize = 0;
+    recvSize = 0;
 
-    row_remote.clear();
-    col_remote.clear();
-    col_remote2.clear();
-    values_remote.clear();
-
-    vElement_remote.clear();
-
-//    nnzPerRow_local.clear();
-//    nnzPerCol_remote.clear();
-//    inv_diag.clear();
-//    vdispls.clear();
-//    rdispls.clear();
-//    recvProcRank.clear();
-//    recvProcCount.clear();
-//    sendProcRank.clear();
-//    sendProcCount.clear();
-//    vIndex.clear();
-//    vSend.clear();
-//    vecValues.clear();
-//    vSendULong.clear();
-//    vecValuesULong.clear();
-//    indicesP_local.clear();
-//    indicesP_remote.clear();
-//    recvCount.clear();
-//    recvCountScan.clear();
-//    sendCount.clear();
-//    sendCountScan.clear();
-//    iter_local_array.clear();
-//    iter_remote_array.clear();
-//    iter_local_array2.clear();
-//    iter_remote_array2.clear();
-//    w_buff.clear();
-
-    return 0;
-}
-
-
-int saena_matrix::erase_after_decide_shrinking() {
-
-//    row_local.clear();
-    col_local.clear();
-    values_local.clear();
-
-    row_remote.clear();
-    col_remote.clear();
-    col_remote2.clear();
-    values_remote.clear();
+    saena_free(val_local);
+    saena_free(val_remote);
+    saena_free(row_local);
+    saena_free(row_remote);
+    saena_free(col_local);
+//    saena_free(col_remote);
+//    saena_free(col_remote2);
 
     vElement_remote.clear();
-
-//    nnzPerRow_local.clear();
+    nnzPerRow_local.clear();
     nnzPerCol_remote.clear();
-//    inv_diag.clear();
-//    vdispls.clear();
-//    rdispls.clear();
+    nnzPerProcScan.clear();
+    recvCount.clear();
+    sendCount.clear();
     recvProcRank.clear();
     recvProcCount.clear();
     sendProcRank.clear();
     sendProcCount.clear();
-//    vIndex.clear();
-//    vSend.clear();
-//    vecValues.clear();
-//    vSendULong.clear();
-//    vecValuesULong.clear();
-//    indicesP_local.clear();
-//    indicesP_remote.clear();
-//    recvCount.clear();
-//    recvCountScan.clear();
-//    sendCount.clear();
-//    sendCountScan.clear();
-//    iter_local_array.clear();
-//    iter_remote_array.clear();
-//    iter_local_array2.clear();
-//    iter_remote_array2.clear();
-//    w_buff.clear();
-
+    vdispls.clear();
+    rdispls.clear();
+    vIndex.clear();
+    vSend.clear();
+    vecValues.clear();
     return 0;
 }
 
 
 int saena_matrix::erase_lazy_update(){
-
     data_coo.clear();
-
-    /*
-    entry.clear();
-    values_local.clear();
-    row_local.clear();
-    values_remote.clear();
-    row_remote.clear();
-    col_local.clear();
-    col_remote.clear();
-    col_remote2.clear();
-    nnzPerRow_local.clear();
-    nnzPerCol_remote.clear();
-    inv_diag.clear();
-    vdispls.clear();
-    rdispls.clear();
-    recvProcRank.clear();
-    recvProcCount.clear();
-    sendProcRank.clear();
-    sendProcCount.clear();
-    vElementRep_remote.clear();
-    vIndex.clear();
-    vSend.clear();
-    vecValues.clear();
-    vSendULong.clear();
-    vecValuesULong.clear();
-    indicesP_local.clear();
-    indicesP_remote.clear();
-    recvCount.clear();
-    recvCountScan.clear();
-    sendCount.clear();
-    sendCountScan.clear();
-    iter_local_array.clear();
-    iter_remote_array.clear();
-    iter_local_array2.clear();
-    iter_remote_array2.clear();
-    vElement_remote.clear();
-    w_buff.clear();
-*/
     return 0;
 }
 
@@ -1026,16 +958,8 @@ int saena_matrix::erase_no_shrink_to_fit(){
     entry.clear();
     split.clear();
     split_old.clear();
-    values_local.clear();
-    row_local.clear();
-    values_remote.clear();
-    row_remote.clear();
-    col_local.clear();
-    col_remote.clear();
-    col_remote2.clear();
     nnzPerRow_local.clear();
     nnzPerCol_remote.clear();
-    inv_diag.clear();
     vdispls.clear();
     rdispls.clear();
     recvProcRank.clear();
@@ -1044,13 +968,24 @@ int saena_matrix::erase_no_shrink_to_fit(){
     sendProcCount.clear();
     sendProcCount.clear();
 
+    saena_free(val_local);
+    saena_free(val_remote);
+    saena_free(row_local);
+    saena_free(row_remote);
+    saena_free(col_local);
+    saena_free(col_remote);
+    saena_free(col_remote2);
+
+    saena_free(inv_diag);
+    saena_free(inv_diag_orig);
+
 //    data.shrink_to_fit();
 //    data_unsorted.shrink_to_fit();
 //    entry.shrink_to_fit();
 //    split.shrink_to_fit();
 //    split_old.shrink_to_fit();
-//    values_local.shrink_to_fit();
-//    values_remote.shrink_to_fit();
+//    val_local.shrink_to_fit();
+//    val_remote.shrink_to_fit();
 //    row_local.shrink_to_fit();
 //    row_remote.shrink_to_fit();
 //    col_local.shrink_to_fit();
@@ -1093,18 +1028,20 @@ int saena_matrix::erase_no_shrink_to_fit(){
 
 int saena_matrix::set_zero(){
 
+#ifdef SAENA_USE_OPENMP
 #pragma omp parallel for
+#endif
     for(nnz_t i = 0; i < nnz_l; i++)
         entry[i].val = 0;
 
-    values_local.clear();
-    values_remote.clear();
+    saena_free(val_local);
+    saena_free(val_remote);
 
     return 0;
 }
 
 
-void saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t>& rhs) {
+void saena_matrix::jacobi(const int &iter, value_t * __restrict__ u, const value_t * __restrict__ rhs) {
 
 // Ax = rhs
 // u = u - (D^(-1))(Au - rhs)
@@ -1116,20 +1053,25 @@ void saena_matrix::jacobi(int iter, std::vector<value_t>& u, std::vector<value_t
 //    int rank;
 //    MPI_Comm_rank(comm, &rank);
 
-    for(int j = 0; j < iter; j++){
-        matvec(u, temp1);
+    value_t *temp1_p = temp1;
+    const value_t *inv_diag_p = inv_diag;
+    const float omega = jacobi_omega;
+    const index_t sz = M;
 
-        #pragma omp parallel for
-        for(index_t i = 0; i < M; i++){
-            temp1[i] -= rhs[i];
-            temp1[i] *= inv_diag[i] * jacobi_omega;
-            u[i]    -= temp1[i];
+    for(int j = 0; j < iter; ++j){
+        matvec(&u[0], &temp1[0]);
+
+//        #pragma omp parallel for simd aligned(inv_diag_p, temp1_p, rhs, u: ALIGN_SZ)
+        for(index_t i = 0; i < sz; ++i){
+            temp1_p[i] -= rhs[i];
+            temp1_p[i] *= inv_diag_p[i] * omega;
+            u[i]       -= temp1_p[i];
         }
     }
 }
 
 
-void saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vector<value_t>& rhs){
+void saena_matrix::chebyshev(const int &iter, value_t * __restrict__ u, const value_t * __restrict__ rhs){
 
 #ifdef __DEBUG1__
 //    int rank;
@@ -1141,39 +1083,46 @@ void saena_matrix::chebyshev(const int &iter, std::vector<value_t>& u, std::vect
 
     const double alpha = 0.13 * eig_max_of_invdiagXA; // homg: 0.25 * eig_max
     const double beta  = eig_max_of_invdiagXA;
-    const double delta = (beta - alpha) / 2;
-    const double theta = (beta + alpha) / 2;
+    const double delta = (beta - alpha) / 2.0;
+    const double theta = (beta + alpha) / 2.0;
     const double s1    = theta / delta;
-    const double twos1 = 2 * s1;     // to avoid the multiplication in the "for" loop.
-          double rhok  = 1 / s1;
+    const double twos1 = 2.0 * s1;     // to avoid the multiplication in the "for" loop.
+          double rhok  = 1.0 / s1;
           double rhokp1 = 0.0, two_rhokp1 = 0.0, d1 = 0.0, d2 = 0.0;
 
-    std::vector<value_t>& res = temp1;
-    std::vector<value_t>& d   = temp2;
+    value_t *res = temp1;
+    value_t *d   = temp2;
+    const value_t *inv_diag_p = inv_diag;
 
     // first loop
-    residual_negative(u, rhs, res);
+//    residual_negative(&u[0], &rhs[0], &res[0]);
+    residual_multiply(&u[0], &rhs[0], d, inv_diag_p, 1.0 / theta);
 
-    #pragma omp parallel for
-    for(index_t i = 0; i < u.size(); ++i){
-        d[i] = (res[i] * inv_diag[i]) / theta;
+    const index_t sz = M;
+//    #pragma omp parallel for simd aligned(inv_diag_p, d, res, u: ALIGN_SZ)
+//    #pragma omp parallel for simd aligned(d, u: ALIGN_SZ)
+    for(index_t i = 0; i < sz; ++i){
+//        d[i] = (res[i] * inv_diag_p[i]) / theta;
         u[i] += d[i];
 //        if(rank==0) printf("inv_diag[%u] = %f, \tres[%u] = %f, \td[%u] = %f, \tu[%u] = %f \n",
 //                           i, inv_diag[i], i, res[i], i, d[i], i, u[i]);
     }
 
     for(int i = 1; i < iter; ++i){
-        rhokp1 = 1 / (twos1 - rhok);
-        two_rhokp1 = 2 * rhokp1;
+        rhokp1 = 1.0 / (twos1 - rhok);
+        two_rhokp1 = 2.0 * rhokp1;
         d1     = rhokp1 * rhok;
         d2     = two_rhokp1 / delta;
         rhok   = rhokp1;
 
-        residual_negative(u, rhs, res);
+//        residual_negative(&u[0], &rhs[0], &res[0]);
+        residual_multiply(&u[0], &rhs[0], res, inv_diag_p, d2);
 
-        #pragma omp parallel for
-        for(index_t j = 0; j < u.size(); ++j){
-            d[j] = ( d1 * d[j] ) + ( d2 * res[j] * inv_diag[j]);
+//        #pragma omp parallel for
+//        #pragma omp parallel for simd aligned(d, res, u: ALIGN_SZ)
+        for(index_t j = 0; j < sz; ++j){
+//            d[j] = ( d1 * d[j] ) + ( d2 * res[j] * inv_diag_p[j] );
+            d[j] = ( d1 * d[j] ) + res[j];
             u[j] += d[j];
 //            if(rank==0) printf("inv_diag[%u] = %f, \tres[%u] = %f, \td[%u] = %f, \tu[%u] = %f \n",
 //                               j, inv_diag[j], j, res[j], j, d[j], j, u[j]);
@@ -1198,7 +1147,7 @@ int saena_matrix::print_entry(int ran, const std::string &name) const{
                 std::cout << "\nmatrix " << name << " on proc " << ran << std::endl;
 //                printf("\nmatrix on proc = %d \n", ran);
                 printf("nnz = %lu \n", nnz_l);
-                for (auto i:entry) {
+                for (const auto &i : entry) {
                     std::cout << iter << "\t" << i << std::endl;
                     iter++;
                 }
@@ -1210,7 +1159,7 @@ int saena_matrix::print_entry(int ran, const std::string &name) const{
                     std::cout << "\nmatrix " << name << " on proc " << proc << std::endl;
 //                    printf("\nmatrix on proc = %d \n", proc);
                     printf("nnz = %lu \n", nnz_l);
-                    for (auto i:entry) {
+                    for (const auto &i : entry) {
                         std::cout << iter << "\t" << i << std::endl;
                         iter++;
                     }
@@ -1271,9 +1220,9 @@ int saena_matrix::writeMatrixToFile(const std::string &name) const{
 
     if(rank==0) std::cout << "\nWriting the matrix in: " << outFileNameTxt << std::endl;
 
-    std::vector<cooEntry> entry_temp1 = entry;
-    std::vector<cooEntry> entry_temp2;
-    par::sampleSort(entry_temp1, entry_temp2, comm);
+//    std::vector<cooEntry> entry_temp1 = entry;
+//    std::vector<cooEntry> entry_temp2;
+//    par::sampleSort(entry_temp1, entry_temp2, comm);
 
     // sort row-wise
 //    std::vector<cooEntry_row> entry_temp1(entry.size());
@@ -1283,13 +1232,14 @@ int saena_matrix::writeMatrixToFile(const std::string &name) const{
 
     // first line of the file: row_size col_size nnz
     if(rank==0) {
+        outFileTxt << "%%MatrixMarket matrix coordinate real general" << std::endl;
         outFileTxt << Mbig << "\t" << Mbig << "\t" << nnz_g << std::endl;
     }
 
-    for (nnz_t i = 0; i < entry_temp2.size(); i++) {
+    for (nnz_t i = 0; i < entry.size(); i++) {
 //        if(rank==0) std::cout  << A->entry[i].row + 1 << "\t" << A->entry[i].col + 1 << "\t" << A->entry[i].val << std::endl;
-        outFileTxt << entry_temp2[i].row + 1 << "\t" << entry_temp2[i].col + 1 << "\t"
-                   << std::setprecision(12) << entry_temp2[i].val << std::endl;
+        outFileTxt << entry[i].row + 1 << "\t" << entry[i].col + 1 << "\t"
+                   << std::setprecision(12) << entry[i].val << std::endl;
     }
 
     outFileTxt.clear();
