@@ -19,6 +19,8 @@ The easiest way may be using the newer intel compilers, which includes mkl; Or j
 
 `https://software.seek.intel.com/performance-libraries`
 
+If install MKL separate form the intel compilers, then envirronment variable `MKLROOT` should be set to where `MKL` is installed.
+
 ## Installation instructions to use Saena as a stand-alone solver
 
 1- The CMakeLists.txt is written in a way to use Saena inside Nektar++. To use it as a stand-alone solver remove CMakeLists.txt and rename CMakeLists_standalone.txt to CMakeLists.txt.
