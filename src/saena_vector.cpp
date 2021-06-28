@@ -495,6 +495,8 @@ int saena_vector::return_vec(value_t *&u2){
     // copy u2 to u1
     const index_t sz = get_size();
     auto *u1 = saena_aligned_alloc<value_t>(sz);
+    std::copy(&u2[0], &u2[sz], &u1[0]);
+
     return_vec(u1, u2);
     saena_free(u1);
     return 0;
