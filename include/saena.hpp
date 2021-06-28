@@ -149,17 +149,17 @@ namespace saena {
 
     public:
         explicit options(int max_iter = 100, double relative_tol = 1e-8, std::string smoother = "chebyshev",
-                int preSmooth = 3, int postSmooth = 3, std::string PSmoother = "jacobi", float connStrength = 0.3,
+                int preSmooth = 3, int postSmooth = 3, std::string PSmoother = "SPAI", float connStrength = 0.3,
                 bool dynamic_lev = true, int max_lev = 10, int float_lev = 3,
-                double fil_thr = 1e-14, double fil_max = 1e-8, int fil_st = 1, int fil_rate = 2,
+                double fil_thr = 1e-14, double fil_max = 1e-8, int fil_st = 2, int fil_rate = 2,
                 bool switch_to_den = false, float dense_thr = 0.1, int dense_sz_thr = 5000);
         explicit options(const string &name); // to set parameters from an xml file
         ~options();
 
         void set(int max_iter = 100, double relative_tol = 1e-8, std::string smoother = "chebyshev",
-                 int preSmooth = 3, int postSmooth = 3, std::string PSmoother = "jacobi", float connStrength = 0.3,
+                 int preSmooth = 3, int postSmooth = 3, std::string PSmoother = "SPAI", float connStrength = 0.3,
                  bool dynamic_lev = true, int max_lev = 10, int float_lev = 3,
-                 double fil_thr = 1e-14, double fil_max = 1e-8, int fil_st = 1, int fil_rate = 2,
+                 double fil_thr = 1e-14, double fil_max = 1e-8, int fil_st = 2, int fil_rate = 2,
                  bool switch_to_den = false, float dense_thr = 0.1, int dense_sz_thr = 5000);
 
         void set_from_file(const string &name);

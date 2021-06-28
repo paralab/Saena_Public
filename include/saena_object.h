@@ -164,7 +164,7 @@ public:
     std::string smoother      = "chebyshev";    // choices: "jacobi", "chebyshev"
     std::string direct_solver = "SuperLU";      // choices: "CG", "SuperLU"
     float       connStrength  = 0.3;            // connection strength parameter: control coarsening aggressiveness
-    std::string PSmoother     = "jacobi";       // "jacobi", "SPAI"
+    std::string PSmoother     = "SPAI";       // "jacobi", "SPAI"
     double      Pomega        = 2.0 / 3;        // For jacobi it is usually 2/3 for 2D and 6/7 for 3D.
 
     // ****************
