@@ -19,7 +19,7 @@ The easiest way may be using the newer intel compilers, which includes mkl; Or j
 
 `https://software.seek.intel.com/performance-libraries`
 
-If install MKL separate form the intel compilers, then envirronment variable `MKLROOT` should be set to where `MKL` is installed.
+After installing MKL (so not using the intel compiler), then environment variable `MKLROOT` should be set to where `MKL` is installed.
 
 ## Installation instructions to use Saena as a stand-alone solver
 
