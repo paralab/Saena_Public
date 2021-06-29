@@ -753,7 +753,7 @@ int saena::amg::solve_smoother(value_t *&u, saena::options* opts){
                               opts->get_postSmooth());
     m_pImpl->solve_smoother(u);
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u);
+    g->rhs_orig->return_vec(u, g->A->M);
     return 0;
 }
 
@@ -762,7 +762,7 @@ int saena::amg::solve(value_t *&u, saena::options* opts){
                               opts->get_postSmooth());
     m_pImpl->solve(u);
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u);
+    g->rhs_orig->return_vec(u, g->A->M);
     return 0;
 }
 
@@ -772,14 +772,14 @@ int saena::amg::solve_CG(value_t *&u, saena::options* opts){
                               opts->get_postSmooth());
     m_pImpl->solve_CG(u);
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u);
+    g->rhs_orig->return_vec(u, g->A->M);
     return 0;
 }
 
 int saena::amg::solve_petsc(value_t *&u, saena::options* opts){
     m_pImpl->solve_petsc(u, opts->get_petsc_solver(), opts->get_tol());
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u);
+    g->rhs_orig->return_vec(u, g->A->M);
     return 0;
 }
 
@@ -792,7 +792,7 @@ int saena::amg::solve_pCG(value_t *&u, saena::options* opts, const bool print_in
 //        m_pImpl->add_boundary_sol(u); // TODO: this part should be fixed
     } else {
         Grid *g = &m_pImpl->grids[0];
-        g->rhs_orig->return_vec(u);
+        g->rhs_orig->return_vec(u, g->A->M);
     }
 
     return 0;
@@ -808,7 +808,7 @@ int saena::amg::solve_pCG_profile(value_t *&u, saena::options* opts){
 //        m_pImpl->add_boundary_sol(u); // TODO: this part should be fixed
     } else {
         Grid *g = &m_pImpl->grids[0];
-        g->rhs_orig->return_vec(u);
+        g->rhs_orig->return_vec(u, g->A->M);
     }
 
     return 0;
@@ -820,7 +820,7 @@ int saena::amg::solve_GMRES(value_t *&u, saena::options* opts){
                               opts->get_postSmooth());
     m_pImpl->GMRES(u);
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u);
+    g->rhs_orig->return_vec(u, g->A->M);
     return 0;
 }
 
@@ -830,7 +830,7 @@ int saena::amg::solve_pGMRES(value_t *&u, saena::options* opts){
                               opts->get_postSmooth());
     m_pImpl->pGMRES(u);
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u);
+    g->rhs_orig->return_vec(u, g->A->M);
     return 0;
 }
 

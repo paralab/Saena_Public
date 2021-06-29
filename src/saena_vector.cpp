@@ -258,7 +258,6 @@ int saena_vector::return_vec(const value_t *u1, value_t *&u2){
 //    print_vector(orig_order, -1, "orig_order", comm);
 #endif
 
-    const index_t sz = get_size();
     const index_t orig_sz = orig_order.size();
 //    u2.resize(orig_order.size());
     if(u2 != nullptr)
@@ -488,12 +487,11 @@ int saena_vector::return_vec(const value_t *u1, value_t *&u2){
     return 0;
 }
 
-int saena_vector::return_vec(value_t *&u2){
+int saena_vector::return_vec(value_t *&u2, const index_t sz){
     // input:  u2
     // output: u2
 
     // copy u2 to u1
-    const index_t sz = get_size();
     auto *u1 = saena_aligned_alloc<value_t>(sz);
     std::copy(&u2[0], &u2[sz], &u1[0]);
 

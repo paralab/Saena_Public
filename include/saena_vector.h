@@ -85,7 +85,7 @@ public:
     index_t get_size() const;
     void get_vec(value_t *&vec);
     int return_vec(const value_t *u1, value_t *&u2);
-    int return_vec(value_t *&u);
+    int return_vec(value_t *&u, const index_t sz);
 
     int print_entry(int ran);
 };
