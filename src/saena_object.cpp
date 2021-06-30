@@ -4,7 +4,6 @@
 #include "strength_matrix.h"
 #include "grid.h"
 #include "aux_functions.h"
-#include "ietl_saena.h"
 #include "lamlan_saena.h"
 
 #include <random>

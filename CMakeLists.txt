@@ -106,6 +106,10 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${LAPACK_LIBRARIES})
 # -----------------------------------------------------------------------
 # MKL
 
+#if(NOT DEFINED ENV{MKLROOT})
+#    message( FATAL_ERROR "MKLROOT is not set! CMake will exit." )
+#endif(NOT DEFINED ENV{MKLROOT})
+
 set(MKLROOT $ENV{MKLROOT})
 include_directories(${MKLROOT}/include)
 
@@ -127,11 +131,10 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_LIB_CORE} ${MKL_LIB_L
 # -----------------------------------------------------------------------
 # IETL: eigensolver
 
-include_directories(external/ietl)
-
-set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
-        include/ietl_saena.h
-        )
+#include_directories(external/ietl)
+#set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
+#        include/ietl_saena.h
+#        )
 
 # -----------------------------------------------------------------------
 # Lambda Lanczos: eigensolver
