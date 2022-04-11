@@ -355,7 +355,9 @@ void saena::vector::get_vec(value_t *&vec){
 
 
 int saena::vector::return_vec(value_t *&u1, value_t *&u2){
-    m_pImpl->return_vec(u1, u2);
+    std::cout << "fix saena::vector::return_vec()" << std::endl;
+    exit(EXIT_FAILURE);
+    // m_pImpl->return_vec(u1, u2);
     return 0;
 }
 
@@ -753,7 +755,7 @@ int saena::amg::solve_smoother(value_t *&u, saena::options* opts){
                               opts->get_postSmooth());
     m_pImpl->solve_smoother(u);
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u, g->A->M);
+    g->rhs_orig->return_vec(u, g->A->M, g->A->split);
     return 0;
 }
 
@@ -762,7 +764,7 @@ int saena::amg::solve(value_t *&u, saena::options* opts){
                               opts->get_postSmooth());
     m_pImpl->solve(u);
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u, g->A->M);
+    g->rhs_orig->return_vec(u, g->A->M, g->A->split);
     return 0;
 }
 
@@ -772,14 +774,14 @@ int saena::amg::solve_CG(value_t *&u, saena::options* opts){
                               opts->get_postSmooth());
     m_pImpl->solve_CG(u);
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u, g->A->M);
+    g->rhs_orig->return_vec(u, g->A->M, g->A->split);
     return 0;
 }
 
 int saena::amg::solve_petsc(value_t *&u, saena::options* opts){
     m_pImpl->solve_petsc(u, opts->get_petsc_solver(), opts->get_tol());
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u, g->A->M);
+    g->rhs_orig->return_vec(u, g->A->M, g->A->split);
     return 0;
 }
 
@@ -792,7 +794,7 @@ int saena::amg::solve_pCG(value_t *&u, saena::options* opts, const bool print_in
 //        m_pImpl->add_boundary_sol(u); // TODO: this part should be fixed
     } else {
         Grid *g = &m_pImpl->grids[0];
-        g->rhs_orig->return_vec(u, g->A->M);
+        g->rhs_orig->return_vec(u, g->A->M, g->A->split);
     }
 
     return 0;
@@ -808,7 +810,7 @@ int saena::amg::solve_pCG_profile(value_t *&u, saena::options* opts){
 //        m_pImpl->add_boundary_sol(u); // TODO: this part should be fixed
     } else {
         Grid *g = &m_pImpl->grids[0];
-        g->rhs_orig->return_vec(u, g->A->M);
+        g->rhs_orig->return_vec(u, g->A->M, g->A->split);
     }
 
     return 0;
@@ -820,7 +822,7 @@ int saena::amg::solve_GMRES(value_t *&u, saena::options* opts){
                               opts->get_postSmooth());
     m_pImpl->GMRES(u);
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u, g->A->M);
+    g->rhs_orig->return_vec(u, g->A->M, g->A->split);
     return 0;
 }
 
@@ -830,7 +832,7 @@ int saena::amg::solve_pGMRES(value_t *&u, saena::options* opts){
                               opts->get_postSmooth());
     m_pImpl->pGMRES(u);
     Grid *g = &m_pImpl->grids[0];
-    g->rhs_orig->return_vec(u, g->A->M);
+    g->rhs_orig->return_vec(u, g->A->M, g->A->split);
     return 0;
 }
 

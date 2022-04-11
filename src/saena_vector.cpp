@@ -235,7 +235,7 @@ void saena_vector::get_vec(value_t *&v){
 }
 
 
-int saena_vector::return_vec(const value_t *u1, value_t *&u2){
+int saena_vector::return_vec(const value_t *u1, value_t *&u2, std::vector<index_t> &final_split){
     // input:  u1
     // output: u2
     // if it is run in serial, only do the permutation, otherwise communication is needed for the duplicates.
@@ -255,6 +255,7 @@ int saena_vector::return_vec(const value_t *u1, value_t *&u2){
     }
 //    print_vector(u1, -1, "u1", comm);
 //    print_vector(split, 0, "rhs split", comm);
+//    print_vector(final_split, 0, "rhs final_split", comm);
 //    print_vector(orig_order, -1, "orig_order", comm);
 #endif
 
@@ -284,14 +285,14 @@ int saena_vector::return_vec(const value_t *u1, value_t *&u2){
 
             for (index_t i = 0; i < orig_order.size(); i++) {
 //            if(rank==1) printf("%u \t%u\n", i, orig_order[i]);
-                if (orig_order[i] >= split[rank] && orig_order[i] < split[rank + 1]) {
-//                if(rank==1) printf("%u \t%u \t%f\n", i, orig_order[i], u1[orig_order[i]]);
-                    u2[i] = u1[orig_order[i] - split[rank]];
+                if (orig_order[i] >= final_split[rank] && orig_order[i] < final_split[rank + 1]) {
+                    // if(rank==0) printf("%u \t%u \t%e\n", i, orig_order[i], u1[orig_order[i] - final_split[rank]]);
+                    u2[i] = u1[orig_order[i] - final_split[rank]];
                 } else { // elements that should be received from other procs
                     remote_idx_tuple.emplace_back(i, orig_order[i]);
 //                    recv_idx.emplace_back(orig_order[i]);
 //                    remote_idx.emplace_back(i);
-                    procNum = lower_bound2(&split[0], &split[nprocs], orig_order[i]);
+                    procNum = lower_bound2(&final_split[0], &final_split[nprocs], orig_order[i]);
                     ++recvCount[procNum];
                 }
             }
@@ -410,7 +411,7 @@ int saena_vector::return_vec(const value_t *u1, value_t *&u2){
 #pragma omp parallel for
 #endif
             for (index_t i = 0; i < send_sz; i++) {
-                send_idx[i] -= split[rank];
+                send_idx[i] -= final_split[rank];
             }
 
             // send_vals = vector values to be sent to other procs
@@ -487,7 +488,7 @@ int saena_vector::return_vec(const value_t *u1, value_t *&u2){
     return 0;
 }
 
-int saena_vector::return_vec(value_t *&u2, const index_t sz){
+int saena_vector::return_vec(value_t *&u2, const index_t sz, std::vector<index_t> &final_split){
     // input:  u2
     // output: u2
 
@@ -495,7 +496,7 @@ int saena_vector::return_vec(value_t *&u2, const index_t sz){
     auto *u1 = saena_aligned_alloc<value_t>(sz);
     std::copy(&u2[0], &u2[sz], &u1[0]);
 
-    return_vec(u1, u2);
+    return_vec(u1, u2, final_split);
     saena_free(u1);
     return 0;
 }
