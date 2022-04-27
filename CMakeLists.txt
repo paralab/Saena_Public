@@ -46,15 +46,12 @@ ExternalProject_Add(superlu
   BINARY_DIR ${CMAKE_BINARY_DIR}/superlu-build
   DOWNLOAD_COMMAND ""
   UPDATE_COMMAND ""
-  CONIGURE_COMMAND ${CMAKE_EXECUTABLE} ${SuperLU_DIST_DIR} -Denable_blaslib=OFF -DCMAKE_INSTALL_PREFIX=.
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0 -Denable_blaslib=OFF -Denable_tests=OFF -Denable_examples=OFF -DCMAKE_INSTALL_PREFIX=.
   )
 
 set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
 set(SuperLU_DIST_LIB ${CMAKE_BINARY_DIR}/superlu-build/lib/libsuperlu_dist.a)
-include_directories(
-        ${SuperLU_DIST_DIR}/build/include
-        ${SuperLU_DIST_DIR}/SRC
-)
+include_directories(${CMAKE_BINARY_DIR}/superlu-build/include)
 
 SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${SuperLU_DIST_LIB})
 
@@ -112,9 +109,9 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${LAPACK_LIBRARIES})
 #    message( FATAL_ERROR "MKLROOT is not set! CMake will exit." )
 #endif(NOT DEFINED ENV{MKLROOT})
 
-#find_package(MKL REQUIRED)
-#include_directories(${MKL_INCLUDE_DIRS})
-#SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_CORE_LIBRARY})
+include(FindMKL)
+include_directories(${MKL_INCLUDE_DIRS})
+SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_INTEL} ${MKL_SEQUENTIAL} ${MKL_CORE})
 
 # -----------------------------------------------------------------------
 # IETL: eigensolver
@@ -288,5 +285,9 @@ set(CMAKE_INSTALL_RPATH "${CMAKE_BINARY_DIR}/build-metis/build_metis/lib"
 
 add_library(saena SHARED ${SAENA_SOURCE_FILES})
 target_link_libraries(saena ${SAENA_LIB_DEPENDENCIES})
+set_target_properties(saena PROPERTIES PUBLIC_HEADER "include/saena.hpp")
+add_dependencies(saena metis parmetis superlu)
 
-install(TARGETS saena DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/ThirdParty/dist/lib)
+install(TARGETS saena
+    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
