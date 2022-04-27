@@ -46,7 +46,7 @@ ExternalProject_Add(superlu
   BINARY_DIR ${CMAKE_BINARY_DIR}/superlu-build
   DOWNLOAD_COMMAND ""
   UPDATE_COMMAND ""
-  CONFIGURE_COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0 -Denable_blaslib=OFF -Denable_tests=OFF -Denable_examples=OFF -DCMAKE_INSTALL_PREFIX=.
+  CONFIGURE_COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0 -Denable_openmp=OFF -Denable_blaslib=ON -Denable_tests=OFF -Denable_examples=OFF -DCMAKE_INSTALL_PREFIX=.
   )
 
 set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
@@ -280,7 +280,7 @@ set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
 # Install Saena with rpath modified
 # Install Saena inside the ThirdParty libraris in Nektar++.
 # The following command tells where saena should look for its dependencies
-set(CMAKE_INSTALL_RPATH "${CMAKE_BINARY_DIR}/build-metis/build_metis/lib"
+set(CMAKE_INSTALL_RPATH "${CMAKE_BINARY_DIR}/metis-build/build_metis/lib"
     "${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/${CMAKE_INSTALL_LIBDIR}")
 
 add_library(saena SHARED ${SAENA_SOURCE_FILES})
