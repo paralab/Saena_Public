@@ -46,12 +46,20 @@ ExternalProject_Add(superlu
   BINARY_DIR ${CMAKE_BINARY_DIR}/superlu-build
   DOWNLOAD_COMMAND ""
   UPDATE_COMMAND ""
-  CONFIGURE_COMMAND ${CMAKE_COMMAND} -G ${CMAKE_GENERATOR} ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0 -Denable_openmp=OFF -Denable_blaslib=ON -Denable_tests=OFF -Denable_examples=OFF -DCMAKE_INSTALL_PREFIX=.
+  CONFIGURE_COMMAND ${CMAKE_COMMAND}
+      -G ${CMAKE_GENERATOR}
+      -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
+      -Denable_openmp=OFF
+      -Denable_blaslib=ON
+      -Denable_tests=OFF
+      -Denable_examples=OFF
+      -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/external
+      ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0
   )
 
 set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
-set(SuperLU_DIST_LIB ${CMAKE_BINARY_DIR}/superlu-build/lib/libsuperlu_dist.a)
-include_directories(${CMAKE_BINARY_DIR}/superlu-build/include)
+set(SuperLU_DIST_LIB ${CMAKE_BINARY_DIR}/external/lib/libsuperlu_dist.a)
+include_directories(${CMAKE_BINARY_DIR}/external/include)
 
 SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${SuperLU_DIST_LIB})
 
@@ -63,25 +71,34 @@ ExternalProject_Add(metis
   BINARY_DIR ${CMAKE_BINARY_DIR}/metis-build
   DOWNLOAD_COMMAND ""
   UPDATE_COMMAND ""
-  CONFIGURE_COMMAND make config -C ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3/metis prefix=${CMAKE_BINARY_DIR}/metis-build
-  BUILD_COMMAND cd ${CMAKE_BINARY_DIR}/metis-build/build_metis && make
-  INSTALL_COMMAND cd ${CMAKE_BINARY_DIR}/metis-build/build_metis && make install
-  )
+  CONFIGURE_COMMAND ${CMAKE_COMMAND}
+      -G ${CMAKE_GENERATOR}
+      -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
+      -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
+      -DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}
+      -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external
+      -DGKLIB_PATH:PATH=${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3/metis/GKlib
+      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3/metis
+      )
+
 ExternalProject_Add(parmetis
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3
   BINARY_DIR ${CMAKE_BINARY_DIR}/parmetis-build
   DOWNLOAD_COMMAND ""
   UPDATE_COMMAND ""
-  CONFIGURE_COMMAND make config -C ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3 prefix=${CMAKE_BINARY_DIR}/parmetis-build
-  BUILD_COMMAND cd ${CMAKE_BINARY_DIR}/parmetis-build/build_parmetis && make
-  INSTALL_COMMAND cd ${CMAKE_BINARY_DIR}/parmetis-build/build_parmetis && make install
+  CONFIGURE_COMMAND ${CMAKE_COMMAND}
+      -G ${CMAKE_GENERATOR}
+      -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
+      -DCMAKE_C_COMPILER:FILEPATH=${MPI_C_COMPILER}
+      -DCMAKE_CXX_COMPILER:FILEPATH=${MPI_CXX_COMPILER}
+      -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external
+      -DMETIS_PATH:PATH=${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3/metis
+      -DGKLIB_PATH:PATH=${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3/metis/GKlib
+      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3
   )
 
-#set(PARMETIS_ROOT_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
-set(METIS_LIBRARY_SAENA    ${CMAKE_BINARY_DIR}/metis-build/build_metis/lib/libmetis.so)
-set(PARMETIS_LIBRARY_SAENA ${CMAKE_BINARY_DIR}/parmetis-build/build_parmetis/lib/libparmetis.a)
-#set(METIS_INCLUDE_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/include)
-#set(PARMETIS_INCLUDE_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/build/build_parmetis/include)
+set(METIS_LIBRARY_SAENA    ${CMAKE_BINARY_DIR}/external/lib/libmetis.so)
+set(PARMETIS_LIBRARY_SAENA ${CMAKE_BINARY_DIR}/external/lib/libparmetis.a)
 
 SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA})
 
@@ -128,7 +145,7 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_INTEL} ${MKL_SEQUENTI
 set(LAMLAN_DIR external/lambda_lanczos)
 include_directories(${LAMLAN_DIR}/include/lambda_lanczos)
 set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
-        ${SAENA_INCLUDE_DIR}/lamlan_saena.h
+        include/lamlan_saena.h
         )
 
 # -----------------------------------------------------------------------
@@ -285,7 +302,7 @@ set(CMAKE_INSTALL_RPATH "${CMAKE_BINARY_DIR}/metis-build/build_metis/lib"
 
 add_library(saena SHARED ${SAENA_SOURCE_FILES})
 target_link_libraries(saena ${SAENA_LIB_DEPENDENCIES})
-set_target_properties(saena PROPERTIES PUBLIC_HEADER "include/saena.hpp")
+set_target_properties(saena PROPERTIES PUBLIC_HEADER "${SAENA_HEADER_FILES}")
 add_dependencies(saena metis parmetis superlu)
 
 install(TARGETS saena
