@@ -129,7 +129,7 @@ int saena_object::set_repartition_rhs(std::vector<value_t> rhs0){
     bool repartition_local = true;
     if(start_proc == end_proc)
         repartition_local = false;
-    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_CXX_BOOL, MPI_LOR, comm);
+    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_C_BOOL, MPI_LOR, comm);
 //    printf("rank = %d, repartition_local = %d, repartition = %d \n", rank, repartition_local, repartition);
 
     // todo: replace Alltoall with a for loop of send and recv.
@@ -326,7 +326,7 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
     bool repartition_local = true;
     if(start_proc == end_proc)
         repartition_local = false;
-    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_CXX_BOOL, MPI_LOR, comm);
+    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_C_BOOL, MPI_LOR, comm);
 //    printf("rank = %d, repartition_local = %d, repartition = %d \n", rank, repartition_local, repartition);
 
     // todo: replace Alltoall with a for loop of send and recv.
@@ -498,7 +498,7 @@ int saena_object::repart_vector(value_t *&v, index_t &sz, vector<index_t> &split
     bool repartition_local = true;
     if(start_proc == end_proc)
         repartition_local = false;
-    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_CXX_BOOL, MPI_LOR, comm);
+    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_C_BOOL, MPI_LOR, comm);
 //    printf("rank = %d, repartition_local = %d, repartition = %d \n", rank, repartition_local, repartition);
 
 //    print_vector(v, -1, "v inside repartition", comm);

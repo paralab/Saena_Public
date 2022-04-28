@@ -607,7 +607,7 @@ int repart_vector(value_t *&v, index_t &sz, vector<index_t> &split, MPI_Comm com
     bool repartition_local = true, repartition = true;
     if(start_proc == end_proc)
         repartition_local = false;
-    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_CXX_BOOL, MPI_LOR, comm);
+    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_C_BOOL, MPI_LOR, comm);
 //    printf("rank = %d, repartition_local = %d, repartition = %d \n", rank, repartition_local, repartition);
 
 //    print_vector(v, -1, "v inside repartition", comm);

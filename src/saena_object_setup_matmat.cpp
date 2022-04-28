@@ -3,7 +3,7 @@
 #include "strength_matrix.h"
 #include "GR_encoder.h"
 
-#include <mkl_spblas.h>
+#include <mkl/mkl_spblas.h>
 
 //#define MATMAT_TIME
 

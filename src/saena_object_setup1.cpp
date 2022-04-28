@@ -853,7 +853,7 @@ int saena_object::aggregation_1_dist(strength_matrix *S, std::vector<index_t> &a
             }
 
             for (i = 0; i < S->numRecvProc; ++i){
-                MPI_Irecv(&vecValues[S->rdispls[S->recvProcRank[i]]], S->recvProcCount[i], MPI_CXX_BOOL,
+                MPI_Irecv(&vecValues[S->rdispls[S->recvProcRank[i]]], S->recvProcCount[i], MPI_C_BOOL,
                           S->recvProcRank[i], 1, comm, &requests[i]);
                 MPI_Test(&requests[i], &MPI_flag, MPI_STATUSES_IGNORE);
             }
@@ -861,7 +861,7 @@ int saena_object::aggregation_1_dist(strength_matrix *S, std::vector<index_t> &a
 
             MPI_Request *requests_p = &requests[S->numRecvProc];
             for (i = 0; i < S->numSendProc; ++i){
-                MPI_Isend(&vSend[S->vdispls[S->sendProcRank[i]]], S->sendProcCount[i], MPI_CXX_BOOL,
+                MPI_Isend(&vSend[S->vdispls[S->sendProcRank[i]]], S->sendProcCount[i], MPI_C_BOOL,
                           S->sendProcRank[i], 1, comm, &requests_p[i]);
                 MPI_Test(&requests_p[i], &MPI_flag, MPI_STATUSES_IGNORE);
             }
@@ -921,7 +921,7 @@ int saena_object::aggregation_1_dist(strength_matrix *S, std::vector<index_t> &a
 
         // check if every processor does not have any non-assigned node, otherwise all the processors should continue aggregating.
         if(nprocs > 1){
-            MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_CXX_BOOL, MPI_LOR, comm);
+            MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_C_BOOL, MPI_LOR, comm);
         }else{
             continueAgg = continueAggLocal;
         }
@@ -1234,11 +1234,11 @@ int saena_object::aggregation_1_dist_orig(strength_matrix *S, std::vector<index_
             }
 
             for (i = 0; i < S->numRecvProc; ++i)
-                MPI_Irecv(&vecValues[S->rdispls[S->recvProcRank[i]]], S->recvProcCount[i], MPI_CXX_BOOL,
+                MPI_Irecv(&vecValues[S->rdispls[S->recvProcRank[i]]], S->recvProcCount[i], MPI_C_BOOL,
                           S->recvProcRank[i], 1, comm, &requests[i]);
 
             for (i = 0; i < S->numSendProc; ++i)
-                MPI_Isend(&vSend[S->vdispls[S->sendProcRank[i]]], S->sendProcCount[i], MPI_CXX_BOOL,
+                MPI_Isend(&vSend[S->vdispls[S->sendProcRank[i]]], S->sendProcCount[i], MPI_C_BOOL,
                           S->sendProcRank[i], 1, comm, &requests[S->numRecvProc + i]);
 
             MPI_Waitall(S->numRecvProc, requests, statuses);
@@ -1295,7 +1295,7 @@ int saena_object::aggregation_1_dist_orig(strength_matrix *S, std::vector<index_
 
         // check if every processor does not have any non-assigned node, otherwise all the processors should continue aggregating.
         if(nprocs > 1){
-            MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_CXX_BOOL, MPI_LOR, comm);
+            MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_C_BOOL, MPI_LOR, comm);
         }else{
             continueAgg = continueAggLocal;
         }
@@ -1915,7 +1915,7 @@ int saena_object::aggregation_2_dist(strength_matrix *S, std::vector<unsigned lo
 //        if(whileiter==15) continueAggLocal = false;
 
         // check if every processor does not have any non-assigned node, otherwise all the processors should continue aggregating.
-        MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_CXX_BOOL, MPI_LOR, comm);
+        MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_C_BOOL, MPI_LOR, comm);
 
         if(continueAgg){
             for (i = 0; i < size; ++i) {
