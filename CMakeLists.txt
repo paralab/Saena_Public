@@ -248,6 +248,7 @@ set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
         include/saena.hpp
         include/aux_functions.h
         include/aux_functions2.h
+        include/combblas_functions.h
         include/data_struct.h
         include/saena_matrix.h
         include/saena_matrix.tpp
