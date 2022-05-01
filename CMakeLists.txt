@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.3)
 project(Saena)
 
+SET(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake ${CMAKE_MODULE_PATH})
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
@@ -9,34 +10,8 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 # Build Type
 
 IF(NOT CMAKE_BUILD_TYPE)
-        SET(CMAKE_BUILD_TYPE Release)
+    SET(CMAKE_BUILD_TYPE Release)
 ENDIF()
-
-IF(CMAKE_BUILD_TYPE STREQUAL Release)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -O3")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3")
-#    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS}   -O3 -axCORE-AVX512,CORE-AVX2,AVX -xSSE4.2 -g -parallel-source-info=2 -shared-intel")
-#    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 -axCORE-AVX512,CORE-AVX2,AVX -xSSE4.2 -g -parallel-source-info=2 -shared-intel")
-ENDIF()
-
-IF(CMAKE_BUILD_TYPE STREQUAL Debug)
-    add_definitions(-D__DEBUG1__)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g")
-ENDIF()
-
-#message(--\ Saena:\ CMAKE_BUILD_TYPE:\ ${CMAKE_BUILD_TYPE})
-
-# -----------------------------------------------------------------------
-# BOOST
-
-#find_package(BOOST REQUIRED)
-#message(STATUS BOOST found: ${BOOST_LIBRARIES})
-#include_directories(${Boost_INCLUDE_DIRS})
-
-# first: module load boost
-#set(BOOST_INC_DIR $ENV{TACC_BOOST_INC})
-#include_directories(${BOOST_INC_DIR})
 
 # -----------------------------------------------------------------------
 # OpenMP
@@ -54,7 +29,6 @@ endif()
 
 # -----------------------------------------------------------------------
 # MPI
-
 find_package(MPI REQUIRED)
 include_directories(${MPI_INCLUDE_PATH})
 
@@ -63,25 +37,68 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MPI_LIBRARIES})
 # -----------------------------------------------------------------------
 # Dependencies
 # -----------------------------------------------------------------------
+
+include(ExternalProject)
+
 # SuperLU
+ExternalProject_Add(superlu
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0
+  BINARY_DIR ${CMAKE_BINARY_DIR}/superlu-build
+  DOWNLOAD_COMMAND ""
+  UPDATE_COMMAND ""
+  CONFIGURE_COMMAND ${CMAKE_COMMAND}
+      -G ${CMAKE_GENERATOR}
+      -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
+      -Denable_openmp=OFF
+      -Denable_blaslib=ON
+      -Denable_tests=OFF
+      -Denable_examples=OFF
+      -DCMAKE_INSTALL_PREFIX=${CMAKE_BINARY_DIR}/external
+      ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0
+  )
 
 set(SuperLU_DIST_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/SuperLU_DIST_5.4.0)
-set(SuperLU_DIST_LIB ${CMAKE_CURRENT_SOURCE_DIR}/build/build_superlu/lib/libsuperlu_dist.a)
-include_directories(
-        ${SuperLU_DIST_DIR}/build/include
-        ${SuperLU_DIST_DIR}/SRC
-)
+set(SuperLU_DIST_LIB ${CMAKE_BINARY_DIR}/external/lib/libsuperlu_dist.a)
+include_directories(${CMAKE_BINARY_DIR}/external/include)
 
 SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${SuperLU_DIST_LIB})
 
 # -----------------------------------------------------------------------
 # METIS and PARMETIS
 
-#set(PARMETIS_ROOT_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3)
-set(METIS_LIBRARY_SAENA    ${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/lib/libmetis.so)
-set(PARMETIS_LIBRARY_SAENA ${CMAKE_CURRENT_SOURCE_DIR}/build/build_parmetis/lib/libparmetis.a)
-#set(METIS_INCLUDE_DIR      ${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/include)
-#set(PARMETIS_INCLUDE_DIR   ${CMAKE_CURRENT_SOURCE_DIR}/build/build_parmetis/include)
+ExternalProject_Add(metis
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3/metis
+  BINARY_DIR ${CMAKE_BINARY_DIR}/metis-build
+  DOWNLOAD_COMMAND ""
+  UPDATE_COMMAND ""
+  CONFIGURE_COMMAND ${CMAKE_COMMAND}
+      -G ${CMAKE_GENERATOR}
+      -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
+      -DCMAKE_C_COMPILER:FILEPATH=${CMAKE_C_COMPILER}
+      -DCMAKE_CXX_COMPILER:FILEPATH=${CMAKE_CXX_COMPILER}
+      -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external
+      -DGKLIB_PATH:PATH=${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3/metis/GKlib
+      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3/metis
+      )
+
+ExternalProject_Add(parmetis
+  SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3
+  BINARY_DIR ${CMAKE_BINARY_DIR}/parmetis-build
+  DOWNLOAD_COMMAND ""
+  UPDATE_COMMAND ""
+  CONFIGURE_COMMAND ${CMAKE_COMMAND}
+      -G ${CMAKE_GENERATOR}
+      -DCMAKE_BUILD_TYPE:STRING=${CMAKE_BUILD_TYPE}
+      -DCMAKE_C_COMPILER:FILEPATH=${MPI_C_COMPILER}
+      -DCMAKE_CXX_COMPILER:FILEPATH=${MPI_CXX_COMPILER}
+      -DCMAKE_INSTALL_PREFIX:PATH=${CMAKE_BINARY_DIR}/external
+      -DMETIS_PATH:PATH=${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3/metis
+      -DGKLIB_PATH:PATH=${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3/metis/GKlib
+      ${CMAKE_CURRENT_SOURCE_DIR}/external/parmetis-4.0.3
+  )
+
+set(METIS_LIBRARY_SAENA    ${CMAKE_BINARY_DIR}/external/lib/libmetis.so)
+set(PARMETIS_LIBRARY_SAENA ${CMAKE_BINARY_DIR}/external/lib/libparmetis.a)
 
 SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${PARMETIS_LIBRARY_SAENA} ${METIS_LIBRARY_SAENA})
 
@@ -99,7 +116,6 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${BLAS_LIBRARIES})
 find_package(LAPACK REQUIRED)
 message( STATUS LAPACK found: ${LAPACK_LIBRARIES} )
 include_directories(${LAPACK_INCLUDE_PATH})
-#set(LAPACK_LIB /usr/lib/openblas-base/liblapack.a)
 
 SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${LAPACK_LIBRARIES})
 
@@ -110,23 +126,9 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${LAPACK_LIBRARIES})
 #    message( FATAL_ERROR "MKLROOT is not set! CMake will exit." )
 #endif(NOT DEFINED ENV{MKLROOT})
 
-set(MKLROOT $ENV{MKLROOT})
-include_directories(${MKLROOT}/include)
-
-set(MKL_LIB_DIR    "${MKLROOT}/lib/intel64_lin")
-
-set(MKL_LIB_CORE   "${MKL_LIB_DIR}/libmkl_core.so")
-set(MKL_LIB_LP64   "${MKL_LIB_DIR}/libmkl_intel_lp64.so")
-
-set(MKL_LIB_THREAD "${MKL_LIB_DIR}/libmkl_gnu_thread.so")
-#set(MKL_LIB_THREAD "${MKL_LIB_DIR}/libmkl_intel_thread.so")
-
-#set(MKL_LIB_BLACS "${MKL_LIB_DIR}/libmkl_blacs_intelmpi_lp64.so")
-#set(MKL_LIB_BLACS "${MKL_LIB_DIR}/libmkl_blacs_openmpi_lp64.so")
-
-#set(MKL_OMP "/opt/intel/compilers_and_libraries_2020.0.166/linux/compiler/lib/intel64_lin/libiomp5.so")
-
-SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_LIB_CORE} ${MKL_LIB_LP64} ${MKL_LIB_THREAD})
+include(FindMKL)
+include_directories(${MKL_INCLUDE_DIRS})
+SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_INTEL} ${MKL_SEQUENTIAL} ${MKL_CORE})
 
 # -----------------------------------------------------------------------
 # IETL: eigensolver
@@ -143,7 +145,7 @@ SET(SAENA_LIB_DEPENDENCIES ${SAENA_LIB_DEPENDENCIES} ${MKL_LIB_CORE} ${MKL_LIB_L
 set(LAMLAN_DIR external/lambda_lanczos)
 include_directories(${LAMLAN_DIR}/include/lambda_lanczos)
 set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
-        ${SAENA_INCLUDE_DIR}/lamlan_saena.h
+        include/lamlan_saena.h
         )
 
 # -----------------------------------------------------------------------
@@ -246,6 +248,7 @@ set(SAENA_HEADER_FILES ${SAENA_HEADER_FILES}
         include/saena.hpp
         include/aux_functions.h
         include/aux_functions2.h
+        include/combblas_functions.h
         include/data_struct.h
         include/saena_matrix.h
         include/saena_matrix.tpp
@@ -291,22 +294,18 @@ set(SAENA_SOURCE_FILES ${SAENA_SOURCE_FILES}
         )
 
 # -----------------------------------------------------------------------
-# NEKTAR++
-
-#ADD_NEKTAR_LIBRARY(Saena
-#        SOURCES ${SAENA_SOURCE_FILES}
-#        HEADERS ${SAENA_HEADER_FILES}
-#        SUMMARY "Nektar++ Saena fast multigrid solver library"
-#        DESCRIPTION "This library provides fast multigrid solves.")
-
-# -----------------------------------------------------------------------
 
 # Install Saena with rpath modified
 # Install Saena inside the ThirdParty libraris in Nektar++.
 # The following command tells where saena should look for its dependencies
-set(CMAKE_INSTALL_RPATH "/usr/local/lib" "${CMAKE_CURRENT_SOURCE_DIR}/build/build_metis/lib"
-        "${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/${CMAKE_INSTALL_LIBDIR}")
+set(CMAKE_INSTALL_RPATH "${CMAKE_BINARY_DIR}/metis-build/build_metis/lib"
+    "${CMAKE_CURRENT_SOURCE_DIR}/build/build_zfp/${CMAKE_INSTALL_LIBDIR}")
 
 add_library(saena SHARED ${SAENA_SOURCE_FILES})
 target_link_libraries(saena ${SAENA_LIB_DEPENDENCIES})
-install(TARGETS saena DESTINATION ${CMAKE_CURRENT_SOURCE_DIR}/../../../build/ThirdParty/dist/lib)
+set_target_properties(saena PROPERTIES PUBLIC_HEADER "${SAENA_HEADER_FILES}")
+add_dependencies(saena metis parmetis superlu)
+
+install(TARGETS saena
+    LIBRARY DESTINATION ${CMAKE_INSTALL_PREFIX}/lib
+    PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_PREFIX}/include)
