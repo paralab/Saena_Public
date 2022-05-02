@@ -126,26 +126,26 @@ namespace saena {
 
     class options {
     private:
-        int    solver_max_iter;// = 500;
-        double relative_tol;//    = 1e-8;
-        std::string smoother;//   = "chebyshev";
-        int    preSmooth;//       = 3;
-        int    postSmooth;//      = 3;
-        std::string PSmoother;//  = "jacobi";       // "jacobi", "SPAI"
-        float  connStrength;//    = 0.3;            // connection strength parameter: control coarsening aggressiveness
-        bool   dynamic_levels;//  = true;
-        int    max_level;//       = 20;     // fine grid is level 0.
-        int    float_level;//     = 3;      // any matrix after this level will use single-precision matvec
-        double filter_thre;//     = 1e-14;
-        double filter_max;//      = 1e-8;
-        int    filter_start;//    = 1;
-        int    filter_rate;//     = 2;
-//        bool   switch_repart   = false;
-//        float  repart_thre     = 0.1;
-        bool   switch_to_dense;// = false;
-        float  dense_thre; //      = 0.1; // (0 < dense_thre <= 1) decide when to switch to the dense structure.
-        int    dense_sz_thre; //   = 5000;
-        string petsc_solver; // "", "gamg", "ml", "boomerAMG", "dcg". option "" means don't use petsc.
+        int    solver_max_iter;
+        double relative_tol;
+        std::string smoother;
+        int    preSmooth;
+        int    postSmooth;
+        std::string PSmoother;      // "jacobi", "SPAI"
+        float  connStrength;        // connection strength parameter: control coarsening aggressiveness
+        bool   dynamic_levels;
+        int    max_level;           // fine grid is level 0.
+        int    float_level;         // any matrix after this level will use single-precision matvec
+        double filter_thre;
+        double filter_max;
+        int    filter_start;
+        int    filter_rate;
+    //        bool   switch_repart;
+    //        float  repart_thre;
+        bool   switch_to_dense;
+        float  dense_thre;          // (0 < dense_thre <= 1) decide when to switch to the dense structure.
+        int    dense_sz_thre;
+        string petsc_solver;        // "", "gamg", "ml", "boomerAMG", "dcg". option "" means don't use petsc.
 
     public:
         explicit options(int max_iter = 100, double relative_tol = 1e-8, std::string smoother = "chebyshev",

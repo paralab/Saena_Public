@@ -1,4 +1,55 @@
 <?xml version="1.0" encoding="utf-8" ?>
+
+<!--
+options for smoother: "jacobi", "chebyshev".
+
+preSmooth: number of pre-smoothing
+
+preSmooth: number of post-smoothing
+
+PSmoother: Operartor smoother. options: "jacobi", "SPAI".
+
+conn_str: connection strength parameter. The higher it is, the denser the matrices become, so more expensive each vcycle becomes. (Only for h-coarsening?)
+
+dynamic_levels: Set it to "1" to let Saena decide about the number of multigrid levels. To disable set it to "0".
+
+max_level: maximum number of multigrid levels.
+
+float_level: switch from double to float matvec, so each matvec since that level and above will be cheaper but less accurate. Set it to a big number to disable this feature.
+
+filter_thre: filter out (remove) matrix entries less than this threshold.
+
+filter_max: filter_thre does not get larger than filter_max
+
+filter_start: filtering starts at this level. cannot filter level 0. so it should be >= 1. Set it to a big number to disable filtering.
+
+filter_rate: filter_thre will get larger with rate 10^filter_rate. Set it higher for a more aggresive filtering.
+
+switch_to_dense: Set it to "1" to enable switching from sparse to dense matvec. Otherwise, set it to "0".
+
+dense_thre: the density threshold to switch to dense matvec
+
+options for petsc: "", "gamg", "ml", "boomerAMG", "dcg", "all"
+-->
+
 <SAENA>
-    <OPTIONS vcycle_num="400" relative_tolerance="1e-8" smoother="chebyshev" preSmooth="3" postSmooth="3" />
+    <OPTIONS
+	solver_max_iter="200"
+	solver_tol="1e-8"
+	smoother="chebyshev"
+	preSmooth="3"
+	postSmooth="3"
+	PSmoother="SPAI"
+	conn_str="0.3"
+	dynamic_levels="1"
+	max_level="20"
+	float_level="10"
+	filter_thre="1e-14"
+	filter_max="1e-8"
+	filter_start="10"
+	filter_rate="2"
+	switch_to_dense="0"
+	dense_thre="0.1"
+	dense_sz_thre="5000"
+	petsc=""/>
 </SAENA>
