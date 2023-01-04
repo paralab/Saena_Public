@@ -747,27 +747,27 @@ int saena_object::aggregation_1_dist(strength_matrix *S, std::vector<index_t> &a
     std::vector<index_t> aggregate2(size);
     std::vector<value_t> aggval(size);
 
-    auto *decided = new bool[size];
+    auto *decided = new unsigned char[size];
     assert(decided != nullptr);
-    fill(&decided[0], &decided[size], false);
+    fill(&decided[0], &decided[size], 0);
 
-    auto *dec_nei = new bool[size]; // decided_neighbor
+    auto *dec_nei = new unsigned char[size]; // decided_neighbor
     assert(dec_nei != nullptr);
 
-    auto *is_root = new bool[size];
+    auto *is_root = new unsigned char[size];
     assert(is_root != nullptr);
-    fill(&is_root[0], &is_root[size], false);
+    fill(&is_root[0], &is_root[size], 0);
 
-    auto *is_root_nei = new bool[size];
+    auto *is_root_nei = new unsigned char[size];
     assert(is_root_nei != nullptr);
 
-    auto *vSend = new bool[2 * sendsz];
+    auto *vSend = new unsigned char[2 * sendsz];
     assert(vSend != nullptr);
 
-    auto *vecValues = new bool[2 * S->recvSize];
+    auto *vecValues = new unsigned char[2 * S->recvSize];
     assert(vecValues != nullptr);
 
-    bool continueAggLocal = true, continueAgg = true;
+    unsigned char continueAggLocal = 1, continueAgg = 1;
     index_t i = 0, j = 0, it = 0;
 
     auto *requests = new MPI_Request[S->numSendProc + S->numRecvProc];
@@ -806,8 +806,8 @@ int saena_object::aggregation_1_dist(strength_matrix *S, std::vector<index_t> &a
             if(!decided[i]) {
                 aggregate2[i]  = aggregate[i];
 //                aggval[i]      = -DBL_MAX;
-                dec_nei[i]     = true;
-                is_root_nei[i] = false;
+                dec_nei[i]     = 1;
+                is_root_nei[i] = 0;
                 for (j = 0; j < S->nnzPerRow_local[i]; ++j, ++it) {
                     const index_t col_idx = S->col_local[it];
 #ifdef __DEBUG1__
@@ -853,7 +853,7 @@ int saena_object::aggregation_1_dist(strength_matrix *S, std::vector<index_t> &a
             }
 
             for (i = 0; i < S->numRecvProc; ++i){
-                MPI_Irecv(&vecValues[S->rdispls[S->recvProcRank[i]]], S->recvProcCount[i], MPI_C_BOOL,
+                MPI_Irecv(&vecValues[S->rdispls[S->recvProcRank[i]]], S->recvProcCount[i], MPI_UNSIGNED_CHAR,
                           S->recvProcRank[i], 1, comm, &requests[i]);
                 MPI_Test(&requests[i], &MPI_flag, MPI_STATUSES_IGNORE);
             }
@@ -861,7 +861,7 @@ int saena_object::aggregation_1_dist(strength_matrix *S, std::vector<index_t> &a
 
             MPI_Request *requests_p = &requests[S->numRecvProc];
             for (i = 0; i < S->numSendProc; ++i){
-                MPI_Isend(&vSend[S->vdispls[S->sendProcRank[i]]], S->sendProcCount[i], MPI_C_BOOL,
+                MPI_Isend(&vSend[S->vdispls[S->sendProcRank[i]]], S->sendProcCount[i], MPI_UNSIGNED_CHAR,
                           S->sendProcRank[i], 1, comm, &requests_p[i]);
                 MPI_Test(&requests_p[i], &MPI_flag, MPI_STATUSES_IGNORE);
             }
@@ -900,9 +900,9 @@ int saena_object::aggregation_1_dist(strength_matrix *S, std::vector<index_t> &a
 //                    i, aggregate[i], aggregate2[i], dec_nei[i], is_root_nei[i]);
 
             if(!decided[i] && dec_nei[i]){
-                decided[i] = true;
+                decided[i] = 1;
                 if(aggregate[i] == aggregate2[i]){
-                    is_root[i] = true;
+                    is_root[i] = 1;
                     aggArray.emplace_back(aggregate[i]);
                 }else if(is_root_nei[i]){
                     aggregate[i] = aggregate2[i];
@@ -910,18 +910,18 @@ int saena_object::aggregation_1_dist(strength_matrix *S, std::vector<index_t> &a
             }
         }
 
-        continueAggLocal = false;
+        continueAggLocal = 0;
         for (i = 0; i < size; ++i) {
             // if any un-assigned node is available, continue aggregating.
             if(!decided[i]) {
-                continueAggLocal = true;
+                continueAggLocal = 1;
                 break;
             }
         }
 
         // check if every processor does not have any non-assigned node, otherwise all the processors should continue aggregating.
         if(nprocs > 1){
-            MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_C_BOOL, MPI_LOR, comm);
+            MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_UNSIGNED_CHAR, MPI_LOR, comm);
         }else{
             continueAgg = continueAggLocal;
         }
@@ -1133,27 +1133,27 @@ int saena_object::aggregation_1_dist_orig(strength_matrix *S, std::vector<index_
     index_t size = S->M;
     std::vector<index_t> aggregate2(size);
 
-    auto *decided = new bool[size];
+    auto *decided = new unsigned char[size];
     assert(decided != nullptr);
-    fill(&decided[0], &decided[size], false);
+    fill(&decided[0], &decided[size], 0);
 
-    auto *dec_nei = new bool[size]; // decided_neighbor
+    auto *dec_nei = new unsigned char[size]; // decided_neighbor
     assert(dec_nei != nullptr);
 
-    auto *is_root = new bool[size];
+    auto *is_root = new unsigned char[size];
     assert(is_root != nullptr);
-    fill(&is_root[0], &is_root[size], false);
+    fill(&is_root[0], &is_root[size], 0);
 
-    auto *is_root_nei = new bool[size];
+    auto *is_root_nei = new unsigned char[size];
     assert(is_root_nei != nullptr);
 
-    auto *vSend = new bool[2 * S->vIndexSize];
+    auto *vSend = new unsigned char[2 * S->vIndexSize];
     assert(vSend != nullptr);
 
-    auto *vecValues = new bool[2 * S->recvSize];
+    auto *vecValues = new unsigned char[2 * S->recvSize];
     assert(vecValues != nullptr);
 
-    bool continueAggLocal = true, continueAgg = true;
+    unsigned char continueAggLocal = 1, continueAgg = 1;
     index_t i = 0, j = 0, i_remote = 0, j_remote = 0, it = 0, col_idx = 0;
 
     auto *requests = new MPI_Request[S->numSendProc + S->numRecvProc];
@@ -1191,8 +1191,8 @@ int saena_object::aggregation_1_dist_orig(strength_matrix *S, std::vector<index_
         for (i = 0; i < size; ++i) {
             if(!decided[i]) {
                 aggregate2[i]  = aggregate[i];
-                dec_nei[i]     = true;
-                is_root_nei[i] = false;
+                dec_nei[i]     = 1;
+                is_root_nei[i] = 0;
                 for (j = 0; j < S->nnzPerRow_local[i]; ++j, ++it) {
 //                    col_idx = S->col_local[it] - S->split[rank];
                     col_idx = S->col_local[it];
@@ -1234,11 +1234,11 @@ int saena_object::aggregation_1_dist_orig(strength_matrix *S, std::vector<index_
             }
 
             for (i = 0; i < S->numRecvProc; ++i)
-                MPI_Irecv(&vecValues[S->rdispls[S->recvProcRank[i]]], S->recvProcCount[i], MPI_C_BOOL,
+                MPI_Irecv(&vecValues[S->rdispls[S->recvProcRank[i]]], S->recvProcCount[i], MPI_UNSIGNED_CHAR,
                           S->recvProcRank[i], 1, comm, &requests[i]);
 
             for (i = 0; i < S->numSendProc; ++i)
-                MPI_Isend(&vSend[S->vdispls[S->sendProcRank[i]]], S->sendProcCount[i], MPI_C_BOOL,
+                MPI_Isend(&vSend[S->vdispls[S->sendProcRank[i]]], S->sendProcCount[i], MPI_UNSIGNED_CHAR,
                           S->sendProcRank[i], 1, comm, &requests[S->numRecvProc + i]);
 
             MPI_Waitall(S->numRecvProc, requests, statuses);
@@ -1274,9 +1274,9 @@ int saena_object::aggregation_1_dist_orig(strength_matrix *S, std::vector<index_
 //                    i, aggregate[i], aggregate2[i], dec_nei[i], is_root_nei[i]);
 
             if(!decided[i] && dec_nei[i]){
-                decided[i] = true;
+                decided[i] = 1;
                 if(aggregate[i] == aggregate2[i]){
-                    is_root[i] = true;
+                    is_root[i] = 1;
                     aggArray.emplace_back(aggregate[i]);
                 }else if(is_root_nei[i]){
                     aggregate[i] = aggregate2[i];
@@ -1284,18 +1284,18 @@ int saena_object::aggregation_1_dist_orig(strength_matrix *S, std::vector<index_
             }
         }
 
-        continueAggLocal = false;
+        continueAggLocal = 0;
         for (i = 0; i < size; ++i) {
             // if any un-assigned node is available, continue aggregating.
             if(!decided[i]) {
-                continueAggLocal = true;
+                continueAggLocal = 1;
                 break;
             }
         }
 
         // check if every processor does not have any non-assigned node, otherwise all the processors should continue aggregating.
         if(nprocs > 1){
-            MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_C_BOOL, MPI_LOR, comm);
+            MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_UNSIGNED_CHAR, MPI_LOR, comm);
         }else{
             continueAgg = continueAggLocal;
         }
@@ -1902,11 +1902,11 @@ int saena_object::aggregation_2_dist(strength_matrix *S, std::vector<unsigned lo
 //        }
 
         // todo: merge this loop with the previous one.
-        continueAggLocal = false;
+        continueAggLocal = 0;
         for (i = 0; i < size; ++i) {
             // if any un-assigned node is available, continue aggregating.
             if(weight[i]&UNDECIDED) {
-                continueAggLocal = true;
+                continueAggLocal = 1;
                 break;
             }
         }
@@ -1915,7 +1915,7 @@ int saena_object::aggregation_2_dist(strength_matrix *S, std::vector<unsigned lo
 //        if(whileiter==15) continueAggLocal = false;
 
         // check if every processor does not have any non-assigned node, otherwise all the processors should continue aggregating.
-        MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_C_BOOL, MPI_LOR, comm);
+        MPI_Allreduce(&continueAggLocal, &continueAgg, 1, MPI_UNSIGNED_CHAR, MPI_LOR, comm);
 
         if(continueAgg){
             for (i = 0; i < size; ++i) {

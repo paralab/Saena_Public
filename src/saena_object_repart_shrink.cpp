@@ -126,10 +126,10 @@ int saena_object::set_repartition_rhs(std::vector<value_t> rhs0){
 //    print_vector(grids[0].sdispls, -1, "grids[0].sdispls", comm);
 
     // check if repartition is required. it is not required if the number of rows on all processors does not change.
-    bool repartition_local = true;
+    unsigned char repartition_local = 1;
     if(start_proc == end_proc)
-        repartition_local = false;
-    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_C_BOOL, MPI_LOR, comm);
+        repartition_local = 0;
+    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_UNSIGNED_CHAR, MPI_LOR, comm);
 //    printf("rank = %d, repartition_local = %d, repartition = %d \n", rank, repartition_local, repartition);
 
     // todo: replace Alltoall with a for loop of send and recv.
@@ -323,10 +323,10 @@ int saena_object::set_repartition_rhs(saena_vector *rhs1){
 #endif
 
     // check if repartition is required. it is not required if the number of rows on all processors does not change.
-    bool repartition_local = true;
+    unsigned char repartition_local = 1;
     if(start_proc == end_proc)
-        repartition_local = false;
-    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_C_BOOL, MPI_LOR, comm);
+        repartition_local = 0;
+    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_UNSIGNED_CHAR, MPI_LOR, comm);
 //    printf("rank = %d, repartition_local = %d, repartition = %d \n", rank, repartition_local, repartition);
 
     // todo: replace Alltoall with a for loop of send and recv.
@@ -495,10 +495,10 @@ int saena_object::repart_vector(value_t *&v, index_t &sz, vector<index_t> &split
 #endif
 
     // check if repartition is required. it is not required if the number of rows on all processors does not change.
-    bool repartition_local = true;
+    unsigned char repartition_local = 1;
     if(start_proc == end_proc)
-        repartition_local = false;
-    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_C_BOOL, MPI_LOR, comm);
+        repartition_local = 0;
+    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_UNSIGNED_CHAR, MPI_LOR, comm);
 //    printf("rank = %d, repartition_local = %d, repartition = %d \n", rank, repartition_local, repartition);
 
 //    print_vector(v, -1, "v inside repartition", comm);

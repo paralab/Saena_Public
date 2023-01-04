@@ -604,10 +604,10 @@ int repart_vector(value_t *&v, index_t &sz, vector<index_t> &split, MPI_Comm com
 #endif
 
     // check if repartition is required. it is not required if the number of rows on all processors does not change.
-    bool repartition_local = true, repartition = true;
+    unsigned char repartition_local = 1, repartition = 1;
     if(start_proc == end_proc)
-        repartition_local = false;
-    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_C_BOOL, MPI_LOR, comm);  // HS: bool
+        repartition_local = 0;
+    MPI_Allreduce(&repartition_local, &repartition, 1, MPI_UNSIGNED_CHAR, MPI_LOR, comm);  
 //    printf("rank = %d, repartition_local = %d, repartition = %d \n", rank, repartition_local, repartition);
 
 //    print_vector(v, -1, "v inside repartition", comm);
