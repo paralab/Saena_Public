@@ -358,7 +358,7 @@ int saena_matrix::remove_boundary_nodes() {
 
     // check if there is any diagonal boundary point on all processes
     bool bnd_l = !bound_row.empty(), bnd = true; // set true if there is boundary
-    MPI_Allreduce(&bnd_l, &bnd, 1, MPI_C_BOOL, MPI_LOR, comm);
+    MPI_Allreduce(&bnd_l, &bnd, 1, MPI_C_BOOL, MPI_LOR, comm); // HS bool 
 
     if(!bnd){
         remove_boundary = false;
